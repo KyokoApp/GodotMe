@@ -11,22 +11,18 @@ const mainActivityPath = path.join(mainActivityDir, 'MainActivity.java');
 if (fs.existsSync(manifestPath)) {
   let manifest = fs.readFileSync(manifestPath, 'utf8');
 
-  // Add permissions for storage and media audio
   const permissions = `
     <!-- KyokoBeat Storage & Media Audio Permissions -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
   `;
 
-  // Insert permissions before <application
   if (!manifest.includes('READ_MEDIA_AUDIO')) {
     manifest = manifest.replace('<application', `${permissions}\n    <application`);
     console.log('✓ Injected storage & media permissions into AndroidManifest.xml');
   }
 
-  // Add requestLegacyExternalStorage to application tag
   if (!manifest.includes('android:requestLegacyExternalStorage')) {
     manifest = manifest.replace('<application', '<application android:requestLegacyExternalStorage="true"');
     console.log('✓ Added requestLegacyExternalStorage to application tag');
@@ -35,11 +31,12 @@ if (fs.existsSync(manifestPath)) {
   fs.writeFileSync(manifestPath, manifest, 'utf8');
 } else {
   console.error('Error: AndroidManifest.xml not found at:', manifestPath);
+  process.exit(1);
 }
 
-// 2. Inject Custom MediaStore Native Plugin into MainActivity.java
-if (fs.existsSync(mainActivityPath)) {
-  const customMainActivity = `package com.kyokobeat.musicplayer;
+// 2. Write KyokoBeatNativePlugin as a separate file (FIXED - not in MainActivity)
+const pluginPath = path.join(mainActivityDir, 'KyokoBeatNativePlugin.java');
+const pluginCode = `package com.kyokobeat.musicplayer;
 
 import android.Manifest;
 import android.content.ContentResolver;
@@ -47,9 +44,7 @@ import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Bundle;
 import android.provider.MediaStore;
-import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -57,14 +52,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
-
-public class MainActivity extends BridgeActivity {
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        registerActivity();
-    }
-}
+import com.getcapacitor.annotation.PermissionCallback;
 
 @CapacitorPlugin(
     name = "KyokoBeatNative",
@@ -79,30 +67,27 @@ public class MainActivity extends BridgeActivity {
         )
     }
 )
-class KyokoBeatNativePlugin extends Plugin {
+public class KyokoBeatNativePlugin extends Plugin {
 
     @PluginMethod
     public void checkAndRequestPermissions(PluginCall call) {
-        JSObject ret = new JSObject();
-        
-        if (Build.VERSION.SDK_INT >= 33) { // Android 13+
+        if (Build.VERSION.SDK_INT >= 33) {
             if (getPermissionState("audio") != com.getcapacitor.PermissionState.GRANTED) {
                 requestPermissionForAlias("audio", call, "permissionCallback");
-            } else {
-                ret.put("granted", true);
-                call.resolve(ret);
+                return;
             }
-        } else { // Android 12 and below
+        } else {
             if (getPermissionState("storage") != com.getcapacitor.PermissionState.GRANTED) {
                 requestPermissionForAlias("storage", call, "permissionCallback");
-            } else {
-                ret.put("granted", true);
-                call.resolve(ret);
+                return;
             }
         }
+        JSObject ret = new JSObject();
+        ret.put("granted", true);
+        call.resolve(ret);
     }
 
-    @com.getcapacitor.PermissionCallback
+    @PermissionCallback
     private void permissionCallback(PluginCall call) {
         JSObject ret = new JSObject();
         if (Build.VERSION.SDK_INT >= 33) {
@@ -117,11 +102,11 @@ class KyokoBeatNativePlugin extends Plugin {
     public void querySongs(PluginCall call) {
         JSArray songs = new JSArray();
         ContentResolver contentResolver = getContext().getContentResolver();
-        
+
         Uri uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
         String selection = MediaStore.Audio.Media.IS_MUSIC + " != 0";
         String sortOrder = MediaStore.Audio.Media.TITLE + " ASC";
-        
+
         String[] projection = {
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
@@ -150,13 +135,10 @@ class KyokoBeatNativePlugin extends Plugin {
                     String artist = cursor.getString(artistCol);
                     String album = cursor.getString(albumCol);
                     long durationMs = cursor.getLong(durationCol);
-                    String path = cursor.getString(dataCol);
+                    String filePath = cursor.getString(dataCol);
                     long size = cursor.getLong(sizeCol);
                     long albumId = cursor.getLong(albumIdCol);
 
-                    double durationSecs = durationMs / 1000.0;
-
-                    // Get Album Art Uri
                     Uri sArtworkUri = Uri.parse("content://media/external/audio/albumart");
                     Uri albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId);
 
@@ -165,21 +147,18 @@ class KyokoBeatNativePlugin extends Plugin {
                     song.put("title", title != null ? title : "Unknown Title");
                     song.put("artist", artist == null || artist.equals("<unknown>") ? "Unknown Artist" : artist);
                     song.put("album", album == null || album.equals("<unknown>") ? "Unknown Album" : album);
-                    song.put("duration", durationSecs > 0 ? durationSecs : 180.0);
+                    song.put("duration", durationMs > 0 ? durationMs / 1000.0 : 180.0);
                     song.put("cover", albumArtUri.toString());
-                    song.put("path", path);
+                    song.put("path", filePath);
                     song.put("fileSize", size);
                     song.put("addedAt", System.currentTimeMillis());
                     song.put("isCloud", false);
-                    
-                    // Generate Capacitor safe web URL for playback
-                    String webUrl = "https://localhost/_capacitor_file_" + path;
-                    song.put("audioUrl", webUrl);
+                    song.put("audioUrl", "https://localhost/_capacitor_file_" + filePath);
 
                     songs.put(song);
                 } while (cursor.moveToNext());
             }
-            
+
             JSObject result = new JSObject();
             result.put("songs", songs);
             call.resolve(result);
@@ -190,10 +169,26 @@ class KyokoBeatNativePlugin extends Plugin {
 }
 `;
 
-  fs.writeFileSync(mainActivityPath, customMainActivity, 'utf8');
-  console.log('✓ Injected custom MediaStore native plugin into MainActivity.java successfully!');
-} else {
-  console.error('Error: MainActivity.java not found at:', mainActivityPath);
+fs.mkdirSync(mainActivityDir, { recursive: true });
+fs.writeFileSync(pluginPath, pluginCode, 'utf8');
+console.log('✓ Created KyokoBeatNativePlugin.java');
+
+// 3. Write MainActivity.java - register the plugin properly
+const mainActivityCode = `package com.kyokobeat.musicplayer;
+
+import android.os.Bundle;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(KyokoBeatNativePlugin.class);
+        super.onCreate(savedInstanceState);
+    }
 }
+`;
+
+fs.writeFileSync(mainActivityPath, mainActivityCode, 'utf8');
+console.log('✓ Updated MainActivity.java with plugin registration');
 
 console.log('--- Customization Completed successfully ---');
