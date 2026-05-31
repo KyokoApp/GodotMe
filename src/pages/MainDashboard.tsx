@@ -47,6 +47,7 @@ import {
   deleteSong
 } from '../lib/db';
 import { scanDirectoryRecursive, verifyPermission, syncFolderIncremental } from '../lib/scanner';
+import { isCapacitorActive, requestMobileStoragePermission, scanAllMobileStorage } from '../lib/mobileScanner';
 import SongCard from '../components/SongCard';
 import WaveformVisualizer from '../components/WaveformVisualizer';
 import CloudSyncIndicator from '../components/CloudSyncIndicator';
@@ -149,6 +150,7 @@ export default function MainDashboard() {
 
   // Check directory permission status
   const checkDirectoryPermission = async () => {
+    if (isCapacitorActive()) return; // Capacitor handles permissions via custom native prompt
     try {
       const dirHandle = await getSetting('rootDirectoryHandle');
       if (dirHandle) {
@@ -203,11 +205,18 @@ export default function MainDashboard() {
       setFavorites(favs);
 
       // Perform automatic background incremental sync if folder permission is already granted
-      const dirHandle = await getSetting('rootDirectoryHandle');
-      if (dirHandle) {
-        const permitted = await dirHandle.queryPermission({ mode: 'read' });
-        if (permitted === 'granted') {
-          runBackgroundSync(dirHandle, songs);
+      if (isCapacitorActive()) {
+        const permitted = await requestMobileStoragePermission();
+        if (permitted) {
+          runBackgroundSyncMobile(songs);
+        }
+      } else {
+        const dirHandle = await getSetting('rootDirectoryHandle');
+        if (dirHandle) {
+          const permitted = await dirHandle.queryPermission({ mode: 'read' });
+          if (permitted === 'granted') {
+            runBackgroundSync(dirHandle, songs);
+          }
         }
       }
     } catch (e) {
@@ -215,7 +224,25 @@ export default function MainDashboard() {
     }
   };
 
-  // Run background sync
+  // Run background sync for Mobile (Capacitor)
+  const runBackgroundSyncMobile = async (currentSongs: LocalSong[]) => {
+    setSyncingBackground(true);
+    try {
+      const songs = await scanAllMobileStorage();
+      if (songs.length !== currentSongs.length) {
+        await clearSongs();
+        await saveSongs(songs);
+        setLocalSongs(songs);
+        console.log(`[Auto-Sync Mobile] Updated library with ${songs.length} songs.`);
+      }
+    } catch (e) {
+      console.warn('Background mobile sync failed:', e);
+    } finally {
+      setSyncingBackground(false);
+    }
+  };
+
+  // Run background sync for Desktop (Web)
   const runBackgroundSync = async (dirHandle: any, currentSongs: LocalSong[]) => {
     setSyncingBackground(true);
     try {
@@ -241,7 +268,6 @@ export default function MainDashboard() {
       }
 
       if (changed) {
-        // Reload local songs
         const songs = await getSongs();
         setLocalSongs(songs);
       }
@@ -365,13 +391,21 @@ export default function MainDashboard() {
   const handlePlaySong = async (song: LocalSong) => {
     if (!song.isCloud) {
       try {
-        const dirHandle = await getSetting('rootDirectoryHandle');
-        if (dirHandle) {
-          const permitted = await verifyPermission(dirHandle, false);
+        if (isCapacitorActive()) {
+          const permitted = await requestMobileStoragePermission();
           if (!permitted) {
-            toast('Mohon berikan izin folder musik untuk memutar lagu lokal Anda.', 'info');
-            setNeedPermission(true);
+            toast('Mohon berikan izin penyimpanan untuk memutar lagu lokal Anda.', 'info');
             return;
+          }
+        } else {
+          const dirHandle = await getSetting('rootDirectoryHandle');
+          if (dirHandle) {
+            const permitted = await verifyPermission(dirHandle, false);
+            if (!permitted) {
+              toast('Mohon berikan izin folder musik untuk memutar lagu lokal Anda.', 'info');
+              setNeedPermission(true);
+              return;
+            }
           }
         }
       } catch (e) {
@@ -385,7 +419,7 @@ export default function MainDashboard() {
       console.error(err);
       if (!song.isCloud) {
         toast('Gagal memutar lagu lokal. Klik banner kuning di atas untuk mengaktifkan izin folder kembali.', 'error');
-        setNeedPermission(true);
+        if (!isCapacitorActive()) setNeedPermission(true);
       } else {
         toast('Gagal memutar lagu cloud: ' + err.message, 'error');
       }
@@ -394,6 +428,31 @@ export default function MainDashboard() {
 
   // Scan folder manual trigger (performs full scan)
   const handleRescan = async () => {
+    if (isCapacitorActive()) {
+      setScanning(true);
+      toast('Memulai pemindaian penyimpanan HP Anda...', 'info');
+      try {
+        const permitted = await requestMobileStoragePermission();
+        if (!permitted) {
+          toast('Izin penyimpanan ditolak.', 'error');
+          setScanning(false);
+          return;
+        }
+        const songs = await scanAllMobileStorage((progress) => {
+          setScanProgress(progress);
+        });
+        await clearSongs();
+        await saveSongs(songs);
+        setLocalSongs(songs);
+        toast(`Berhasil mendeteksi ${songs.length} lagu baru dari HP Anda!`, 'success');
+      } catch (e: any) {
+        toast('Gagal memindai HP: ' + e.message, 'error');
+      } finally {
+        setScanning(false);
+      }
+      return;
+    }
+
     try {
       if (!('showDirectoryPicker' in window)) {
         toast('Browser Anda tidak mendukung scanning folder lokal', 'error');
