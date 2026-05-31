@@ -5,10 +5,13 @@ const config: CapacitorConfig = {
   appName: 'KyokoBeat',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    hostname: 'kyokobeat.app',
+    cleartext: true
   },
   android: {
-    allowMixedContent: true
+    allowMixedContent: true,
+    webContentsDebuggingEnabled: true
   }
 };
 
