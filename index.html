@@ -3,12 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>KyokoBeat - Offline & Cloud Music Player</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+    <style>
+      /* Critical inline styles - loaded before any JS */
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        min-height: 100vh;
+        background-color: #0a0a0a;
+        color: #ffffff;
+        font-family: 'Space Grotesk', sans-serif;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
