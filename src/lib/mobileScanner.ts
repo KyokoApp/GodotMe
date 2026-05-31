@@ -2,10 +2,10 @@ import { LocalSong } from './db';
 
 // Helper to check if running inside a Capacitor Native App container
 export function isCapacitorActive(): boolean {
-  return typeof window !== 'undefined' && (window as any).Capacitor !== undefined;
+  return typeof window !== 'undefined' && (window as any).Capacitor !== undefined && (window as any).Capacitor.isNativePlatform();
 }
 
-// Check and request storage permissions on Android/iOS natively using our custom plugin
+// Check and request storage permissions via KyokoBeatNative plugin
 export async function requestMobileStoragePermission(): Promise<boolean> {
   if (!isCapacitorActive()) return false;
   try {
@@ -15,7 +15,7 @@ export async function requestMobileStoragePermission(): Promise<boolean> {
       return !!result.granted;
     }
   } catch (e) {
-    console.error('Failed to request mobile storage permission via custom native plugin:', e);
+    console.error('Failed to request mobile storage permission:', e);
   }
   return false;
 }
@@ -26,7 +26,7 @@ interface MobileScanProgress {
   currentFileName: string;
 }
 
-// Scans all standard device storage locations on mobile (Android/iOS) using rapid native MediaStore queries
+// Scans all device storage using native MediaStore via KyokoBeatNative plugin
 export async function scanAllMobileStorage(
   onProgress?: (progress: MobileScanProgress) => void
 ): Promise<LocalSong[]> {
@@ -35,7 +35,7 @@ export async function scanAllMobileStorage(
   try {
     const KyokoBeatNative = (window as any).Capacitor.Plugins.KyokoBeatNative;
     if (!KyokoBeatNative) {
-      console.warn('KyokoBeatNative plugin is not loaded, make sure you are running on native device');
+      console.warn('KyokoBeatNative plugin not loaded');
       return [];
     }
 
@@ -54,9 +54,8 @@ export async function scanAllMobileStorage(
       });
     }
 
-    // Call the high-speed native MediaStore query!
     const result = await KyokoBeatNative.querySongs();
-    
+
     if (result && result.songs) {
       const songsList: LocalSong[] = result.songs.map((song: any) => ({
         id: song.id,
@@ -64,7 +63,7 @@ export async function scanAllMobileStorage(
         artist: song.artist,
         album: song.album,
         duration: song.duration,
-        cover: song.cover.startsWith('content://') ? null : song.cover, // Filter out content:// uri for web representation if needed or keep
+        cover: song.cover,
         fileHandle: null as any,
         path: song.path,
         fileSize: song.fileSize,
