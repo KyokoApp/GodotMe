@@ -54,6 +54,7 @@ import CloudSyncIndicator from '../components/CloudSyncIndicator';
 import AuthModal from '../components/AuthModal';
 import PlaylistModal from '../components/PlaylistModal';
 import RenameModal from '../components/RenameModal';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import { useToast } from '../components/Toast';
 import supabase from '../lib/supabase';
 
@@ -105,6 +106,10 @@ export default function MainDashboard() {
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<LocalSong | null>(null);
   const [songToRename, setSongToRename] = useState<LocalSong | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [songToDelete, setSongToDelete] = useState<LocalSong | null>(null);
+  const [isDeleteAllOpen, setIsDeleteAllOpen] = useState(false);
+  const [durationFilter, setDurationFilter] = useState<'all' | 'under1' | '1to2' | 'over2'>('all');
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [showCreatePlaylistRow, setShowCreatePlaylistRow] = useState(false);
 
@@ -513,9 +518,17 @@ export default function MainDashboard() {
   };
 
   // Delete local song from database
-  const handleDeleteSong = async (song: LocalSong) => {
-    if (confirm(`Apakah Anda yakin ingin menghapus lagu "${song.title}" dari library KyokoBeat?`)) {
-      try {
+  const handleDeleteSong = (song: LocalSong) => {
+    setSongToDelete(song);
+    setIsDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    const song = songToDelete;
+    if (!song) return;
+    setIsDeleteOpen(false);
+    setSongToDelete(null);
+    try {
         await deleteSong(song.id);
         
         // Remove from favorites if favorited
@@ -551,13 +564,36 @@ export default function MainDashboard() {
       } catch (e: any) {
         toast('Gagal menghapus lagu: ' + e.message, 'error');
       }
-    }
   };
 
   // Rename song handler
   const handleRenameSongClick = (song: LocalSong) => {
     setSongToRename(song);
     setIsRenameOpen(true);
+  };
+
+  // Delete all filtered songs
+  const handleDeleteAll = async () => {
+    const songsToDelete = getFilteredSongs();
+    setIsDeleteAllOpen(false);
+    try {
+      for (const song of songsToDelete) {
+        await deleteSong(song.id);
+        if (favorites.includes(song.id)) {
+          await toggleFavorite(song.id);
+        }
+      }
+      setFavorites(prev => prev.filter(id => !songsToDelete.map(s => s.id).includes(id)));
+      setLocalSongs(prev => prev.filter(s => !songsToDelete.map(s => s.id).includes(s.id)));
+      if (songsToDelete.some(s => s.id === playerState.currentSong?.id)) {
+        audioManager.seek(0);
+        if (playerState.isPlaying) audioManager.togglePlay();
+      }
+      toast(`${songsToDelete.length} lagu berhasil dihapus!`, 'success');
+      loadLocalDataAndSync();
+    } catch (e: any) {
+      toast('Gagal menghapus: ' + e.message, 'error');
+    }
   };
 
   // Playlist actions
@@ -603,6 +639,15 @@ export default function MainDashboard() {
              s.artist.toLowerCase().includes(q) ||
              s.album.toLowerCase().includes(q)
       );
+    }
+
+    // Duration filter
+    if (durationFilter === 'under1') {
+      filtered = filtered.filter(s => s.duration > 0 && s.duration < 60);
+    } else if (durationFilter === '1to2') {
+      filtered = filtered.filter(s => s.duration >= 60 && s.duration < 120);
+    } else if (durationFilter === 'over2') {
+      filtered = filtered.filter(s => s.duration >= 120);
     }
 
     // Sorting
@@ -894,6 +939,38 @@ export default function MainDashboard() {
               </div>
             </div>
           )}
+
+          {/* Duration Filter + Delete All */}
+          <div className="flex flex-wrap items-center gap-2 p-3 bg-[#111] rounded-xl border border-white/5">
+            <span className="text-xs text-gray-500 mr-1">Durasi:</span>
+            {([
+              { key: 'all', label: 'Semua' },
+              { key: 'under1', label: '< 1 menit' },
+              { key: '1to2', label: '1–2 menit' },
+              { key: 'over2', label: '> 2 menit' },
+            ] as const).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setDurationFilter(key)}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  durationFilter === key
+                    ? 'bg-[#c8f500]/10 border border-[#c8f500]/30 text-[#c8f500]'
+                    : 'bg-[#0a0a0a] border border-transparent text-gray-400 hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            {durationFilter !== 'all' && (
+              <button
+                onClick={() => setIsDeleteAllOpen(true)}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Hapus Semua ({getFilteredSongs().length})
+              </button>
+            )}
+          </div>
 
           {/* Sorting / View controls */}
           <div className="flex items-center justify-between p-3 bg-[#111] rounded-xl border border-white/5">
@@ -1231,6 +1308,54 @@ export default function MainDashboard() {
         song={songToRename}
         onRenameSuccess={loadLocalDataAndSync}
       />
+
+      {/* Delete Confirm Modal */}
+      <DeleteConfirmModal
+        isOpen={isDeleteOpen}
+        song={songToDelete}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setIsDeleteOpen(false);
+          setSongToDelete(null);
+        }}
+      />
+
+      {/* Delete All Confirm Modal */}
+      {isDeleteAllOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-sm p-6 rounded-xl bg-[#111] border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.15)]">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <h3 className="text-xl font-heading text-white tracking-wider">HAPUS SEMUA</h3>
+            </div>
+            <p className="text-sm text-gray-400 font-body mb-1">
+              Yakin hapus <span className="text-white font-semibold">{getFilteredSongs().length} lagu</span> dari filter "{
+                durationFilter === 'under1' ? '< 1 menit' :
+                durationFilter === '1to2' ? '1–2 menit' : '> 2 menit'
+              }"?
+            </p>
+            <p className="text-xs text-red-400/70 font-body mb-6">Tindakan ini tidak bisa dibatalkan.</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleDeleteAll}
+                className="flex-1 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm"
+              >
+                <Trash2 className="w-4 h-4" /> Hapus Semua
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsDeleteAllOpen(false)}
+                className="flex-1 py-3 bg-transparent border border-gray-800 text-gray-400 hover:text-white rounded-lg hover:bg-gray-900 transition-colors text-sm cursor-pointer"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
