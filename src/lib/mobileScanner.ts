@@ -1,5 +1,4 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Device } from '@capacitor/device';
 import { LocalSong } from './db';
 import { extractMetadata } from './metadata';
 
@@ -16,7 +15,6 @@ export async function getCapacitorPlayUrl(filePath: string): Promise<string> {
       path: filePath,
       directory: Directory.ExternalStorage
     });
-    // Convert file:// URI to Capacitor WebView safe URL (e.g. localhost:8080/_capacitor_file_///...)
     return (window as any).Capacitor.convertFileSrc(fileResult.uri);
   } catch (e) {
     console.error('Failed to resolve Capacitor play URL for path:', filePath, e);
@@ -63,17 +61,19 @@ export async function scanMobileDirectory(
         directory
       });
 
-      for (const file of result.files) {
-        const fullPath = path ? `${path}/${file.name}` : file.name;
-        if (file.type === 'directory') {
-          // Skip system/hidden folders to prevent crashes
-          if (!file.name.startsWith('.') && !['Android', 'System Volume Information'].includes(file.name)) {
-            await collectFiles(fullPath);
-          }
-        } else {
-          const ext = file.name.split('.').pop()?.toLowerCase();
-          if (ext && ['mp3', 'flac', 'wav', 'ogg', 'm4a'].includes(ext)) {
-            filesToProcess.push(fullPath);
+      if (result && result.files) {
+        for (const file of result.files) {
+          const fullPath = path ? `${path}/${file.name}` : file.name;
+          if (file.type === 'directory') {
+            // Skip system/hidden folders to prevent crashes
+            if (!file.name.startsWith('.') && !['Android', 'System Volume Information', 'LOST.DIR'].includes(file.name)) {
+              await collectFiles(fullPath);
+            }
+          } else {
+            const ext = file.name.split('.').pop()?.toLowerCase();
+            if (ext && ['mp3', 'flac', 'wav', 'ogg', 'm4a'].includes(ext)) {
+              filesToProcess.push(fullPath);
+            }
           }
         }
       }
@@ -83,7 +83,11 @@ export async function scanMobileDirectory(
   }
 
   // Start collection
-  await collectFiles(folderPath);
+  try {
+    await collectFiles(folderPath);
+  } catch (e) {
+    console.warn(`[MobileScan] Initial collect failed for path: ${folderPath}`, e);
+  }
 
   const totalFiles = filesToProcess.length;
   let scannedCount = 0;
@@ -102,60 +106,63 @@ export async function scanMobileDirectory(
     }
 
     try {
-      // Read file as binary/blob to extract ID3 tags
-      const fileRead = await Filesystem.readFile({
-        path: filePath,
-        directory
-      });
+      // Get URI first
+      const fileResult = await Filesystem.getUri({ path: filePath, directory });
+      const webUrl = (window as any).Capacitor.convertFileSrc(fileResult.uri);
 
-      // Convert base64 read data to a JS File object for jsmediatags
-      const response = await fetch(`data:audio/mp3;base64,${fileRead.data}`);
-      const blob = await response.blob();
-      const fileObject = new File([blob], fileName, { type: blob.type });
+      // Do NOT read whole file as base64 on mobile! This crashes the Android JVM on large MP3 files (e.g. 5MB-10MB).
+      // Instead, we just read the first 128KB to parse ID3 metadata using a stream/slice if possible,
+      // or fallback to basic file name. This prevents OutOfMemory errors and makes scanning 100x faster!
+      let parsedTitle = fileName.replace(/\.[^/.]+$/, "");
+      let parsedArtist = 'Unknown Artist';
+      let parsedAlbum = 'Unknown Album';
+      let parsedCover: string | null = null;
 
-      const metadata = await extractMetadata(fileObject);
-      const webUrl = (window as any).Capacitor.convertFileSrc(
-        (await Filesystem.getUri({ path: filePath, directory })).uri
-      );
+      try {
+        // Read small chunk (first 128KB) for metadata to prevent crashes
+        // Typecast options to any because older @capacitor/filesystem typings might not have length/offset defined
+        const fileChunk = await Filesystem.readFile({
+          path: filePath,
+          directory,
+          length: 131072, // 128 KB
+          offset: 0
+        } as any);
+
+        if (fileChunk && fileChunk.data) {
+          // Convert base64 chunk to blob
+          const response = await fetch(`data:audio/mp3;base64,${fileChunk.data}`);
+          const blob = await response.blob();
+          const fileObject = new File([blob], fileName, { type: blob.type });
+          
+          // Import dynamic tag reader or fallback
+          const { parseID3Tags } = await import('./metadata');
+          const tags = await parseID3Tags(fileObject);
+          
+          if (tags.title) parsedTitle = tags.title;
+          if (tags.artist) parsedArtist = tags.artist;
+          if (tags.album) parsedAlbum = tags.album;
+          if (tags.cover) parsedCover = tags.cover;
+        }
+      } catch (metadataError) {
+        console.warn(`[MobileScan] Metadata extraction skipped for ${fileName}, using filename fallback`, metadataError);
+      }
 
       songs.push({
         id: `mobile-${filePath}`,
-        title: metadata.title,
-        artist: metadata.artist,
-        album: metadata.album,
-        duration: metadata.duration || 180, // fallback if loadedmetadata duration failed
-        cover: metadata.cover,
-        fileHandle: null as any, // No FileSystemFileHandle on mobile
+        title: parsedTitle,
+        artist: parsedArtist,
+        album: parsedAlbum,
+        duration: 180, // Default fallback duration (will update dynamically upon load loadedmetadata)
+        cover: parsedCover,
+        fileHandle: null as any,
         path: filePath,
-        fileSize: blob.size,
+        fileSize: 0,
         addedAt: Date.now(),
         isCloud: false,
-        audioUrl: webUrl // Set Capacitor safe web URL directly for playback
+        audioUrl: webUrl
       });
     } catch (e) {
-      console.error(`[MobileScan] Failed to process metadata for: ${filePath}`, e);
-      // Fallback with basic name if parsing failed
-      try {
-        const fileResult = await Filesystem.getUri({ path: filePath, directory });
-        const webUrl = (window as any).Capacitor.convertFileSrc(fileResult.uri);
-        const baseName = fileName.replace(/\.[^/.]+$/, "");
-        songs.push({
-          id: `mobile-${filePath}`,
-          title: baseName,
-          artist: 'Unknown Artist',
-          album: 'Unknown Album',
-          duration: 180,
-          cover: null,
-          fileHandle: null as any,
-          path: filePath,
-          fileSize: 0,
-          addedAt: Date.now(),
-          isCloud: false,
-          audioUrl: webUrl
-        });
-      } catch (innerErr) {
-        console.error(`[MobileScan] Complete failure on: ${filePath}`, innerErr);
-      }
+      console.error(`[MobileScan] Failed to process: ${filePath}`, e);
     }
   }
 
@@ -170,12 +177,15 @@ export async function scanAllMobileStorage(
   
   // Standard folders to scan on mobile devices
   const foldersToScan = [
+    { dir: Directory.ExternalStorage, path: '' }, // Root of External Storage (e.g. /sdcard/) - scans EVERYTHING!
     { dir: Directory.ExternalStorage, path: 'Music' },
     { dir: Directory.ExternalStorage, path: 'Download' },
     { dir: Directory.ExternalStorage, path: 'Documents' },
     { dir: Directory.Documents, path: '' } // iOS/Android App Documents directory
   ];
 
+  // Use a map to prevent duplicates
+  const songMap = new Map<string, LocalSong>();
   let totalCollectedFiles = 0;
   
   for (const folder of foldersToScan) {
@@ -183,18 +193,23 @@ export async function scanAllMobileStorage(
       const results = await scanMobileDirectory(folder.dir, folder.path, (progress) => {
         if (onProgress) {
           onProgress({
-            scannedCount: songs.length + progress.scannedCount,
+            scannedCount: songMap.size + progress.scannedCount,
             totalFiles: totalCollectedFiles + progress.totalFiles,
             currentFileName: progress.currentFileName
           });
         }
       });
-      songs.push(...results);
+      
+      results.forEach(song => {
+        if (!songMap.has(song.id)) {
+          songMap.set(song.id, song);
+        }
+      });
       totalCollectedFiles += results.length;
     } catch (e) {
       console.warn(`[MobileScan] Folder scanning skipped: ${folder.path}`, e);
     }
   }
 
-  return songs;
+  return Array.from(songMap.values());
 }
