@@ -48,6 +48,7 @@ import {
 } from '../lib/db';
 import { scanDirectoryRecursive, verifyPermission, syncFolderIncremental } from '../lib/scanner';
 import { isCapacitorActive, requestMobileStoragePermission, scanAllMobileStorage } from '../lib/mobileScanner';
+import { syncAllCloudMusic, ensureMusicFolder } from '../lib/cloudMusic';
 import SongCard from '../components/SongCard';
 import WaveformVisualizer from '../components/WaveformVisualizer';
 import CloudSyncIndicator from '../components/CloudSyncIndicator';
@@ -110,6 +111,7 @@ export default function MainDashboard() {
   const [songToDelete, setSongToDelete] = useState<LocalSong | null>(null);
   const [isDeleteAllOpen, setIsDeleteAllOpen] = useState(false);
   const [durationFilter, setDurationFilter] = useState<'all' | 'under1' | '1to2' | 'over2'>('all');
+  const [syncingCloud, setSyncingCloud] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [showCreatePlaylistRow, setShowCreatePlaylistRow] = useState(false);
 
@@ -572,6 +574,27 @@ export default function MainDashboard() {
     setIsRenameOpen(true);
   };
 
+  // Sync Cloud — download lagu baru dari Supabase Storage
+  const handleSyncCloud = async () => {
+    setSyncingCloud(true);
+    try {
+      await ensureMusicFolder();
+      const count = await syncAllCloudMusic((msg) => {
+        toast(msg, 'info');
+      });
+      if (count > 0) {
+        toast(`✅ ${count} lagu berhasil didownload dari Cloud!`, 'success');
+        loadLocalDataAndSync();
+      } else {
+        toast('Tidak ada lagu baru di Cloud.', 'info');
+      }
+    } catch (e: any) {
+      toast('Sync Cloud gagal: ' + e.message, 'error');
+    } finally {
+      setSyncingCloud(false);
+    }
+  };
+
   // Delete all filtered songs
   const handleDeleteAll = async () => {
     const songsToDelete = getFilteredSongs();
@@ -738,6 +761,25 @@ export default function MainDashboard() {
               <>
                 <FolderSync className="w-3.5 h-3.5" />
                 <span>Rescan Folder</span>
+              </>
+            )}
+          </button>
+
+          {/* Sync Cloud Button */}
+          <button
+            onClick={handleSyncCloud}
+            disabled={syncingCloud}
+            className="p-2 px-3 rounded-full bg-[#111] border border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/5 text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            {syncingCloud ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Syncing...</span>
+              </>
+            ) : (
+              <>
+                <Cloud className="w-3.5 h-3.5" />
+                <span>Sync Cloud</span>
               </>
             )}
           </button>
