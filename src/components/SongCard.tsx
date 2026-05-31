@@ -28,7 +28,6 @@ export default function SongCard({
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -39,13 +38,14 @@ export default function SongCard({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Format duration
   const formatTime = (secs: number) => {
     if (isNaN(secs) || secs === 0) return '--:--';
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
+
+  const isCurrentlyPlaying = isCurrent && isPlaying;
 
   return (
     <div
@@ -56,27 +56,55 @@ export default function SongCard({
       } transform hover:-translate-y-1`}
     >
       <div className="flex items-center gap-4 min-w-0 flex-1">
-        {/* Play/Pause Cover Overlay */}
+        {/* Album Art / Animated Music Visual */}
         <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-[#1a1a1a] flex-shrink-0 border border-white/5">
           {song.cover ? (
             <img
               src={song.cover}
               alt={song.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-[#151515] text-gray-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
-              </svg>
+            /* Default music icon placeholder */
+            <div className={`w-full h-full flex items-center justify-center transition-all duration-300 ${
+              isCurrentlyPlaying ? 'bg-[#0d1a00]' : 'bg-[#151515]'
+            }`}>
+              {isCurrentlyPlaying ? (
+                /* Animated music bars when playing */
+                <div className="flex items-end gap-[3px] h-6">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="w-[3px] rounded-full bg-[#c8f500]"
+                      style={{
+                        animation: `musicBar 0.8s ease-in-out infinite`,
+                        animationDelay: `${i * 0.15}s`,
+                        height: '100%',
+                      }}
+                    />
+                  ))}
+                  <style>{`
+                    @keyframes musicBar {
+                      0%, 100% { transform: scaleY(0.2); }
+                      50% { transform: scaleY(1); }
+                    }
+                  `}</style>
+                </div>
+              ) : (
+                /* Static music note icon */
+                <svg className={`w-6 h-6 transition-colors duration-300 ${isCurrent ? 'text-[#c8f500]/60' : 'text-gray-600'}`} viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+              )}
             </div>
           )}
 
-          {/* Hover Play/Pause trigger */}
+          {/* Hover Play/Pause overlay */}
           <button
             onClick={onPlay}
-            className={`absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer ${
-              isCurrent ? 'opacity-100 bg-black/40' : ''
+            className={`absolute inset-0 flex items-center justify-center bg-black/60 transition-opacity duration-200 cursor-pointer ${
+              isCurrent ? 'opacity-100 bg-black/40' : 'opacity-0 group-hover:opacity-100'
             }`}
           >
             {isCurrent && isPlaying ? (
@@ -111,12 +139,10 @@ export default function SongCard({
 
       {/* Actions */}
       <div className="flex items-center gap-2 ml-4">
-        {/* Duration */}
         <span className="text-xs text-gray-500 font-body mr-1 hidden sm:inline">
           {formatTime(song.duration)}
         </span>
 
-        {/* Favorite */}
         <button
           onClick={onToggleFav}
           className="p-2 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
@@ -124,7 +150,6 @@ export default function SongCard({
           <Heart className={`w-4 h-4 ${isFav ? 'text-red-500 fill-red-500' : ''}`} />
         </button>
 
-        {/* Triple Dot Menu Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
@@ -136,34 +161,25 @@ export default function SongCard({
           {showDropdown && (
             <div className="absolute right-0 mt-1 w-44 rounded-lg bg-[#151515] border border-gray-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] py-1.5 z-30 font-body animate-scale-up">
               <button
-                onClick={() => {
-                  onAddToPlaylist();
-                  setShowDropdown(false);
-                }}
+                onClick={() => { onAddToPlaylist(); setShowDropdown(false); }}
                 className="w-full px-4 py-2 text-left text-xs text-gray-300 hover:bg-[#c8f500]/10 hover:text-[#c8f500] flex items-center gap-2 cursor-pointer transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Tambah ke Playlist
               </button>
-              
+
               {!song.isCloud && (
                 <>
                   <button
-                    onClick={() => {
-                      onRename(song);
-                      setShowDropdown(false);
-                    }}
+                    onClick={() => { onRename(song); setShowDropdown(false); }}
                     className="w-full px-4 py-2 text-left text-xs text-gray-300 hover:bg-[#c8f500]/10 hover:text-[#c8f500] flex items-center gap-2 cursor-pointer transition-colors"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     Ubah Nama / Tag
                   </button>
-                  
+
                   <button
-                    onClick={() => {
-                      onDelete(song);
-                      setShowDropdown(false);
-                    }}
+                    onClick={() => { onDelete(song); setShowDropdown(false); }}
                     className="w-full px-4 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 hover:text-red-500 flex items-center gap-2 cursor-pointer transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

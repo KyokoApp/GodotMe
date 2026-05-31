@@ -27,13 +27,11 @@ export default function RenameModal({ isOpen, onClose, song, onRenameSuccess }: 
 
   if (!isOpen || !song) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
     if (!title.trim()) {
       toast('Judul lagu tidak boleh kosong', 'error');
       return;
     }
-
     setLoading(true);
     try {
       const updatedSong: LocalSong = {
@@ -42,7 +40,6 @@ export default function RenameModal({ isOpen, onClose, song, onRenameSuccess }: 
         artist: artist.trim() || 'Unknown Artist',
         album: album.trim() || 'Unknown Album'
       };
-
       await saveSong(updatedSong);
       toast('Metadata lagu berhasil diperbarui!', 'success');
       onRenameSuccess();
@@ -58,15 +55,10 @@ export default function RenameModal({ isOpen, onClose, song, onRenameSuccess }: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-md p-6 rounded-xl bg-[#111] border border-[#c8f500]/30 shadow-[0_0_30px_rgba(200,245,0,0.15)] animate-scale-up">
-        {/* Close */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-[#c8f500] transition-colors"
-        >
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-[#c8f500] transition-colors">
           <X className="w-5 h-5" />
         </button>
 
-        {/* Title */}
         <div className="flex items-center gap-2 mb-4">
           <Edit2 className="w-5 h-5 text-[#c8f500]" />
           <h3 className="text-2xl font-heading text-[#c8f500] tracking-wider leading-none">UBAH METADATA LAGU</h3>
@@ -75,8 +67,7 @@ export default function RenameModal({ isOpen, onClose, song, onRenameSuccess }: 
           Ubah judul, nama artis, dan album lagu lokal ini. Perubahan akan disimpan secara permanen di IndexedDB.
         </p>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 font-body">
+        <div className="space-y-4 font-body">
           <div>
             <label className="block text-xs text-gray-400 mb-1">Judul Lagu</label>
             <input
@@ -84,10 +75,8 @@ export default function RenameModal({ isOpen, onClose, song, onRenameSuccess }: 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-4 py-2.5 bg-[#0a0a0a] border border-gray-800 rounded-lg text-white text-sm focus:outline-none focus:border-[#c8f500] transition-colors"
-              required
             />
           </div>
-
           <div>
             <label className="block text-xs text-gray-400 mb-1">Nama Artis</label>
             <input
@@ -97,7 +86,6 @@ export default function RenameModal({ isOpen, onClose, song, onRenameSuccess }: 
               className="w-full px-4 py-2.5 bg-[#0a0a0a] border border-gray-800 rounded-lg text-white text-sm focus:outline-none focus:border-[#c8f500] transition-colors"
             />
           </div>
-
           <div>
             <label className="block text-xs text-gray-400 mb-1">Nama Album</label>
             <input
@@ -110,16 +98,15 @@ export default function RenameModal({ isOpen, onClose, song, onRenameSuccess }: 
 
           <div className="flex gap-3 pt-2">
             <button
-              type="submit"
+              type="button"
+              onClick={handleSave}
               disabled={loading}
               className="flex-1 py-3 bg-[#c8f500] text-black font-semibold rounded-lg hover:shadow-[0_0_15px_rgba(200,245,0,0.4)] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer text-sm"
             >
               {loading ? (
                 <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
               ) : (
-                <>
-                  <Save className="w-4 h-4" /> Simpan Perubahan
-                </>
+                <><Save className="w-4 h-4" /> Simpan Perubahan</>
               )}
             </button>
             <button
@@ -130,7 +117,7 @@ export default function RenameModal({ isOpen, onClose, song, onRenameSuccess }: 
               Batal
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
