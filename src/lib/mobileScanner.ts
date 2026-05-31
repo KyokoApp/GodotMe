@@ -25,17 +25,56 @@ export async function getCapacitorPlayUrl(filePath: string): Promise<string> {
 // Check and request storage permissions on Android/iOS
 export async function requestMobileStoragePermission(): Promise<boolean> {
   if (!isCapacitorActive()) return false;
-  try {
-    const status = await Filesystem.checkPermissions();
-    if (status.publicStorage === 'granted') {
-      return true;
+  
+  return new Promise((resolve) => {
+    const permissions = (window as any).cordova?.plugins?.permissions;
+    if (!permissions) {
+      console.warn('cordova-plugin-android-permissions is not available, falling back to Filesystem.requestPermissions');
+      Filesystem.checkPermissions().then(status => {
+        if (status.publicStorage === 'granted') {
+          resolve(true);
+        } else {
+          Filesystem.requestPermissions().then(req => {
+            resolve(req.publicStorage === 'granted');
+          }).catch(() => resolve(false));
+        }
+      }).catch(() => resolve(false));
+      return;
     }
-    const request = await Filesystem.requestPermissions();
-    return request.publicStorage === 'granted';
-  } catch (e) {
-    console.error('Failed to request mobile storage permission:', e);
-    return false;
-  }
+
+    // List of permissions to request for maximum Android compatibility (Android 13+ and 12-)
+    const permissionList = [
+      permissions.READ_EXTERNAL_STORAGE,
+      permissions.WRITE_EXTERNAL_STORAGE
+    ];
+
+    // Add READ_MEDIA_AUDIO for Android 13+ (API 33+) if defined
+    if (permissions.READ_MEDIA_AUDIO) {
+      permissionList.push(permissions.READ_MEDIA_AUDIO);
+    } else {
+      // Fallback string representation if not defined in older plugin versions
+      permissionList.push('android.permission.READ_MEDIA_AUDIO');
+    }
+
+    permissions.requestPermissions(permissionList, (status: any) => {
+      if (status && status.hasPermission) {
+        resolve(true);
+      } else {
+        // Double check if at least one is granted
+        permissions.hasPermission('android.permission.READ_MEDIA_AUDIO', (audioOk: any) => {
+          if (audioOk && audioOk.hasPermission) {
+            resolve(true);
+          } else {
+            permissions.hasPermission(permissions.READ_EXTERNAL_STORAGE, (storageOk: any) => {
+              resolve(!!(storageOk && storageOk.hasPermission));
+            });
+          }
+        });
+      }
+    }, () => {
+      resolve(false);
+    });
+  });
 }
 
 interface MobileScanProgress {
@@ -44,17 +83,19 @@ interface MobileScanProgress {
   currentFileName: string;
 }
 
-// Recursively scans a directory path on mobile using Capacitor Filesystem
+// Recursively scans a directory path on mobile using Capacitor Filesystem with a depth limit
 export async function scanMobileDirectory(
   directory: Directory,
   folderPath: string,
+  maxDepth = 3,
   onProgress?: (progress: MobileScanProgress) => void
 ): Promise<LocalSong[]> {
   const songs: LocalSong[] = [];
   const filesToProcess: string[] = [];
 
-  // Helper to recursively collect files
-  async function collectFiles(path: string) {
+  // Helper to recursively collect files with depth control
+  async function collectFiles(path: string, depth = 0) {
+    if (depth > maxDepth) return;
     try {
       const result = await Filesystem.readdir({
         path,
@@ -65,9 +106,12 @@ export async function scanMobileDirectory(
         for (const file of result.files) {
           const fullPath = path ? `${path}/${file.name}` : file.name;
           if (file.type === 'directory') {
-            // Skip system/hidden folders to prevent crashes
-            if (!file.name.startsWith('.') && !['Android', 'System Volume Information', 'LOST.DIR'].includes(file.name)) {
-              await collectFiles(fullPath);
+            // Skip hidden directories, system folders, Android system, DCIM, Pictures, Movies, etc.
+            if (
+              !file.name.startsWith('.') && 
+              !['Android', 'System Volume Information', 'LOST.DIR', 'DCIM', 'Pictures', 'Movies', 'Screenshots', 'Cache', 'cache', 'temp', 'Temp'].includes(file.name)
+            ) {
+              await collectFiles(fullPath, depth + 1);
             }
           } else {
             const ext = file.name.split('.').pop()?.toLowerCase();
@@ -106,21 +150,16 @@ export async function scanMobileDirectory(
     }
 
     try {
-      // Get URI first
       const fileResult = await Filesystem.getUri({ path: filePath, directory });
       const webUrl = (window as any).Capacitor.convertFileSrc(fileResult.uri);
 
-      // Do NOT read whole file as base64 on mobile! This crashes the Android JVM on large MP3 files (e.g. 5MB-10MB).
-      // Instead, we just read the first 128KB to parse ID3 metadata using a stream/slice if possible,
-      // or fallback to basic file name. This prevents OutOfMemory errors and makes scanning 100x faster!
       let parsedTitle = fileName.replace(/\.[^/.]+$/, "");
       let parsedArtist = 'Unknown Artist';
       let parsedAlbum = 'Unknown Album';
       let parsedCover: string | null = null;
 
       try {
-        // Read small chunk (first 128KB) for metadata to prevent crashes
-        // Typecast options to any because older @capacitor/filesystem typings might not have length/offset defined
+        // Read only first 128KB of the file to parse metadata (super fast, prevents OOM crash)
         const fileChunk = await Filesystem.readFile({
           path: filePath,
           directory,
@@ -129,12 +168,10 @@ export async function scanMobileDirectory(
         } as any);
 
         if (fileChunk && fileChunk.data) {
-          // Convert base64 chunk to blob
           const response = await fetch(`data:audio/mp3;base64,${fileChunk.data}`);
           const blob = await response.blob();
           const fileObject = new File([blob], fileName, { type: blob.type });
           
-          // Import dynamic tag reader or fallback
           const { parseID3Tags } = await import('./metadata');
           const tags = await parseID3Tags(fileObject);
           
@@ -152,7 +189,7 @@ export async function scanMobileDirectory(
         title: parsedTitle,
         artist: parsedArtist,
         album: parsedAlbum,
-        duration: 180, // Default fallback duration (will update dynamically upon load loadedmetadata)
+        duration: 180, // Default fallback
         cover: parsedCover,
         fileHandle: null as any,
         path: filePath,
@@ -175,22 +212,22 @@ export async function scanAllMobileStorage(
 ): Promise<LocalSong[]> {
   const songs: LocalSong[] = [];
   
-  // Standard folders to scan on mobile devices
+  // Standard folders to scan on mobile devices with customized depth limits
   const foldersToScan = [
-    { dir: Directory.ExternalStorage, path: '' }, // Root of External Storage (e.g. /sdcard/) - scans EVERYTHING!
-    { dir: Directory.ExternalStorage, path: 'Music' },
-    { dir: Directory.ExternalStorage, path: 'Download' },
-    { dir: Directory.ExternalStorage, path: 'Documents' },
-    { dir: Directory.Documents, path: '' } // iOS/Android App Documents directory
+    { dir: Directory.ExternalStorage, path: '', maxDepth: 1 }, // Scan root of /sdcard/ directly (non-recursive)
+    { dir: Directory.ExternalStorage, path: 'Music', maxDepth: 3 }, // Scan Music folder up to 3 levels deep
+    { dir: Directory.ExternalStorage, path: 'Download', maxDepth: 3 }, // Scan Download folder up to 3 levels deep
+    { dir: Directory.ExternalStorage, path: 'Documents', maxDepth: 3 }, // Scan Documents folder up to 3 levels deep
+    { dir: Directory.ExternalStorage, path: 'Ringtones', maxDepth: 2 },
+    { dir: Directory.Documents, path: '', maxDepth: 3 }
   ];
 
-  // Use a map to prevent duplicates
   const songMap = new Map<string, LocalSong>();
   let totalCollectedFiles = 0;
   
   for (const folder of foldersToScan) {
     try {
-      const results = await scanMobileDirectory(folder.dir, folder.path, (progress) => {
+      const results = await scanMobileDirectory(folder.dir, folder.path, folder.maxDepth, (progress) => {
         if (onProgress) {
           onProgress({
             scannedCount: songMap.size + progress.scannedCount,
