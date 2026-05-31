@@ -46,6 +46,9 @@ jobs:
       - name: Capacitor sync
         run: npx cap sync android
 
+      - name: Configure Android (permissions & native plugin)
+        run: node scripts/configure-android.js
+
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
