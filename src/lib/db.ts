@@ -9,7 +9,8 @@ export interface LocalSong {
   path: string;
   fileSize: number;
   addedAt: number;
-  isCloud?: boolean; // to differentiate cloud streaming songs
+  isCloud?: boolean; // true = streaming dari cloud (online tab)
+  isDownloaded?: boolean; // true = lagu cloud yang sudah didownload ke device (muncul di offline juga)
   audioUrl?: string; // for cloud songs
 }
 
@@ -22,7 +23,7 @@ export interface LocalPlaylist {
 }
 
 const DB_NAME = 'kyokobeat-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // v2: added hidden_songs store
 
 export function initDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -58,6 +59,11 @@ export function initDB(): Promise<IDBDatabase> {
       // Store local favorites
       if (!db.objectStoreNames.contains('favorites')) {
         db.createObjectStore('favorites', { keyPath: 'songId' });
+      }
+
+      // Store hidden/blacklisted songs (won't be re-added by scanner)
+      if (!db.objectStoreNames.contains('hidden_songs')) {
+        db.createObjectStore('hidden_songs', { keyPath: 'songId' });
       }
     };
   });
@@ -251,4 +257,58 @@ export async function toggleFavorite(songId: string): Promise<boolean> {
     getReq.onerror = () => reject(getReq.error);
     tx.onerror = () => reject(tx.error);
   });
+}
+
+// ── Hidden Songs Blacklist ──────────────────────────────────────────────────
+// Menyimpan path/ID lagu yang sengaja disembunyikan dari library.
+// Scan tidak akan re-add lagu yang ada di blacklist ini.
+
+export interface HiddenSong {
+  songId: string;   // same as LocalSong.id / scan path
+  path: string;     // file path (untuk matching di scanner)
+  hiddenAt: number;
+}
+
+export async function addHiddenSong(songId: string, path: string): Promise<void> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const store = await getStore('hidden_songs', 'readwrite');
+      const request = store.put({ songId, path, hiddenAt: Date.now() });
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    } catch (e) { reject(e); }
+  });
+}
+
+export async function removeHiddenSong(songId: string): Promise<void> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const store = await getStore('hidden_songs', 'readwrite');
+      const request = store.delete(songId);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    } catch (e) { reject(e); }
+  });
+}
+
+export async function getHiddenSongs(): Promise<HiddenSong[]> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const store = await getStore('hidden_songs', 'readonly');
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    } catch (e) { reject(e); }
+  });
+}
+
+// Returns Set of hidden paths for fast O(1) lookup during scan
+export async function getHiddenPathSet(): Promise<Set<string>> {
+  const hidden = await getHiddenSongs();
+  const set = new Set<string>();
+  hidden.forEach(h => {
+    set.add(h.songId);
+    set.add(h.path);
+  });
+  return set;
 }

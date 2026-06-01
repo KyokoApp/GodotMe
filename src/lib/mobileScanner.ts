@@ -1,4 +1,4 @@
-import { LocalSong } from './db';
+import { LocalSong, getHiddenPathSet } from './db';
 
 // Helper to check if running inside a Capacitor Native App container
 export function isCapacitorActive(): boolean {
@@ -57,20 +57,23 @@ export async function scanAllMobileStorage(
     const result = await KyokoBeatNative.querySongs();
 
     if (result && result.songs) {
-      const songsList: LocalSong[] = result.songs.map((song: any) => ({
-        id: song.id,
-        title: song.title,
-        artist: song.artist,
-        album: song.album,
-        duration: song.duration,
-        cover: song.cover,
-        fileHandle: null as any,
-        path: song.path,
-        fileSize: song.fileSize,
-        addedAt: song.addedAt,
-        isCloud: false,
-        audioUrl: song.audioUrl
-      }));
+      const hiddenPaths = await getHiddenPathSet();
+      const songsList: LocalSong[] = result.songs
+        .filter((song: any) => !hiddenPaths.has(song.id) && !hiddenPaths.has(song.path))
+        .map((song: any) => ({
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          duration: song.duration,
+          cover: song.cover,
+          fileHandle: null as any,
+          path: song.path,
+          fileSize: song.fileSize,
+          addedAt: song.addedAt,
+          isCloud: false,
+          audioUrl: song.audioUrl
+        }));
 
       if (onProgress) {
         onProgress({

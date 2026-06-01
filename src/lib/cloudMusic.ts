@@ -1,9 +1,11 @@
-import supabase from './supabase';
-import { LocalSong, saveSong, getSongs, deleteSong } from './db';
+import { LocalSong, saveSong, getSongs } from './db';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 
-const BUCKET = 'kyokobeat-music';
+// Cloudinary config (read-only, no secret needed in frontend)
+const CLOUDINARY_CLOUD_NAME = 'dtxpdx8ua';
+export const CLOUDINARY_BASE_URL = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}`;
+
 const MUSIC_FOLDER = 'Android/media/com.kyokobeat.musicplayer/Music';
 
 // Ensure music folder exists on device
@@ -20,31 +22,30 @@ export async function ensureMusicFolder(): Promise<void> {
   }
 }
 
-// Fetch list of songs uploaded via WA bot from Supabase Storage
+// Fetch list of cloud songs from API (Cloudinary URLs stored in Supabase DB)
 export async function fetchCloudMusicList(): Promise<any[]> {
-  const { data, error } = await supabase.storage.from(BUCKET).list('songs', {
-    sortBy: { column: 'created_at', order: 'desc' },
-  });
-  if (error) throw new Error('Gagal fetch daftar lagu cloud: ' + error.message);
+  const res = await fetch('/api/cloud-songs');
+  if (!res.ok) throw new Error('Gagal fetch daftar lagu cloud: ' + res.statusText);
+  const data = await res.json();
   return data || [];
 }
 
 // Download a cloud song to device storage and save to IndexedDB
 export async function downloadCloudSong(
-  fileName: string,
+  song: { id: string | number; title: string; artist?: string; album?: string; audio_url: string; cover_url?: string },
   onProgress?: (msg: string) => void
 ): Promise<LocalSong | null> {
+  const fileName = `${song.title.replace(/[^a-z0-9]/gi, '_')}.mp3`;
   try {
-    if (onProgress) onProgress(`Mengunduh ${fileName}...`);
+    if (onProgress) onProgress(`Mengunduh ${song.title}...`);
 
-    // Get public URL
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(`songs/${fileName}`);
-    const publicUrl = urlData.publicUrl;
+    const audioUrl = song.audio_url;
+    const localId = `cloud-dl-${song.id}`;
 
     if (Capacitor.isNativePlatform()) {
       // Download file as base64 on native
       await ensureMusicFolder();
-      const response = await fetch(publicUrl);
+      const response = await fetch(audioUrl);
       const blob = await response.blob();
       const base64 = await blobToBase64(blob);
 
@@ -60,46 +61,49 @@ export async function downloadCloudSong(
         `/storage/emulated/0/${filePath}`
       );
 
-      const song: LocalSong = {
-        id: `cloud-dl-${fileName}`,
-        title: fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-        artist: 'Unknown Artist',
-        album: 'KyokoBeat Cloud',
+      const localSong: LocalSong = {
+        id: localId,
+        title: song.title,
+        artist: song.artist || 'Unknown Artist',
+        album: song.album || 'KyokoBeat Cloud',
         duration: 0,
-        cover: null,
+        cover: song.cover_url || null,
         fileHandle: null as any,
         path: `/storage/emulated/0/${filePath}`,
         fileSize: blob.size,
         addedAt: Date.now(),
         isCloud: false,
+        isDownloaded: true,
         audioUrl: localUrl,
       };
 
-      await saveSong(song);
-      if (onProgress) onProgress(`✓ ${fileName} tersimpan!`);
-      return song;
+      await saveSong(localSong);
+      if (onProgress) onProgress(`✓ ${song.title} tersimpan!`);
+      return localSong;
     } else {
-      // Web fallback — stream directly
-      const song: LocalSong = {
-        id: `cloud-dl-${fileName}`,
-        title: fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-        artist: 'Unknown Artist',
-        album: 'KyokoBeat Cloud',
+      // Web fallback — save as offline with Cloudinary URL
+      const localSong: LocalSong = {
+        id: localId,
+        title: song.title,
+        artist: song.artist || 'Unknown Artist',
+        album: song.album || 'KyokoBeat Cloud',
         duration: 0,
-        cover: null,
+        cover: song.cover_url || null,
         fileHandle: null as any,
-        path: publicUrl,
+        path: audioUrl,
         fileSize: 0,
         addedAt: Date.now(),
         isCloud: false,
-        audioUrl: publicUrl,
+        isDownloaded: true,
+        audioUrl: audioUrl,
       };
-      await saveSong(song);
-      return song;
+      await saveSong(localSong);
+      if (onProgress) onProgress(`✓ ${song.title} disimpan ke offline!`);
+      return localSong;
     }
   } catch (e: any) {
     console.error('Download failed:', e);
-    if (onProgress) onProgress(`✗ Gagal download ${fileName}: ${e.message}`);
+    if (onProgress) onProgress(`✗ Gagal download ${song.title}: ${e.message}`);
     return null;
   }
 }
@@ -117,7 +121,7 @@ export async function syncAllCloudMusic(
 
   const localIds = new Set(localSongs.map(s => s.id));
   const newFiles = cloudFiles.filter(
-    f => !localIds.has(`cloud-dl-${f.name}`)
+    f => !localIds.has(`cloud-dl-${f.id}`)
   );
 
   if (newFiles.length === 0) {
@@ -129,7 +133,7 @@ export async function syncAllCloudMusic(
 
   let downloaded = 0;
   for (const file of newFiles) {
-    const result = await downloadCloudSong(file.name, onProgress);
+    const result = await downloadCloudSong(file, onProgress);
     if (result) downloaded++;
   }
 

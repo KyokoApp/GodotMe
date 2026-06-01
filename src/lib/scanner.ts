@@ -1,4 +1,4 @@
-import { LocalSong } from './db';
+import { LocalSong, getHiddenPathSet } from './db';
 import { extractMetadata } from './metadata';
 
 // Check if browser supports File System Access API
@@ -35,6 +35,7 @@ export async function scanDirectoryRecursive(
   path = ''
 ): Promise<LocalSong[]> {
   const songs: LocalSong[] = [];
+  const hiddenPaths = await getHiddenPathSet();
 
   // First pass: collect all audio files to know the total count
   const audioFiles: { handle: any; relativePath: string }[] = [];
@@ -44,10 +45,11 @@ export async function scanDirectoryRecursive(
       if (entry.kind === 'file') {
         const ext = entry.name.split('.').pop()?.toLowerCase();
         if (ext && ['mp3', 'flac', 'wav', 'ogg', 'm4a'].includes(ext)) {
-          audioFiles.push({
-            handle: entry,
-            relativePath: `${currentPath}${entry.name}`
-          });
+          const relativePath = `${currentPath}${entry.name}`;
+          // Skip hidden/blacklisted songs
+          if (!hiddenPaths.has(relativePath)) {
+            audioFiles.push({ handle: entry, relativePath });
+          }
         }
       } else if (entry.kind === 'directory') {
         try {
@@ -105,6 +107,8 @@ export async function syncFolderIncremental(
   existingSongs: LocalSong[],
   onProgress?: (progress: ScanProgress) => void
 ): Promise<{ added: LocalSong[]; deletedIds: string[] }> {
+  const hiddenPaths = await getHiddenPathSet();
+
   // Collect files
   const audioFiles: { handle: any; relativePath: string }[] = [];
   
@@ -113,11 +117,11 @@ export async function syncFolderIncremental(
       if (entry.kind === 'file') {
         const ext = entry.name.split('.').pop()?.toLowerCase();
         if (ext && ['mp3', 'flac', 'wav', 'ogg', 'm4a'].includes(ext)) {
-          audioFiles.push({
-            handle: entry,
-            relativePath: `${currentPath}${entry.name}`
-          });
-        }
+          const relativePath = `${currentPath}${entry.name}`;
+          // Skip hidden/blacklisted songs
+          if (!hiddenPaths.has(relativePath)) {
+            audioFiles.push({ handle: entry, relativePath });
+          }
       } else if (entry.kind === 'directory') {
         try {
           await collectFiles(entry, `${currentPath}${entry.name}/`);
