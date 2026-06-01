@@ -44,9 +44,17 @@ class AudioManager {
     }
   }
 
-  // Lazily initialize Web Audio API
+  // Check if running in Capacitor native app (Android/iOS)
+  private isNative(): boolean {
+    return typeof window !== 'undefined' &&
+      (window as any).Capacitor !== undefined &&
+      (window as any).Capacitor.isNativePlatform?.() === true;
+  }
+
+  // Lazily initialize Web Audio API (web only, not native)
   private initAudioContext() {
     if (this.audioContext) return;
+    if (this.isNative()) return; // Skip Web Audio API on native — causes issues with Android WebView
 
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -69,7 +77,6 @@ class AudioManager {
         await this.audioContext.resume();
       }
       if (this.audioContext.state === 'closed') {
-        // Recreate if closed
         this.audioContext = null;
         this.analyser = null;
         this.sourceNode = null;
@@ -104,42 +111,81 @@ class AudioManager {
   }
 
   public async playSong(song: LocalSong) {
-    this.initAudioContext();
-    await this.ensureAudioContextRunning();
+    const native = this.isNative();
+
+    // Web Audio API only on browser, not native
+    if (!native) {
+      this.initAudioContext();
+      await this.ensureAudioContextRunning();
+    }
 
     try {
       let src = '';
+
+      // On native Android/iOS: NEVER set crossOrigin for any URL
+      // crossOrigin='anonymous' on Android WebView causes "no supported source was found"
+      if (native) {
+        // Always remove crossOrigin on native
+        if (this.lastCrossOrigin) {
+          this.audio.removeAttribute('crossorigin');
+          this.lastCrossOrigin = false;
+        }
+
+        if (song.isCloud && song.audioUrl) {
+          // Cloud streaming on native: play URL directly, no CORS
+          src = song.audioUrl;
+        } else if (song.isDownloaded && song.audioUrl) {
+          // Downloaded cloud song: use local audioUrl
+          src = song.audioUrl;
+        } else if (song.audioUrl) {
+          // Local native file
+          src = song.audioUrl;
+          // Convert raw storage paths to Capacitor-accessible URL
+          if (src.startsWith('/storage/') || src.startsWith('/data/')) {
+            try {
+              const { Capacitor } = await import('@capacitor/core');
+              src = Capacitor.convertFileSrc(song.audioUrl);
+            } catch (e) {
+              console.warn('Could not convert file src:', e);
+            }
+          }
+        } else {
+          // FileHandle fallback (shouldn't happen on native)
+          const file = await song.fileHandle.getFile();
+          src = URL.createObjectURL(file);
+        }
+
+        // Revoke old blob URL
+        if (this.audio.src && this.audio.src.startsWith('blob:')) {
+          URL.revokeObjectURL(this.audio.src);
+        }
+
+        this.currentSong = song;
+        this.audio.src = src;
+        this.audio.load();
+        await this.audio.play();
+        this.notifyState();
+        return;
+      }
+
+      // === WEB BROWSER PATH (non-native) ===
       const needsCors = !!(song.isCloud || song.isDownloaded) && !!(song.audioUrl);
 
       if (song.isCloud && song.audioUrl) {
-        // Cloud streaming — needs CORS for Web Audio API
         src = song.audioUrl;
         this.audio.crossOrigin = 'anonymous';
         this.lastCrossOrigin = true;
       } else if (song.isDownloaded && song.audioUrl) {
-        // Downloaded from cloud (web fallback using Cloudinary URL) — also needs CORS
         src = song.audioUrl;
         this.audio.crossOrigin = 'anonymous';
         this.lastCrossOrigin = true;
       } else if (song.audioUrl) {
-        // Mobile Capacitor native file (capacitor:// or content:// or file://)
-        // Remove crossorigin ONLY if previous song had it (reset properly)
         if (this.lastCrossOrigin) {
           this.audio.removeAttribute('crossorigin');
           this.lastCrossOrigin = false;
         }
         src = song.audioUrl;
-        // If it's a raw /storage/emulated path, try to use it as-is (Capacitor should handle)
-        if (src.startsWith('/storage/') || src.startsWith('/data/')) {
-          try {
-            const { Capacitor } = await import('@capacitor/core');
-            src = Capacitor.convertFileSrc(song.audioUrl);
-          } catch (e) {
-            console.warn('Could not convert file src:', e);
-          }
-        }
       } else {
-        // Local web file via FileHandle (blob URL)
         if (this.lastCrossOrigin) {
           this.audio.removeAttribute('crossorigin');
           this.lastCrossOrigin = false;
@@ -154,10 +200,8 @@ class AudioManager {
       }
 
       this.currentSong = song;
-
-      // Important: set src AFTER setting crossOrigin attribute
       this.audio.src = src;
-      this.audio.load(); // Force reload to apply crossOrigin change
+      this.audio.load();
 
       try {
         await this.audio.play();
@@ -184,8 +228,10 @@ class AudioManager {
   public async togglePlay() {
     if (!this.currentSong) return;
     
-    this.initAudioContext();
-    await this.ensureAudioContextRunning();
+    if (!this.isNative()) {
+      this.initAudioContext();
+      await this.ensureAudioContextRunning();
+    }
 
     if (this.audio.paused) {
       await this.audio.play();
