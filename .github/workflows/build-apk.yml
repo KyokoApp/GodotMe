@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
     inputs:
+      generate_keystore:
+        description: 'Generate NEW keystore (run once, copy output to KEYSTORE_BASE64 secret)'
+        required: false
+        default: 'false'
       export_keystore:
         description: 'Export debug keystore as base64 (run once to get KEYSTORE_BASE64 secret)'
         required: false
@@ -56,6 +60,24 @@ jobs:
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
+
+      - name: Generate new keystore
+        if: ${{ github.event.inputs.generate_keystore == 'true' }}
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v \
+            -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=KyokoBeat, O=Kyoko, C=ID"
+          echo ""
+          echo "==== COPY THIS TO KEYSTORE_BASE64 SECRET ===="
+          base64 -w 0 ~/.android/debug.keystore
+          echo ""
+          echo "============================================="
 
       - name: Inject persistent debug keystore
         env:
