@@ -30,6 +30,7 @@ import {
   X,
   RefreshCw,
   EyeOff,
+  Youtube,
 } from 'lucide-react';
 import audioManager from '../lib/audio';
 import {
@@ -58,6 +59,7 @@ import AuthModal from '../components/AuthModal';
 import PlaylistModal from '../components/PlaylistModal';
 import RenameModal from '../components/RenameModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import YtDownloadModal from '../components/YtDownloadModal';
 import { useToast } from '../components/Toast';
 import supabase from '../lib/supabase';
 
@@ -120,6 +122,9 @@ export default function MainDashboard() {
   const [showCreatePlaylistRow, setShowCreatePlaylistRow] = useState(false);
 
   const [downloadedCloudIds, setDownloadedCloudIds] = useState<Set<string>>(new Set());
+
+  // YouTube Download modal state
+  const [isYtModalOpen, setIsYtModalOpen] = useState(false);
 
   // Auth state
   const [user, setUser] = useState<any>(null);
@@ -1002,6 +1007,16 @@ export default function MainDashboard() {
               </>
             )}
           </button>
+
+          {/* YouTube Download Button */}
+          <button
+            onClick={() => setIsYtModalOpen(true)}
+            className="p-2 px-3 rounded-full bg-[#111] border border-red-500/30 hover:border-red-500 hover:bg-red-500/5 text-red-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Download audio dari YouTube"
+          >
+            <Youtube className="w-3.5 h-3.5" />
+            <span>YT Download</span>
+          </button>
         </div>
       </header>
 
@@ -1657,6 +1672,17 @@ export default function MainDashboard() {
           setIsDeleteOpen(false);
           setSongToDelete(null);
         }}
+      />
+
+      {/* YouTube Download Modal */}
+      <YtDownloadModal
+        isOpen={isYtModalOpen}
+        onClose={() => setIsYtModalOpen(false)}
+        onDownloadComplete={() => {
+          loadLocalDataAndSync();
+          setSourceFilter('offline');
+        }}
+        toast={toast}
       />
 
       {/* Delete All Modal - Choose Action */}
