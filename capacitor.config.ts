@@ -5,7 +5,9 @@ const config: CapacitorConfig = {
   appName: 'KyokoBeat',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    url: 'https://kyoko-beat.vercel.app',
+    cleartext: true
   },
   android: {
     allowMixedContent: true
