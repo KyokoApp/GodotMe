@@ -12,14 +12,29 @@ function buildGoogleUrl(appName: string) {
   return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20email%20profile&prompt=select_account&state=${encodeURIComponent(state)}`;
 }
 
-export function signInWithGoogle(appName = 'KyokoBeat') {
+export function signInWithGoogle(appName = 'KyokoBeat'): boolean {
   const url = buildGoogleUrl(appName);
   if (!url) {
     console.warn('[google-auth] Missing VITE_GOOGLE_CLIENT_ID or VITE_GOOGLE_AUTH_PROXY');
-    return;
+    return false; // caller should show error
   }
 
-  window.open(url, 'google-auth', isMobile() ? '' : 'width=500,height=600');
+  if (isMobile()) {
+    // On mobile WebView, window.open often doesn't work — use redirect instead
+    // Save current URL to come back after auth
+    sessionStorage.setItem('kyoko-auth-return', window.location.href);
+    window.location.href = url;
+    return true;
+  }
+
+  // Desktop: open popup
+  const popup = window.open(url, 'google-auth', 'width=500,height=600');
+  if (!popup) {
+    // Popup blocked — fallback to redirect
+    sessionStorage.setItem('kyoko-auth-return', window.location.href);
+    window.location.href = url;
+    return true;
+  }
 
   const handler = async (event: MessageEvent) => {
     if (event.data?.type === 'google-auth-denied') {
@@ -43,6 +58,7 @@ export function signInWithGoogle(appName = 'KyokoBeat') {
     }
   };
   window.addEventListener('message', handler);
+  return true;
 }
 
 export async function handleGoogleRedirect() {
