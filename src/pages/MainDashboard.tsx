@@ -121,7 +121,8 @@ export default function MainDashboard() {
 
   const [downloadedCloudIds, setDownloadedCloudIds] = useState<Set<string>>(new Set());
 
-
+  // Auth state
+  const [user, setUser] = useState<any>(null);
 
   const { toast } = useToast();
 
