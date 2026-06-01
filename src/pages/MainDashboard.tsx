@@ -241,12 +241,40 @@ export default function MainDashboard() {
   const runBackgroundSyncMobile = async (currentSongs: LocalSong[]) => {
     setSyncingBackground(true);
     try {
+      // Step 1: Scan local files from device
       const songs = await scanAllMobileStorage();
-      if (songs.length !== currentSongs.length) {
+
+      // Step 2: Fetch current cloud song list to remove stale downloaded entries
+      let validCloudIds = new Set<string>();
+      try {
+        const res = await fetch('/api/cloud-songs');
+        if (res.ok) {
+          const cloudData = await res.json();
+          cloudData.forEach((s: any) => validCloudIds.add(`cloud-dl-${s.id}`));
+        }
+      } catch (e) {
+        console.warn('Could not fetch cloud list during bg sync:', e);
+      }
+
+      // Step 3: Get existing downloaded cloud songs from DB
+      const existingDownloaded = currentSongs.filter(s => s.isDownloaded);
+      // Remove downloaded cloud songs that no longer exist in the cloud API
+      for (const dl of existingDownloaded) {
+        if (!validCloudIds.has(dl.id)) {
+          await deleteSong(dl.id);
+          console.log(`[Auto-Sync Mobile] Removed stale downloaded cloud song: ${dl.title}`);
+        }
+      }
+
+      // Step 4: Merge: keep valid downloaded songs + fresh local scan
+      const validDownloaded = existingDownloaded.filter(s => validCloudIds.has(s.id));
+      const allSongsToSave = [...songs, ...validDownloaded];
+
+      if (allSongsToSave.length !== currentSongs.length) {
         await clearSongs();
-        await saveSongs(songs);
-        setLocalSongs(songs);
-        console.log(`[Auto-Sync Mobile] Updated library with ${songs.length} songs.`);
+        await saveSongs(allSongsToSave);
+        setLocalSongs(allSongsToSave);
+        console.log(`[Auto-Sync Mobile] Updated library with ${allSongsToSave.length} songs.`);
       }
     } catch (e) {
       console.warn('Background mobile sync failed:', e);
@@ -627,10 +655,24 @@ export default function MainDashboard() {
         toast(msg, 'info');
       });
       if (downloaded) {
-        // Refresh local songs
-        const songs = await getSongs();
-        const newLocalSongs = songs.filter(s => !s.isCloud);
-        setLocalSongs(newLocalSongs);
+        // Auto rescan untuk langsung masuk ke offline list
+        toast(`"${song.title}" berhasil disimpan! Memindai ulang library...`, 'info');
+        if (isCapacitorActive()) {
+          const permitted = await requestMobileStoragePermission();
+          if (permitted) {
+            const freshSongs = await scanAllMobileStorage();
+            // Keep valid downloaded songs
+            const existingDb = await getSongs();
+            const downloadedSongs = existingDb.filter(s => s.isDownloaded);
+            const mergedSongs = [...freshSongs, ...downloadedSongs.filter(dl => !freshSongs.some(f => f.id === dl.id))];
+            await clearSongs();
+            await saveSongs(mergedSongs);
+            setLocalSongs(mergedSongs);
+          }
+        } else {
+          const songs = await getSongs();
+          setLocalSongs(songs.filter(s => !s.isCloud));
+        }
         // Mark as downloaded in UI (cloud song stays in list)
         const dlId = `cloud-dl-${originalId}`;
         setDownloadedCloudIds(prev => new Set([...prev, dlId]));
@@ -852,12 +894,12 @@ export default function MainDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col pb-28 font-body">
+    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body ${playerState.currentSong ? 'pb-36' : 'pb-8'}`}>
       {/* Glow Header Background */}
       <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-[#c8f500]/5 to-transparent pointer-events-none"></div>
 
       {/* Header */}
-      <header className="relative z-10 p-4 border-b border-white/5 bg-black/40 backdrop-blur-md sticky top-0 flex flex-col md:flex-row gap-4 items-center justify-between">
+      <header className="relative z-30 p-4 border-b border-white/5 bg-black/40 backdrop-blur-md sticky top-0 flex flex-col md:flex-row gap-4 items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-[#111] border border-[#c8f500]/20 shadow-[0_0_15px_rgba(200,245,0,0.1)]">
@@ -1003,7 +1045,7 @@ export default function MainDashboard() {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-4 gap-6 relative z-10">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-4 gap-6 relative z-10 overflow-x-hidden">
         {/* Left Side: Navigation / Playlists */}
         <div className="lg:col-span-1 space-y-6">
           {/* Library Tabs */}
@@ -1416,7 +1458,7 @@ export default function MainDashboard() {
 
       {/* Bottom Player Bar */}
       {playerState.currentSong && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[#c8f500]/20 p-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.8)] backdrop-blur-lg">
+        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[#c8f500]/20 p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.8)] backdrop-blur-lg">
           <div className="max-w-7xl w-full mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
             
             {/* Song Cover & Info */}
