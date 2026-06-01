@@ -44,11 +44,12 @@ import {
   toggleFavorite,
   getSetting,
   saveSetting,
-  deleteSong
+  deleteSong,
+  addHiddenSong,
 } from '../lib/db';
 import { scanDirectoryRecursive, verifyPermission, syncFolderIncremental } from '../lib/scanner';
 import { isCapacitorActive, requestMobileStoragePermission, scanAllMobileStorage } from '../lib/mobileScanner';
-import { syncAllCloudMusic, ensureMusicFolder } from '../lib/cloudMusic';
+import { syncAllCloudMusic, ensureMusicFolder, downloadCloudSong } from '../lib/cloudMusic';
 import SongCard from '../components/SongCard';
 import WaveformVisualizer from '../components/WaveformVisualizer';
 import CloudSyncIndicator from '../components/CloudSyncIndicator';
@@ -69,6 +70,7 @@ export default function MainDashboard() {
   
   // Tab & Filter states
   const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'favorites'>('library');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all');
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'album'>('title');
@@ -112,6 +114,7 @@ export default function MainDashboard() {
   const [isDeleteAllOpen, setIsDeleteAllOpen] = useState(false);
   const [durationFilter, setDurationFilter] = useState<'all' | 'under1' | '1to2' | 'over2'>('all');
   const [syncingCloud, setSyncingCloud] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [showCreatePlaylistRow, setShowCreatePlaylistRow] = useState(false);
 
@@ -291,20 +294,27 @@ export default function MainDashboard() {
       const res = await fetch('/api/cloud-songs');
       if (res.ok) {
         const data = await res.json();
-        const formattedCloudSongs: LocalSong[] = data.map((song: any) => ({
-          id: `cloud-${song.id}`,
-          title: song.title,
-          artist: song.artist || 'Unknown Artist',
-          album: song.album || 'Unknown Album',
-          duration: song.duration || 0,
-          cover: song.cover_url || null,
-          fileHandle: null as any,
-          path: song.audio_url,
-          fileSize: 0,
-          addedAt: Date.now(),
-          isCloud: true,
-          audioUrl: song.audio_url
-        }));
+        // Exclude songs that already downloaded (they appear in offline)
+        const localSongsFromDB = await getSongs();
+        const downloadedIds = new Set(localSongsFromDB.filter(s => s.isDownloaded).map(s => s.id));
+
+        const formattedCloudSongs: LocalSong[] = data
+          .filter((song: any) => !downloadedIds.has(`cloud-dl-${song.id}`))
+          .map((song: any) => ({
+            id: `cloud-${song.id}`,
+            title: song.title,
+            artist: song.artist || 'Unknown Artist',
+            album: song.album || 'Unknown Album',
+            duration: song.duration || 0,
+            cover: song.cover_url || null,
+            fileHandle: null as any,
+            path: song.audio_url,
+            fileSize: 0,
+            addedAt: Date.now(),
+            isCloud: true,
+            isDownloaded: false,
+            audioUrl: song.audio_url,
+          }));
         setCloudSongs(formattedCloudSongs);
       }
     } catch (e) {
@@ -312,7 +322,7 @@ export default function MainDashboard() {
     }
   };
 
-  // Combine local and cloud songs
+  // Combine local and cloud songs (cloud streaming + local/downloaded)
   useEffect(() => {
     setAllSongs([...cloudSongs, ...localSongs]);
   }, [localSongs, cloudSongs]);
@@ -525,47 +535,72 @@ export default function MainDashboard() {
     setIsDeleteOpen(true);
   };
 
-  const handleConfirmDelete = async () => {
+  // Helper: hapus song dari state dan DB, tanpa trigger rescan
+  const removeSongFromState = async (song: LocalSong) => {
+    await deleteSong(song.id);
+
+    // Remove from favorites
+    if (favorites.includes(song.id)) {
+      await toggleFavorite(song.id);
+      setFavorites(prev => prev.filter(id => id !== song.id));
+    }
+
+    // Remove from playlists
+    for (const pl of playlists) {
+      if (pl.songIds.includes(song.id)) {
+        const updatedPl = { ...pl, songIds: pl.songIds.filter(id => id !== song.id) };
+        await savePlaylist(updatedPl);
+      }
+    }
+
+    // Update UI state
+    setLocalSongs(prev => prev.filter(s => s.id !== song.id));
+
+    // Stop if currently playing
+    if (playerState.currentSong?.id === song.id) {
+      audioManager.seek(0);
+      if (playerState.isPlaying) audioManager.togglePlay();
+    }
+  };
+
+  // Sembunyikan lagu dari library (file tetap di HP, tapi tidak akan muncul lagi saat scan)
+  const handleHideSong = async () => {
     const song = songToDelete;
     if (!song) return;
     setIsDeleteOpen(false);
     setSongToDelete(null);
     try {
-        await deleteSong(song.id);
-        
-        // Remove from favorites if favorited
-        if (favorites.includes(song.id)) {
-          await toggleFavorite(song.id);
-          setFavorites(prev => prev.filter(id => id !== song.id));
-        }
+      await addHiddenSong(song.id, song.path);
+      await removeSongFromState(song);
+      toast(`"${song.title}" disembunyikan dari library. Tidak akan muncul lagi meski di-rescan.`, 'success');
+    } catch (e: any) {
+      toast('Gagal menyembunyikan lagu: ' + e.message, 'error');
+    }
+  };
 
-        // Remove from all custom playlists
-        for (const pl of playlists) {
-          if (pl.songIds.includes(song.id)) {
-            const updatedPl = {
-              ...pl,
-              songIds: pl.songIds.filter(id => id !== song.id)
-            };
-            await savePlaylist(updatedPl);
-          }
+  // Hapus file fisik dari HP (Capacitor) + sembunyikan dari library
+  const handleDeleteFileSong = async () => {
+    const song = songToDelete;
+    if (!song) return;
+    setIsDeleteOpen(false);
+    setSongToDelete(null);
+    try {
+      // Hapus file dari penyimpanan HP via Capacitor
+      if ((window as any).Capacitor?.isNativePlatform()) {
+        try {
+          const { Filesystem, Directory } = await import('@capacitor/filesystem');
+          await Filesystem.deleteFile({ path: song.path });
+        } catch (fsErr: any) {
+          console.warn('Filesystem delete error (mungkin file sudah tidak ada):', fsErr);
         }
-
-        // Update local state
-        setLocalSongs(prev => prev.filter(s => s.id !== song.id));
-        
-        // If deleted song was currently playing, stop it
-        if (playerState.currentSong?.id === song.id) {
-          audioManager.seek(0);
-          if (playerState.isPlaying) {
-            audioManager.togglePlay();
-          }
-        }
-
-        toast(`Lagu "${song.title}" berhasil dihapus dari library!`, 'success');
-        loadLocalDataAndSync();
-      } catch (e: any) {
-        toast('Gagal menghapus lagu: ' + e.message, 'error');
       }
+      // Blacklist juga agar tidak muncul kembali
+      await addHiddenSong(song.id, song.path);
+      await removeSongFromState(song);
+      toast(`"${song.title}" berhasil dihapus dari HP!`, 'success');
+    } catch (e: any) {
+      toast('Gagal menghapus file: ' + e.message, 'error');
+    }
   };
 
   // Rename song handler
@@ -574,7 +609,39 @@ export default function MainDashboard() {
     setIsRenameOpen(true);
   };
 
-  // Sync Cloud — download lagu baru dari Supabase Storage
+  // Download satu lagu cloud ke offline
+  const handleDownloadSong = async (song: LocalSong) => {
+    if (downloadingId) return;
+    setDownloadingId(song.id);
+    try {
+      await ensureMusicFolder();
+      // Extract original song data from cloud song
+      const originalId = song.id.replace('cloud-', '');
+      const res = await fetch('/api/cloud-songs');
+      const allCloud = await res.json();
+      const originalSong = allCloud.find((s: any) => String(s.id) === String(originalId));
+      if (!originalSong) throw new Error('Data lagu tidak ditemukan');
+
+      const downloaded = await downloadCloudSong(originalSong, (msg) => {
+        toast(msg, 'info');
+      });
+      if (downloaded) {
+        // Refresh local songs & reload cloud (exclude newly downloaded)
+        const songs = await getSongs();
+        const newLocalSongs = songs.filter(s => !s.isCloud);
+        setLocalSongs(newLocalSongs);
+        // Remove from cloudSongs state (pindah ke offline)
+        setCloudSongs(prev => prev.filter(s => s.id !== song.id));
+        toast(`"${song.title}" berhasil disimpan ke Offline!`, 'success');
+      }
+    } catch (e: any) {
+      toast('Gagal download: ' + e.message, 'error');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // Sync Cloud — download semua lagu baru dari cloud ke offline
   const handleSyncCloud = async () => {
     setSyncingCloud(true);
     try {
@@ -584,7 +651,12 @@ export default function MainDashboard() {
       });
       if (count > 0) {
         toast(`✅ ${count} lagu berhasil didownload dari Cloud!`, 'success');
-        loadLocalDataAndSync();
+        // Reload local songs dari IndexedDB tanpa trigger background scan
+        const songs = await getSongs();
+        const newLocalSongs = songs.filter(s => !s.isCloud);
+        setLocalSongs(newLocalSongs);
+        // Reload cloud list (exclude newly downloaded)
+        await loadCloudSongs();
       } else {
         toast('Tidak ada lagu baru di Cloud.', 'info');
       }
@@ -597,23 +669,25 @@ export default function MainDashboard() {
 
   // Delete all filtered songs
   const handleDeleteAll = async () => {
-    const songsToDelete = getFilteredSongs();
+    // Hanya hapus lagu local/offline, bukan cloud streaming
+    const songsToDelete = getFilteredSongs().filter(s => !s.isCloud);
     setIsDeleteAllOpen(false);
     try {
+      const deleteIds = new Set(songsToDelete.map(s => s.id));
       for (const song of songsToDelete) {
         await deleteSong(song.id);
         if (favorites.includes(song.id)) {
           await toggleFavorite(song.id);
         }
       }
-      setFavorites(prev => prev.filter(id => !songsToDelete.map(s => s.id).includes(id)));
-      setLocalSongs(prev => prev.filter(s => !songsToDelete.map(s => s.id).includes(s.id)));
+      setFavorites(prev => prev.filter(id => !deleteIds.has(id)));
+      setLocalSongs(prev => prev.filter(s => !deleteIds.has(s.id)));
       if (songsToDelete.some(s => s.id === playerState.currentSong?.id)) {
         audioManager.seek(0);
         if (playerState.isPlaying) audioManager.togglePlay();
       }
       toast(`${songsToDelete.length} lagu berhasil dihapus!`, 'success');
-      loadLocalDataAndSync();
+      // Tidak memanggil loadLocalDataAndSync() agar lagu yang dihapus tidak muncul lagi
     } catch (e: any) {
       toast('Gagal menghapus: ' + e.message, 'error');
     }
@@ -652,7 +726,15 @@ export default function MainDashboard() {
 
   // Filter and sort songs
   const getFilteredSongs = (): LocalSong[] => {
-    let filtered = [...allSongs];
+    // Pisahkan berdasarkan sumber: online (cloud streaming) vs offline (local + downloaded)
+    let filtered: LocalSong[];
+    if (sourceFilter === 'online') {
+      filtered = [...cloudSongs];
+    } else if (sourceFilter === 'offline') {
+      filtered = [...localSongs];
+    } else {
+      filtered = [...allSongs];
+    }
 
     // Search query
     if (searchQuery.trim()) {
@@ -852,6 +934,7 @@ export default function MainDashboard() {
         <div className="lg:col-span-1 space-y-6">
           {/* Library Tabs */}
           <div className="p-2 bg-[#111] rounded-xl border border-white/5 space-y-1">
+            {/* Main tabs */}
             <button
               onClick={() => { setActiveTab('library'); setSelectedPlaylistId(null); }}
               className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
@@ -864,6 +947,48 @@ export default function MainDashboard() {
               <span>Semua Lagu</span>
               <span className="ml-auto text-xs opacity-60">({allSongs.length})</span>
             </button>
+
+            {/* Online / Offline sub-filter (only visible in library tab) */}
+            {activeTab === 'library' && !selectedPlaylistId && (
+              <div className="ml-2 border-l border-[#c8f500]/20 pl-2 space-y-0.5 animate-fade-in">
+                <button
+                  onClick={() => setSourceFilter('all')}
+                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    sourceFilter === 'all'
+                      ? 'text-[#c8f500] bg-[#c8f500]/10'
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />
+                  Semua
+                  <span className="ml-auto opacity-60">({allSongs.length})</span>
+                </button>
+                <button
+                  onClick={() => setSourceFilter('online')}
+                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    sourceFilter === 'online'
+                      ? 'text-blue-400 bg-blue-500/10'
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                  }`}
+                >
+                  <Cloud className="w-3 h-3 flex-shrink-0" />
+                  Online
+                  <span className="ml-auto opacity-60">({cloudSongs.length})</span>
+                </button>
+                <button
+                  onClick={() => setSourceFilter('offline')}
+                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    sourceFilter === 'offline'
+                      ? 'text-green-400 bg-green-500/10'
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                  }`}
+                >
+                  <Laptop className="w-3 h-3 flex-shrink-0" />
+                  Offline
+                  <span className="ml-auto opacity-60">({localSongs.length})</span>
+                </button>
+              </div>
+            )}
 
             <button
               onClick={() => { setActiveTab('favorites'); setSelectedPlaylistId(null); }}
@@ -1087,6 +1212,28 @@ export default function MainDashboard() {
               </div>
             )}
 
+            {/* Online/Offline header banner */}
+            {activeTab === 'library' && !selectedPlaylistId && sourceFilter !== 'all' && (
+              <div className={`mb-4 p-4 rounded-xl border animate-fade-in flex items-center justify-between ${
+                sourceFilter === 'online'
+                  ? 'bg-blue-500/5 border-blue-500/20'
+                  : 'bg-green-500/5 border-green-500/20'
+              }`}>
+                <div>
+                  <h2 className={`text-xl font-heading tracking-wider flex items-center gap-2 ${sourceFilter === 'online' ? 'text-blue-400' : 'text-green-400'}`}>
+                    {sourceFilter === 'online' ? <Cloud className="w-5 h-5" /> : <Laptop className="w-5 h-5" />}
+                    {sourceFilter === 'online' ? 'LAGU ONLINE (STREAMING)' : 'LAGU OFFLINE (LOKAL)'}
+                  </h2>
+                  <p className="text-xs text-gray-400 font-body mt-1">
+                    {sourceFilter === 'online'
+                      ? `${cloudSongs.length} lagu tersedia untuk streaming. Klik download untuk simpan ke offline.`
+                      : `${localSongs.length} lagu tersimpan di perangkat. Termasuk lagu yang sudah didownload dari cloud.`
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* If on favorites tab, display favorit header */}
             {activeTab === 'favorites' && (
               <div className="mb-4 p-4 rounded-xl bg-[#111] border border-white/5 animate-fade-in">
@@ -1180,6 +1327,8 @@ export default function MainDashboard() {
                       }}
                       onRename={handleRenameSongClick}
                       onDelete={handleDeleteSong}
+                      onDownload={song.isCloud ? () => handleDownloadSong(song) : undefined}
+                      isDownloading={downloadingId === song.id}
                     />
                   ))}
                 </div>
@@ -1355,7 +1504,8 @@ export default function MainDashboard() {
       <DeleteConfirmModal
         isOpen={isDeleteOpen}
         song={songToDelete}
-        onConfirm={handleConfirmDelete}
+        onHide={handleHideSong}
+        onDeleteFile={handleDeleteFileSong}
         onCancel={() => {
           setIsDeleteOpen(false);
           setSongToDelete(null);
