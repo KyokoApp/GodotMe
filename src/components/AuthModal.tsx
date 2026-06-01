@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, LogIn, UserPlus } from 'lucide-react';
+import { X, Mail, Lock, LogIn, UserPlus, RefreshCw } from 'lucide-react';
 import supabase from '../lib/supabase';
 import { signInWithGoogle } from '../lib/googleAuth';
 import { useToast } from './Toast';
@@ -15,6 +15,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const { toast } = useToast();
 
   if (!isOpen) return null;
@@ -31,14 +33,15 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
     }
 
     setLoading(true);
+    setShowResend(false);
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        toast('Pendaftaran berhasil! Silakan periksa email Anda atau langsung masuk.', 'success');
+        toast('Pendaftaran berhasil! Silakan cek email Anda untuk konfirmasi, lalu masuk.', 'success');
         setIsSignUp(false);
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast('Masuk berhasil!', 'success');
         onAuthSuccess();
@@ -46,22 +49,51 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
       }
     } catch (err: any) {
       console.error(err);
-      toast(err.message || 'Terjadi kesalahan autentikasi', 'error');
+      const msg: string = err.message || '';
+      if (msg.toLowerCase().includes('email not confirmed') || msg.toLowerCase().includes('not confirmed')) {
+        setShowResend(true);
+        toast('Email belum dikonfirmasi. Cek inbox Anda atau klik tombol kirim ulang di bawah.', 'error');
+      } else if (msg.toLowerCase().includes('invalid login credentials')) {
+        toast('Email atau password salah. Coba lagi.', 'error');
+      } else {
+        toast(msg || 'Terjadi kesalahan autentikasi', 'error');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      toast('Masukkan email Anda terlebih dahulu', 'error');
+      return;
+    }
+    setResendLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email });
+      if (error) throw error;
+      toast('Email konfirmasi telah dikirim ulang! Cek inbox Anda.', 'success');
+    } catch (err: any) {
+      toast(err.message || 'Gagal mengirim ulang email konfirmasi', 'error');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const handleGoogleLogin = () => {
-    signInWithGoogle('KyokoBeat');
-    // We close the modal, the redirect handles session completion
+    const ok = signInWithGoogle('KyokoBeat');
+    if (!ok) {
+      toast('Login Google belum dikonfigurasi. Gunakan email dan password.', 'error');
+      return;
+    }
+    // On desktop popup mode, close modal — session update handled by message listener
+    // On mobile redirect mode, page will navigate away
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="relative w-full max-w-md p-6 rounded-xl bg-[#111] border border-[#c8f500]/30 shadow-[0_0_30px_rgba(200,245,0,0.15)] animate-scale-up">
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-[#c8f500] transition-colors"
@@ -69,17 +101,15 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
           <X className="w-5 h-5" />
         </button>
 
-        {/* Title */}
         <h2 className="text-3xl font-heading text-[#c8f500] tracking-wider mb-2">
           {isSignUp ? 'DAFTAR AKUN' : 'MASUK KE KYOKOBEAT'}
         </h2>
         <p className="text-xs text-gray-400 font-body mb-6">
-          {isSignUp 
-            ? 'Buat akun untuk mencadangkan playlist dan lagu favorit Anda ke cloud.' 
+          {isSignUp
+            ? 'Buat akun untuk mencadangkan playlist dan lagu favorit Anda ke cloud.'
             : 'Masuk untuk sinkronisasi playlist dan lagu favorit Anda di semua perangkat.'}
         </p>
 
-        {/* Form */}
         <form onSubmit={handleEmailAuth} className="space-y-4 font-body">
           <div>
             <label className="block text-xs text-gray-400 mb-1">Email</label>
@@ -117,18 +147,34 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
             {loading ? (
               <span className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
             ) : isSignUp ? (
-              <>
-                <UserPlus className="w-4 h-4" /> Daftar Sekarang
-              </>
+              <><UserPlus className="w-4 h-4" /> Daftar Sekarang</>
             ) : (
-              <>
-                <LogIn className="w-4 h-4" /> Masuk Akun
-              </>
+              <><LogIn className="w-4 h-4" /> Masuk Akun</>
             )}
           </button>
         </form>
 
-        {/* Divider */}
+        {/* Resend confirmation button - shown when email not confirmed */}
+        {showResend && (
+          <div className="mt-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 animate-fade-in">
+            <p className="text-xs text-yellow-400 mb-2 font-body">
+              📧 Email <strong>{email}</strong> belum dikonfirmasi. Cek folder Spam juga ya!
+            </p>
+            <button
+              onClick={handleResendConfirmation}
+              disabled={resendLoading}
+              className="w-full py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-400 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {resendLoading ? (
+                <span className="w-3.5 h-3.5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></span>
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              Kirim Ulang Email Konfirmasi
+            </button>
+          </div>
+        )}
+
         <div className="relative my-6 text-center">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-800"></div>
@@ -136,7 +182,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
           <span className="relative px-3 bg-[#111] text-xs text-gray-500 font-body uppercase">atau</span>
         </div>
 
-        {/* Google Sign-in */}
         <button
           onClick={handleGoogleLogin}
           className="w-full py-2.5 bg-[#0a0a0a] border border-[#c8f500]/40 text-[#c8f500] font-medium rounded-lg hover:bg-[#c8f500]/10 transition-colors flex items-center justify-center gap-2 font-body cursor-pointer"
@@ -147,11 +192,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
           Masuk dengan Google
         </button>
 
-        {/* Toggle Sign Up / Sign In */}
         <div className="mt-6 text-center font-body text-xs text-gray-400">
           {isSignUp ? 'Sudah punya akun?' : 'Belum punya akun?'}{' '}
           <button
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() => { setIsSignUp(!isSignUp); setShowResend(false); }}
             className="text-[#c8f500] hover:underline font-semibold"
           >
             {isSignUp ? 'Masuk di sini' : 'Daftar di sini'}
