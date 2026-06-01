@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import FirstTimeScreen from './components/FirstTimeScreen';
 import MainDashboard from './pages/MainDashboard';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import { ToastProvider, useToast } from './components/Toast';
 import { getSongs, saveSongs, saveSetting, getSetting } from './lib/db';
 import { scanDirectoryRecursive, verifyPermission, isFileSystemAccessSupported } from './lib/scanner';
@@ -17,7 +18,14 @@ function AppContent() {
   const [mobileScanProgress, setMobileScanProgress] = useState({ scannedCount: 0, totalFiles: 0, currentFileName: '' });
   const { toast } = useToast();
 
+  // Deteksi route /reset-password
+  const isResetPasswordRoute = window.location.pathname === '/reset-password';
+
   useEffect(() => {
+    if (isResetPasswordRoute) {
+      setLoading(false);
+      return;
+    }
     checkFirstTimeStatus();
   }, []);
 
@@ -121,6 +129,11 @@ function AppContent() {
     toast('Memasuki mode Cloud Streaming', 'success');
     setHasSongsOrSkipped(true);
   };
+
+  // ── RESET PASSWORD ROUTE ──
+  if (isResetPasswordRoute) {
+    return <ResetPasswordPage />;
+  }
 
   if (loading) {
     return (
