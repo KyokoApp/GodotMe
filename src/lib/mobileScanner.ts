@@ -1,4 +1,5 @@
 import { LocalSong, getHiddenPathSet } from './db';
+import { Capacitor } from '@capacitor/core';
 
 // Helper to check if running inside a Capacitor Native App container
 export function isCapacitorActive(): boolean {
@@ -72,7 +73,12 @@ export async function scanAllMobileStorage(
           fileSize: song.fileSize,
           addedAt: song.addedAt,
           isCloud: false,
+          // Convert native file path to Capacitor-accessible URL for audio playback
           audioUrl: song.audioUrl
+            ? song.audioUrl
+            : song.path
+              ? Capacitor.convertFileSrc(song.path)
+              : undefined
         }));
 
       if (onProgress) {

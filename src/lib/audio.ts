@@ -122,13 +122,22 @@ class AudioManager {
         this.audio.crossOrigin = 'anonymous';
         this.lastCrossOrigin = true;
       } else if (song.audioUrl) {
-        // Mobile Capacitor native file (capacitor:// or content://)
+        // Mobile Capacitor native file (capacitor:// or content:// or file://)
         // Remove crossorigin ONLY if previous song had it (reset properly)
         if (this.lastCrossOrigin) {
           this.audio.removeAttribute('crossorigin');
           this.lastCrossOrigin = false;
         }
         src = song.audioUrl;
+        // If it's a raw /storage/emulated path, try to use it as-is (Capacitor should handle)
+        if (src.startsWith('/storage/') || src.startsWith('/data/')) {
+          try {
+            const { Capacitor } = await import('@capacitor/core');
+            src = Capacitor.convertFileSrc(song.audioUrl);
+          } catch (e) {
+            console.warn('Could not convert file src:', e);
+          }
+        }
       } else {
         // Local web file via FileHandle (blob URL)
         if (this.lastCrossOrigin) {
