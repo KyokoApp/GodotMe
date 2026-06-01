@@ -71,8 +71,13 @@ jobs:
       - name: Export debug keystore as base64
         if: ${{ github.event.inputs.export_keystore == 'true' }}
         run: |
+          KEYSTORE_PATH=$(find ~ -name "debug.keystore" 2>/dev/null | head -1)
+          if [ -z "$KEYSTORE_PATH" ]; then
+            KEYSTORE_PATH=$(find /root -name "debug.keystore" 2>/dev/null | head -1)
+          fi
+          echo "Found keystore at: $KEYSTORE_PATH"
           echo "==== COPY THIS TO KEYSTORE_BASE64 SECRET ===="
-          base64 -w 0 ~/.android/debug.keystore
+          base64 -w 0 "$KEYSTORE_PATH"
           echo ""
           echo "============================================="
 
