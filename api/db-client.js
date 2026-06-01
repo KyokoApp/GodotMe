@@ -1,18 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-import { triggerRestore } from './db-wake.js';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    global: {
-      fetch: async (url, options) => {
-        const res = await fetch(url, options);
-        if (!res.ok && res.status >= 500) triggerRestore();
-        return res;
-      },
-    },
-  }
+  'https://larmuwnemgumtndpouxw.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxhcm11d25lbWd1bXRuZHBvdXh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMDQ3MjgsImV4cCI6MjA5NTc4MDcyOH0.w09NG6o-KwGjrLfxbuHF2Zfwv5u2C7eWNTLGfsfhnDU'
 );
 
 export default supabase;
