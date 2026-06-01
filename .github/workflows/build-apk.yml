@@ -57,10 +57,10 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      # Inject persistent debug keystore (if secret exists)
-      # First time: skip this step, let Android generate a fresh one, then export it
       - name: Inject persistent debug keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        env:
+          HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 }}
+        if: ${{ env.HAS_KEYSTORE != '' }}
         run: |
           mkdir -p ~/.android
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ~/.android/debug.keystore
@@ -68,7 +68,6 @@ jobs:
       - name: Build APK debug
         run: cd android && ./gradlew assembleDebug
 
-      # ONLY runs when export_keystore=true (run once manually to get the keystore)
       - name: Export debug keystore as base64
         if: ${{ github.event.inputs.export_keystore == 'true' }}
         run: |
