@@ -102,7 +102,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
     }
   };
 
-
+  const handleGoogleLogin = async () => {
     const ok = signInWithGoogle('KyokoBeat');
     if (!ok) {
       toast('Login Google belum dikonfigurasi. Gunakan email dan password.', 'error');
