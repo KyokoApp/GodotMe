@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Heart, Plus, Cloud, Laptop, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { Play, Pause, Heart, Plus, Cloud, Laptop, MoreVertical, Edit2, Trash2, Download, Loader2 } from 'lucide-react';
 import { LocalSong } from '../lib/db';
 
 interface SongCardProps {
@@ -12,6 +12,8 @@ interface SongCardProps {
   onAddToPlaylist: () => void;
   onRename: (song: LocalSong) => void;
   onDelete: (song: LocalSong) => void;
+  onDownload?: (song: LocalSong) => void;
+  isDownloading?: boolean;
 }
 
 export default function SongCard({
@@ -23,7 +25,9 @@ export default function SongCard({
   onToggleFav,
   onAddToPlaylist,
   onRename,
-  onDelete
+  onDelete,
+  onDownload,
+  isDownloading = false,
 }: SongCardProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -168,7 +172,21 @@ export default function SongCard({
                 Tambah ke Playlist
               </button>
 
-              {!song.isCloud && (
+              {song.isCloud ? (
+                /* Cloud song: bisa download ke offline */
+                <button
+                  onClick={() => { onDownload?.(song); setShowDropdown(false); }}
+                  disabled={isDownloading}
+                  className="w-full px-4 py-2 text-left text-xs text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
+                  {isDownloading ? 'Mengunduh...' : 'Download ke Offline'}
+                </button>
+              ) : (
                 <>
                   <button
                     onClick={() => { onRename(song); setShowDropdown(false); }}
