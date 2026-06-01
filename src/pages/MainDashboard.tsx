@@ -325,9 +325,30 @@ export default function MainDashboard() {
       const res = await fetch('/api/cloud-songs');
       if (res.ok) {
         const data = await res.json();
-        // Track which cloud songs have been downloaded (for UI indicator)
+
+        // Build set of valid cloud IDs from API
+        const validCloudDlIds = new Set<string>(data.map((s: any) => `cloud-dl-${s.id}`));
+
+        // Get all local songs from DB
         const localSongsFromDB = await getSongs();
-        const dlIds = new Set(localSongsFromDB.filter(s => s.isDownloaded).map(s => s.id));
+
+        // Remove downloaded cloud songs that no longer exist in the API (deleted from Supabase/Cloudinary)
+        const staleDownloaded = localSongsFromDB.filter(s => s.isDownloaded && !validCloudDlIds.has(s.id));
+        for (const stale of staleDownloaded) {
+          await deleteSong(stale.id);
+          console.log(`[Cloud Refresh] Removed stale downloaded song: ${stale.title}`);
+        }
+
+        // Update local songs state if any were removed
+        if (staleDownloaded.length > 0) {
+          const freshLocal = await getSongs();
+          setLocalSongs(freshLocal.filter(s => !s.isCloud));
+          toast(`🗑️ ${staleDownloaded.length} lagu yang sudah dihapus dari cloud ikut dibersihkan.`, 'info');
+        }
+
+        // Track which cloud songs have been downloaded (for UI indicator)
+        const freshDb = staleDownloaded.length > 0 ? await getSongs() : localSongsFromDB;
+        const dlIds = new Set(freshDb.filter(s => s.isDownloaded).map(s => s.id));
         setDownloadedCloudIds(dlIds);
 
         const formattedCloudSongs: LocalSong[] = data.map((song: any) => ({
@@ -894,7 +915,7 @@ export default function MainDashboard() {
   };
 
   return (
-    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body ${playerState.currentSong ? 'pb-36' : 'pb-8'}`}>
+    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body ${playerState.currentSong ? 'pb-48' : 'pb-8'}`}>
       {/* Glow Header Background */}
       <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-[#c8f500]/5 to-transparent pointer-events-none"></div>
 
