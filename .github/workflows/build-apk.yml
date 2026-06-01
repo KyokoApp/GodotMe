@@ -4,6 +4,11 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      export_keystore:
+        description: 'Export debug keystore as base64 (run once to get KEYSTORE_BASE64 secret)'
+        required: false
+        default: 'false'
 
 jobs:
   build:
@@ -52,8 +57,25 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
+      # Inject persistent debug keystore (if secret exists)
+      # First time: skip this step, let Android generate a fresh one, then export it
+      - name: Inject persistent debug keystore
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        run: |
+          mkdir -p ~/.android
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ~/.android/debug.keystore
+
       - name: Build APK debug
         run: cd android && ./gradlew assembleDebug
+
+      # ONLY runs when export_keystore=true (run once manually to get the keystore)
+      - name: Export debug keystore as base64
+        if: ${{ github.event.inputs.export_keystore == 'true' }}
+        run: |
+          echo "==== COPY THIS TO KEYSTORE_BASE64 SECRET ===="
+          base64 -w 0 ~/.android/debug.keystore
+          echo ""
+          echo "============================================="
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
