@@ -6,11 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       generate_keystore:
-        description: 'Generate NEW keystore (run once, copy output to KEYSTORE_BASE64 secret)'
-        required: false
-        default: 'false'
-      export_keystore:
-        description: 'Export debug keystore as base64 (run once to get KEYSTORE_BASE64 secret)'
+        description: 'Generate NEW keystore (download artifact keystore_base64.txt lalu paste ke secret)'
         required: false
         default: 'false'
 
@@ -61,10 +57,10 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Generate new keystore
+      - name: Generate new keystore & save to file
         if: ${{ github.event.inputs.generate_keystore == 'true' }}
         run: |
-          mkdir -p ~/.android
+          mkdir -p ~/.android /tmp/keystore-out
           keytool -genkey -v \
             -keystore ~/.android/debug.keystore \
             -alias androiddebugkey \
@@ -73,11 +69,16 @@ jobs:
             -storepass android \
             -keypass android \
             -dname "CN=KyokoBeat, O=Kyoko, C=ID"
-          echo ""
-          echo "==== COPY THIS TO KEYSTORE_BASE64 SECRET ===="
-          base64 -w 0 ~/.android/debug.keystore
-          echo ""
-          echo "============================================="
+          base64 -w 0 ~/.android/debug.keystore > /tmp/keystore-out/keystore_base64.txt
+          echo "Keystore generated successfully"
+
+      - name: Upload keystore base64 as artifact
+        if: ${{ github.event.inputs.generate_keystore == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: keystore-base64
+          path: /tmp/keystore-out/keystore_base64.txt
+          retention-days: 1
 
       - name: Inject persistent debug keystore
         env:
@@ -89,19 +90,6 @@ jobs:
 
       - name: Build APK debug
         run: cd android && ./gradlew assembleDebug
-
-      - name: Export debug keystore as base64
-        if: ${{ github.event.inputs.export_keystore == 'true' }}
-        run: |
-          KEYSTORE_PATH=$(find ~ -name "debug.keystore" 2>/dev/null | head -1)
-          if [ -z "$KEYSTORE_PATH" ]; then
-            KEYSTORE_PATH=$(find /root -name "debug.keystore" 2>/dev/null | head -1)
-          fi
-          echo "Found keystore at: $KEYSTORE_PATH"
-          echo "==== COPY THIS TO KEYSTORE_BASE64 SECRET ===="
-          base64 -w 0 "$KEYSTORE_PATH"
-          echo ""
-          echo "============================================="
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
