@@ -1007,15 +1007,17 @@ export default function MainDashboard() {
               </>
             )}
           </button>
+        </div>
 
-          {/* YouTube Download Button */}
+        {/* Row 2: YouTube Download — full width, always visible */}
+        <div className="w-full flex justify-end mt-1">
           <button
             onClick={() => setIsYtModalOpen(true)}
-            className="p-2 px-3 rounded-full bg-[#111] border border-red-500/30 hover:border-red-500 hover:bg-red-500/5 text-red-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            className="p-2 px-4 rounded-full bg-red-500/10 border border-red-500/40 hover:border-red-500 hover:bg-red-500/20 text-red-400 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
             title="Download audio dari YouTube"
           >
             <Youtube className="w-3.5 h-3.5" />
-            <span>YT Download</span>
+            <span>⬇ YT Download</span>
           </button>
         </div>
       </header>
