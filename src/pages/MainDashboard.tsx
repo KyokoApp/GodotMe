@@ -28,7 +28,8 @@ import {
   AlertTriangle,
   HelpCircle,
   X,
-  RefreshCw
+  RefreshCw,
+  EyeOff,
 } from 'lucide-react';
 import audioManager from '../lib/audio';
 import {
@@ -49,7 +50,7 @@ import {
 } from '../lib/db';
 import { scanDirectoryRecursive, verifyPermission, syncFolderIncremental } from '../lib/scanner';
 import { isCapacitorActive, requestMobileStoragePermission, scanAllMobileStorage } from '../lib/mobileScanner';
-import { syncAllCloudMusic, ensureMusicFolder, downloadCloudSong } from '../lib/cloudMusic';
+import { ensureMusicFolder, downloadCloudSong } from '../lib/cloudMusic';
 import SongCard from '../components/SongCard';
 import WaveformVisualizer from '../components/WaveformVisualizer';
 import CloudSyncIndicator from '../components/CloudSyncIndicator';
@@ -111,15 +112,16 @@ export default function MainDashboard() {
   const [songToRename, setSongToRename] = useState<LocalSong | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [songToDelete, setSongToDelete] = useState<LocalSong | null>(null);
-  const [isDeleteAllOpen, setIsDeleteAllOpen] = useState(false);
+  const [isDeleteAllOpen, setIsDeleteAllOpen] = useState<false | 'choose' | 'hide' | 'delete'>(false);
   const [durationFilter, setDurationFilter] = useState<'all' | 'under1' | '1to2' | 'over2'>('all');
   const [syncingCloud, setSyncingCloud] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [showCreatePlaylistRow, setShowCreatePlaylistRow] = useState(false);
 
-  // Auth state
-  const [user, setUser] = useState<any>(null);
+  const [downloadedCloudIds, setDownloadedCloudIds] = useState<Set<string>>(new Set());
+
+
 
   const { toast } = useToast();
 
@@ -288,33 +290,32 @@ export default function MainDashboard() {
     }
   };
 
-  // Load cloud songs from Vercel API
+  // Load cloud songs from Vercel API — always show all cloud songs even if downloaded
   const loadCloudSongs = async () => {
     try {
       const res = await fetch('/api/cloud-songs');
       if (res.ok) {
         const data = await res.json();
-        // Exclude songs that already downloaded (they appear in offline)
+        // Track which cloud songs have been downloaded (for UI indicator)
         const localSongsFromDB = await getSongs();
-        const downloadedIds = new Set(localSongsFromDB.filter(s => s.isDownloaded).map(s => s.id));
+        const dlIds = new Set(localSongsFromDB.filter(s => s.isDownloaded).map(s => s.id));
+        setDownloadedCloudIds(dlIds);
 
-        const formattedCloudSongs: LocalSong[] = data
-          .filter((song: any) => !downloadedIds.has(`cloud-dl-${song.id}`))
-          .map((song: any) => ({
-            id: `cloud-${song.id}`,
-            title: song.title,
-            artist: song.artist || 'Unknown Artist',
-            album: song.album || 'Unknown Album',
-            duration: song.duration || 0,
-            cover: song.cover_url || null,
-            fileHandle: null as any,
-            path: song.audio_url,
-            fileSize: 0,
-            addedAt: Date.now(),
-            isCloud: true,
-            isDownloaded: false,
-            audioUrl: song.audio_url,
-          }));
+        const formattedCloudSongs: LocalSong[] = data.map((song: any) => ({
+          id: `cloud-${song.id}`,
+          title: song.title,
+          artist: song.artist || 'Unknown Artist',
+          album: song.album || 'Unknown Album',
+          duration: song.duration || 0,
+          cover: song.cover_url || null,
+          fileHandle: null as any,
+          path: song.audio_url,
+          fileSize: 0,
+          addedAt: Date.now(),
+          isCloud: true,
+          isDownloaded: false,
+          audioUrl: song.audio_url,
+        }));
         setCloudSongs(formattedCloudSongs);
       }
     } catch (e) {
@@ -609,13 +610,12 @@ export default function MainDashboard() {
     setIsRenameOpen(true);
   };
 
-  // Download satu lagu cloud ke offline
+  // Download satu lagu cloud ke offline — lagu tetap muncul di cloud tab
   const handleDownloadSong = async (song: LocalSong) => {
     if (downloadingId) return;
     setDownloadingId(song.id);
     try {
       await ensureMusicFolder();
-      // Extract original song data from cloud song
       const originalId = song.id.replace('cloud-', '');
       const res = await fetch('/api/cloud-songs');
       const allCloud = await res.json();
@@ -626,13 +626,14 @@ export default function MainDashboard() {
         toast(msg, 'info');
       });
       if (downloaded) {
-        // Refresh local songs & reload cloud (exclude newly downloaded)
+        // Refresh local songs
         const songs = await getSongs();
         const newLocalSongs = songs.filter(s => !s.isCloud);
         setLocalSongs(newLocalSongs);
-        // Remove from cloudSongs state (pindah ke offline)
-        setCloudSongs(prev => prev.filter(s => s.id !== song.id));
-        toast(`"${song.title}" berhasil disimpan ke Offline!`, 'success');
+        // Mark as downloaded in UI (cloud song stays in list)
+        const dlId = `cloud-dl-${originalId}`;
+        setDownloadedCloudIds(prev => new Set([...prev, dlId]));
+        toast(`"${song.title}" berhasil disimpan ke Offline! Bisa diputar kapan saja.`, 'success');
       }
     } catch (e: any) {
       toast('Gagal download: ' + e.message, 'error');
@@ -641,33 +642,105 @@ export default function MainDashboard() {
     }
   };
 
-  // Sync Cloud — download semua lagu baru dari cloud ke offline
-  const handleSyncCloud = async () => {
+  // Refresh Cloud — cek lagu terbaru di cloud (tidak download otomatis)
+  const handleRefreshCloud = async () => {
     setSyncingCloud(true);
     try {
-      await ensureMusicFolder();
-      const count = await syncAllCloudMusic((msg) => {
-        toast(msg, 'info');
-      });
-      if (count > 0) {
-        toast(`✅ ${count} lagu berhasil didownload dari Cloud!`, 'success');
-        // Reload local songs dari IndexedDB tanpa trigger background scan
-        const songs = await getSongs();
-        const newLocalSongs = songs.filter(s => !s.isCloud);
-        setLocalSongs(newLocalSongs);
-        // Reload cloud list (exclude newly downloaded)
-        await loadCloudSongs();
-      } else {
-        toast('Tidak ada lagu baru di Cloud.', 'info');
-      }
+      await loadCloudSongs();
+      toast(`☁️ Daftar lagu cloud diperbarui! ${cloudSongs.length} lagu tersedia.`, 'success');
     } catch (e: any) {
-      toast('Sync Cloud gagal: ' + e.message, 'error');
+      toast('Gagal refresh cloud: ' + e.message, 'error');
     } finally {
       setSyncingCloud(false);
     }
   };
 
-  // Delete all filtered songs
+  // Delete cloud song (admin only)
+  const handleDeleteCloudSong = async (song: LocalSong) => {
+    if (!confirm(`Hapus "${song.title}" dari cloud? File akan dihapus dari database.`)) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Tidak terautentikasi');
+      const originalId = song.id.replace('cloud-', '');
+      const res = await fetch('/api/cloud-songs', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ id: originalId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal hapus');
+      }
+      setCloudSongs(prev => prev.filter(s => s.id !== song.id));
+      toast(`"${song.title}" berhasil dihapus dari cloud.`, 'success');
+    } catch (e: any) {
+      toast('Gagal hapus dari cloud: ' + e.message, 'error');
+    }
+  };
+
+  // Sembunyikan semua lagu yang terfilter dari library
+  const handleHideAll = async () => {
+    const songsToHide = getFilteredSongs().filter(s => !s.isCloud);
+    setIsDeleteAllOpen(false);
+    try {
+      const hideIds = new Set(songsToHide.map(s => s.id));
+      for (const song of songsToHide) {
+        await addHiddenSong(song.id, song.path);
+        await deleteSong(song.id);
+        if (favorites.includes(song.id)) {
+          await toggleFavorite(song.id);
+        }
+      }
+      setFavorites(prev => prev.filter(id => !hideIds.has(id)));
+      setLocalSongs(prev => prev.filter(s => !hideIds.has(s.id)));
+      if (songsToHide.some(s => s.id === playerState.currentSong?.id)) {
+        audioManager.seek(0);
+        if (playerState.isPlaying) audioManager.togglePlay();
+      }
+      toast(`${songsToHide.length} lagu disembunyikan dari library.`, 'success');
+    } catch (e: any) {
+      toast('Gagal menyembunyikan: ' + e.message, 'error');
+    }
+  };
+
+  // Hapus semua file dari HP + sembunyikan dari library
+  const handleDeleteAllFromDevice = async () => {
+    const songsToDelete = getFilteredSongs().filter(s => !s.isCloud);
+    setIsDeleteAllOpen(false);
+    try {
+      const deleteIds = new Set(songsToDelete.map(s => s.id));
+      for (const song of songsToDelete) {
+        // Delete file from storage (Capacitor)
+        if ((window as any).Capacitor?.isNativePlatform()) {
+          try {
+            const { Filesystem } = await import('@capacitor/filesystem');
+            await Filesystem.deleteFile({ path: song.path });
+          } catch (fsErr) {
+            console.warn('File delete error:', fsErr);
+          }
+        }
+        await addHiddenSong(song.id, song.path);
+        await deleteSong(song.id);
+        if (favorites.includes(song.id)) {
+          await toggleFavorite(song.id);
+        }
+      }
+      setFavorites(prev => prev.filter(id => !deleteIds.has(id)));
+      setLocalSongs(prev => prev.filter(s => !deleteIds.has(s.id)));
+      if (songsToDelete.some(s => s.id === playerState.currentSong?.id)) {
+        audioManager.seek(0);
+        if (playerState.isPlaying) audioManager.togglePlay();
+      }
+      toast(`${songsToDelete.length} lagu berhasil dihapus dari HP!`, 'success');
+    } catch (e: any) {
+      toast('Gagal menghapus: ' + e.message, 'error');
+    }
+  };
+
+  // Delete all filtered songs (from DB only, file stays)
   const handleDeleteAll = async () => {
     // Hanya hapus lagu local/offline, bukan cloud streaming
     const songsToDelete = getFilteredSongs().filter(s => !s.isCloud);
@@ -847,21 +920,21 @@ export default function MainDashboard() {
             )}
           </button>
 
-          {/* Sync Cloud Button */}
+          {/* Refresh Cloud Button */}
           <button
-            onClick={handleSyncCloud}
+            onClick={handleRefreshCloud}
             disabled={syncingCloud}
             className="p-2 px-3 rounded-full bg-[#111] border border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/5 text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
           >
             {syncingCloud ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Syncing...</span>
+                <span>Memuat...</span>
               </>
             ) : (
               <>
-                <Cloud className="w-3.5 h-3.5" />
-                <span>Sync Cloud</span>
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh Cloud</span>
               </>
             )}
           </button>
@@ -1130,7 +1203,7 @@ export default function MainDashboard() {
             ))}
             {durationFilter !== 'all' && (
               <button
-                onClick={() => setIsDeleteAllOpen(true)}
+                onClick={() => setIsDeleteAllOpen('choose')}
                 className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -1328,7 +1401,9 @@ export default function MainDashboard() {
                       onRename={handleRenameSongClick}
                       onDelete={handleDeleteSong}
                       onDownload={song.isCloud ? () => handleDownloadSong(song) : undefined}
+                      onDeleteCloud={song.isCloud && user?.email === 'kyokomd2006@gmail.com' ? () => handleDeleteCloudSong(song) : undefined}
                       isDownloading={downloadingId === song.id}
+                      isDownloaded={song.isCloud ? downloadedCloudIds.has(`cloud-dl-${song.id.replace('cloud-', '')}`) : false}
                     />
                   ))}
                 </div>
@@ -1345,7 +1420,15 @@ export default function MainDashboard() {
             
             {/* Song Cover & Info */}
             <div className="flex items-center gap-4 w-full md:w-1/4 min-w-0">
-              <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-[#111] border border-white/5 flex-shrink-0 animate-spin-slow" style={{ animationPlayState: playerState.isPlaying ? 'running' : 'paused' }}>
+              <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-[#111] border border-white/5 flex-shrink-0" style={{
+                animation: playerState.isPlaying ? 'albumGlow 2s ease-in-out infinite' : 'none',
+              }}>
+                <style>{`
+                  @keyframes albumGlow {
+                    0%, 100% { box-shadow: 0 0 8px rgba(200, 245, 0, 0.3), 0 0 0 0 rgba(200,245,0,0.15); transform: scale(1); }
+                    50% { box-shadow: 0 0 20px rgba(200, 245, 0, 0.6), 0 0 0 4px rgba(200,245,0,0.08); transform: scale(1.04); }
+                  }
+                `}</style>
                 {playerState.currentSong.cover ? (
                   <img src={playerState.currentSong.cover} alt={playerState.currentSong.title} className="w-full h-full object-cover" />
                 ) : (
@@ -1512,39 +1595,61 @@ export default function MainDashboard() {
         }}
       />
 
-      {/* Delete All Confirm Modal */}
-      {isDeleteAllOpen && (
+      {/* Delete All Modal - Choose Action */}
+      {isDeleteAllOpen === 'choose' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-sm p-6 rounded-xl bg-[#111] border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.15)]">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
-                <Trash2 className="w-5 h-5 text-red-400" />
+          <div className="relative w-full max-w-sm p-6 rounded-xl bg-[#111] border border-gray-700/50 shadow-[0_0_30px_rgba(0,0,0,0.5)] animate-scale-up">
+            <button onClick={() => setIsDeleteAllOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-gray-700/50 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-gray-300" />
               </div>
-              <h3 className="text-xl font-heading text-white tracking-wider">HAPUS SEMUA</h3>
+              <h3 className="text-xl font-heading text-white tracking-wider">HAPUS SEMUA ({getFilteredSongs().filter(s => !s.isCloud).length} LAGU)</h3>
             </div>
-            <p className="text-sm text-gray-400 font-body mb-1">
-              Yakin hapus <span className="text-white font-semibold">{getFilteredSongs().length} lagu</span> dari filter "{
-                durationFilter === 'under1' ? '< 1 menit' :
-                durationFilter === '1to2' ? '1–2 menit' : '> 2 menit'
-              }"?
-            </p>
-            <p className="text-xs text-red-400/70 font-body mb-6">Tindakan ini tidak bisa dibatalkan.</p>
-            <div className="flex gap-3">
+            <p className="text-xs text-gray-400 font-body mb-4">Pilih cara menghapus semua lagu yang terfilter:</p>
+            <div className="space-y-3">
+              {/* Option 1: Hide All */}
               <button
                 type="button"
-                onClick={handleDeleteAll}
-                className="flex-1 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2 cursor-pointer text-sm"
+                onClick={handleHideAll}
+                className="w-full p-4 rounded-xl bg-[#1a1a1a] border border-[#c8f500]/20 hover:border-[#c8f500]/50 hover:bg-[#c8f500]/5 text-left transition-all cursor-pointer group"
               >
-                <Trash2 className="w-4 h-4" /> Hapus Semua
+                <div className="flex items-center gap-3 mb-1">
+                  <EyeOff className="w-4 h-4 text-[#c8f500] flex-shrink-0" />
+                  <span className="text-sm font-semibold text-white group-hover:text-[#c8f500] transition-colors">Sembunyikan Semua dari Library</span>
+                </div>
+                <p className="text-xs text-gray-500 ml-7">File tetap di HP, tidak akan muncul lagi meski di-rescan.</p>
               </button>
-              <button
-                type="button"
-                onClick={() => setIsDeleteAllOpen(false)}
-                className="flex-1 py-3 bg-transparent border border-gray-800 text-gray-400 hover:text-white rounded-lg hover:bg-gray-900 transition-colors text-sm cursor-pointer"
-              >
-                Batal
-              </button>
+              {/* Option 2: Delete from Device (Capacitor only) */}
+              {(window as any).Capacitor?.isNativePlatform() ? (
+                <button
+                  type="button"
+                  onClick={handleDeleteAllFromDevice}
+                  className="w-full p-4 rounded-xl bg-[#1a1a1a] border border-red-500/20 hover:border-red-500/50 hover:bg-red-500/5 text-left transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3 mb-1">
+                    <Trash2 className="w-4 h-4 text-red-400 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-white group-hover:text-red-400 transition-colors">Hapus Semua File dari HP</span>
+                  </div>
+                  <p className="text-xs text-gray-500 ml-7">File dihapus permanen dari penyimpanan. Tidak bisa dikembalikan.</p>
+                </button>
+              ) : (
+                <div className="w-full p-4 rounded-xl bg-[#1a1a1a] border border-gray-800 opacity-40">
+                  <div className="flex items-center gap-3 mb-1">
+                    <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-gray-400">Hapus File (hanya di Android)</span>
+                  </div>
+                  <p className="text-xs text-gray-600 ml-7">Fitur ini hanya tersedia di aplikasi Android KyokoBeat.</p>
+                </div>
+              )}
             </div>
+            <button
+              type="button"
+              onClick={() => setIsDeleteAllOpen(false)}
+              className="w-full mt-4 py-2.5 bg-transparent border border-gray-800 text-gray-400 hover:text-white rounded-lg hover:bg-gray-900 transition-colors text-sm cursor-pointer"
+            >
+              Batal
+            </button>
           </div>
         </div>
       )}
