@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Heart, Plus, Cloud, Laptop, MoreVertical, Edit2, Trash2, Download, Loader2 } from 'lucide-react';
+import { Play, Pause, Heart, Plus, Cloud, Laptop, MoreVertical, Edit2, Trash2, Download, Loader2, CheckCircle } from 'lucide-react';
 import { LocalSong } from '../lib/db';
 
 interface SongCardProps {
@@ -13,7 +13,9 @@ interface SongCardProps {
   onRename: (song: LocalSong) => void;
   onDelete: (song: LocalSong) => void;
   onDownload?: (song: LocalSong) => void;
+  onDeleteCloud?: (song: LocalSong) => void; // admin only
   isDownloading?: boolean;
+  isDownloaded?: boolean; // already downloaded from cloud
 }
 
 export default function SongCard({
@@ -27,7 +29,9 @@ export default function SongCard({
   onRename,
   onDelete,
   onDownload,
+  onDeleteCloud,
   isDownloading = false,
+  isDownloaded = false,
 }: SongCardProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -60,7 +64,7 @@ export default function SongCard({
       } transform hover:-translate-y-1`}
     >
       <div className="flex items-center gap-4 min-w-0 flex-1">
-        {/* Album Art / Animated Music Visual */}
+        {/* Album Art */}
         <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-[#1a1a1a] flex-shrink-0 border border-white/5">
           {song.cover ? (
             <img
@@ -70,12 +74,10 @@ export default function SongCard({
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           ) : (
-            /* Default music icon placeholder */
             <div className={`w-full h-full flex items-center justify-center transition-all duration-300 ${
               isCurrentlyPlaying ? 'bg-[#0d1a00]' : 'bg-[#151515]'
             }`}>
               {isCurrentlyPlaying ? (
-                /* Animated music bars when playing */
                 <div className="flex items-end gap-[3px] h-6">
                   {[0, 1, 2, 3].map((i) => (
                     <div
@@ -96,7 +98,6 @@ export default function SongCard({
                   `}</style>
                 </div>
               ) : (
-                /* Static music note icon */
                 <svg className={`w-6 h-6 transition-colors duration-300 ${isCurrent ? 'text-[#c8f500]/60' : 'text-gray-600'}`} viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                 </svg>
@@ -104,7 +105,6 @@ export default function SongCard({
             </div>
           )}
 
-          {/* Hover Play/Pause overlay */}
           <button
             onClick={onPlay}
             className={`absolute inset-0 flex items-center justify-center bg-black/60 transition-opacity duration-200 cursor-pointer ${
@@ -163,7 +163,7 @@ export default function SongCard({
           </button>
 
           {showDropdown && (
-            <div className="absolute right-0 mt-1 w-44 rounded-lg bg-[#151515] border border-gray-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] py-1.5 z-30 font-body animate-scale-up">
+            <div className="absolute right-0 mt-1 w-48 rounded-lg bg-[#151515] border border-gray-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] py-1.5 z-30 font-body animate-scale-up">
               <button
                 onClick={() => { onAddToPlaylist(); setShowDropdown(false); }}
                 className="w-full px-4 py-2 text-left text-xs text-gray-300 hover:bg-[#c8f500]/10 hover:text-[#c8f500] flex items-center gap-2 cursor-pointer transition-colors"
@@ -173,19 +173,34 @@ export default function SongCard({
               </button>
 
               {song.isCloud ? (
-                /* Cloud song: bisa download ke offline */
-                <button
-                  onClick={() => { onDownload?.(song); setShowDropdown(false); }}
-                  disabled={isDownloading}
-                  className="w-full px-4 py-2 text-left text-xs text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
-                >
-                  {isDownloading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Download className="w-3.5 h-3.5" />
+                <>
+                  {/* Download button */}
+                  <button
+                    onClick={() => { onDownload?.(song); setShowDropdown(false); }}
+                    disabled={isDownloading || isDownloaded}
+                    className="w-full px-4 py-2 text-left text-xs text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    {isDownloading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : isDownloaded ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
+                    {isDownloading ? 'Mengunduh...' : isDownloaded ? 'Sudah Diunduh' : 'Download ke Offline'}
+                  </button>
+
+                  {/* Admin-only: delete from cloud */}
+                  {onDeleteCloud && (
+                    <button
+                      onClick={() => { onDeleteCloud(song); setShowDropdown(false); }}
+                      className="w-full px-4 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 hover:text-red-500 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Hapus dari Cloud
+                    </button>
                   )}
-                  {isDownloading ? 'Mengunduh...' : 'Download ke Offline'}
-                </button>
+                </>
               ) : (
                 <>
                   <button
