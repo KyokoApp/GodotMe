@@ -1511,12 +1511,25 @@ export default function MainDashboard() {
                   }
                 `}</style>
                 {playerState.currentSong.cover ? (
-                  <img src={playerState.currentSong.cover} alt={playerState.currentSong.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-[#151515] text-gray-600">
-                    <Disc className="w-6 h-6 text-[#c8f500]" />
-                  </div>
-                )}
+                  <img
+                    src={playerState.currentSong.cover}
+                    alt={playerState.currentSong.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : null}
+                {/* Fallback music icon - always rendered, hidden by image when cover loads */}
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a2200] to-[#111]">
+                  <svg viewBox="0 0 40 40" className="w-8 h-8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Vinyl record design */}
+                    <circle cx="20" cy="20" r="18" fill="#1a1a1a" stroke="#c8f500" strokeWidth="0.8" strokeOpacity="0.4"/>
+                    <circle cx="20" cy="20" r="12" fill="#0d0d0d" stroke="#c8f500" strokeWidth="0.5" strokeOpacity="0.2"/>
+                    <circle cx="20" cy="20" r="6" fill="#151515" stroke="#c8f500" strokeWidth="0.5" strokeOpacity="0.3"/>
+                    <circle cx="20" cy="20" r="2.5" fill="#c8f500" fillOpacity="0.7"/>
+                    {/* Music note */}
+                    <path d="M22 14v7.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V16h2v-2h-4z" fill="#c8f500" fillOpacity="0.9"/>
+                  </svg>
+                </div>
               </div>
               <div className="min-w-0 flex-1">
                 <h4 className="text-sm font-semibold truncate text-white">{playerState.currentSong.title}</h4>
