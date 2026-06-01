@@ -16,11 +16,12 @@ class AudioManager {
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private currentSong: LocalSong | null = null;
   private callbacks: Set<AudioStateCallback> = new Set();
+  private lastCrossOrigin: boolean = false;
 
   constructor() {
     this.audio = new Audio();
+    this.audio.preload = 'auto';
     
-    // Set up standard audio events
     this.audio.addEventListener('play', () => this.notifyState());
     this.audio.addEventListener('pause', () => this.notifyState());
     this.audio.addEventListener('timeupdate', () => this.notifyState());
@@ -30,9 +31,11 @@ class AudioManager {
       this.notifyState();
       this.handleTrackEnded();
     });
+    this.audio.addEventListener('error', (e) => {
+      console.error('Audio element error:', this.audio.error);
+    });
   }
 
-  // Set callback for track ended (so player can play next)
   public onTrackEnded: (() => void) | null = null;
 
   private handleTrackEnded() {
@@ -41,27 +44,47 @@ class AudioManager {
     }
   }
 
-  // Lazily initialize Web Audio API to satisfy browser gesture requirements
+  // Lazily initialize Web Audio API
   private initAudioContext() {
     if (this.audioContext) return;
 
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 256; // High resolution but performant for visualizer
+      this.analyser.fftSize = 256;
 
-      // Connect HTMLAudioElement to Web Audio graph
       this.sourceNode = this.audioContext.createMediaElementSource(this.audio);
       this.sourceNode.connect(this.analyser);
       this.analyser.connect(this.audioContext.destination);
     } catch (e) {
-      console.warn('Web Audio API not fully supported or blocked:', e);
+      console.warn('Web Audio API not fully supported:', e);
+    }
+  }
+
+  // Ensure AudioContext is running
+  private async ensureAudioContextRunning() {
+    if (!this.audioContext) return;
+    try {
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      if (this.audioContext.state === 'closed') {
+        // Recreate if closed
+        this.audioContext = null;
+        this.analyser = null;
+        this.sourceNode = null;
+        this.initAudioContext();
+        if (this.audioContext && (this.audioContext as AudioContext).state === 'suspended') {
+          await (this.audioContext as AudioContext).resume();
+        }
+      }
+    } catch (e) {
+      console.warn('Could not resume AudioContext:', e);
     }
   }
 
   public subscribe(callback: AudioStateCallback) {
     this.callbacks.add(callback);
-    // Initial notification
     this.notifyState();
     return () => {
       this.callbacks.delete(callback);
@@ -82,41 +105,60 @@ class AudioManager {
 
   public async playSong(song: LocalSong) {
     this.initAudioContext();
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-    }
+    await this.ensureAudioContextRunning();
 
     try {
       let src = '';
+      const needsCors = !!(song.isCloud || song.isDownloaded) && !!(song.audioUrl);
+
       if (song.isCloud && song.audioUrl) {
+        // Cloud streaming — needs CORS for Web Audio API
         src = song.audioUrl;
         this.audio.crossOrigin = 'anonymous';
-      } else if (song.audioUrl) {
-        // Mobile Capacitor converted file src
+        this.lastCrossOrigin = true;
+      } else if (song.isDownloaded && song.audioUrl) {
+        // Downloaded from cloud (web fallback using Cloudinary URL) — also needs CORS
         src = song.audioUrl;
-        this.audio.removeAttribute('crossorigin');
+        this.audio.crossOrigin = 'anonymous';
+        this.lastCrossOrigin = true;
+      } else if (song.audioUrl) {
+        // Mobile Capacitor native file (capacitor:// or content://)
+        // Remove crossorigin ONLY if previous song had it (reset properly)
+        if (this.lastCrossOrigin) {
+          this.audio.removeAttribute('crossorigin');
+          this.lastCrossOrigin = false;
+        }
+        src = song.audioUrl;
       } else {
-        // Local web file
-        this.audio.removeAttribute('crossorigin');
+        // Local web file via FileHandle (blob URL)
+        if (this.lastCrossOrigin) {
+          this.audio.removeAttribute('crossorigin');
+          this.lastCrossOrigin = false;
+        }
         const file = await song.fileHandle.getFile();
         src = URL.createObjectURL(file);
       }
 
-      // Revoke old object URL if any (to prevent memory leaks)
+      // Revoke old object URL
       if (this.audio.src && this.audio.src.startsWith('blob:')) {
         URL.revokeObjectURL(this.audio.src);
       }
 
       this.currentSong = song;
+
+      // Important: set src AFTER setting crossOrigin attribute
       this.audio.src = src;
+      this.audio.load(); // Force reload to apply crossOrigin change
 
       try {
         await this.audio.play();
       } catch (playError: any) {
-        if (song.isCloud) {
-          console.warn("Play with CORS failed, retrying without CORS...", playError);
+        if (needsCors) {
+          console.warn('Play with CORS failed, retrying without CORS...', playError);
           this.audio.removeAttribute('crossorigin');
-          this.audio.src = src; // reload source without crossorigin
+          this.lastCrossOrigin = false;
+          this.audio.src = src;
+          this.audio.load();
           await this.audio.play();
         } else {
           throw playError;
@@ -134,9 +176,7 @@ class AudioManager {
     if (!this.currentSong) return;
     
     this.initAudioContext();
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-    }
+    await this.ensureAudioContextRunning();
 
     if (this.audio.paused) {
       await this.audio.play();
@@ -153,7 +193,6 @@ class AudioManager {
   }
 
   public setVolume(volume: number) {
-    // Clamp between 0 and 1
     const clamped = Math.max(0, Math.min(1, volume));
     this.audio.volume = clamped;
     this.audio.muted = clamped === 0;
