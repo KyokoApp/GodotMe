@@ -122,6 +122,7 @@ export async function syncFolderIncremental(
           if (!hiddenPaths.has(relativePath)) {
             audioFiles.push({ handle: entry, relativePath });
           }
+        }
       } else if (entry.kind === 'directory') {
         try {
           await collectFiles(entry, `${currentPath}${entry.name}/`);
