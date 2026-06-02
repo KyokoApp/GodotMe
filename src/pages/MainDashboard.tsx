@@ -942,9 +942,9 @@ export default function MainDashboard() {
   };
 
   return (
-    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body ${playerState.currentSong ? 'pb-[72px]' : 'pb-8'}`}>
-      {/* Glow Header Background */}
-      <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-[#c8f500]/5 to-transparent pointer-events-none"></div>
+    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body w-full max-w-full ${playerState.currentSong ? 'pb-[72px]' : 'pb-8'}`}>
+      {/* Subtle top glow — constrained to not overflow */}
+      <div className="w-full h-32 bg-gradient-to-b from-[#c8f500]/5 to-transparent pointer-events-none flex-shrink-0" style={{marginBottom: '-8rem'}}></div>
 
       {/* Header - scrolls with content */}
       <header className="relative z-30 px-3 py-2.5 border-b border-white/5 flex flex-col gap-2">
@@ -1056,7 +1056,7 @@ export default function MainDashboard() {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-4 gap-6 relative z-10 overflow-x-hidden">
+      <main className="flex-1 max-w-full w-full mx-auto p-3 grid grid-cols-1 lg:grid-cols-4 gap-4 relative z-10 overflow-x-hidden">
         {/* Left Side: Navigation / Playlists */}
         <div className="lg:col-span-1 space-y-6">
           {/* Library Tabs */}
@@ -1469,7 +1469,7 @@ export default function MainDashboard() {
 
       {/* ─── MINI PLAYER (Spotify-style compact bar) ─── */}
       {playerState.currentSong && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 px-2 pb-2">
+        <div className="fixed bottom-0 left-0 right-0 z-50 px-2 pb-2 overflow-hidden">
           <div
             className="bg-[#1e1e1e] rounded-xl overflow-hidden shadow-[0_-4px_24px_rgba(0,0,0,0.6)] cursor-pointer active:scale-[0.99] transition-transform"
             onClick={() => setShowFullPlayer(true)}
@@ -1523,7 +1523,7 @@ export default function MainDashboard() {
       {/* ─── FULL SCREEN PLAYER ─── */}
       {playerState.currentSong && showFullPlayer && (
         <div
-          className="fixed inset-0 z-[100] flex flex-col"
+          className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
           style={{ background: 'linear-gradient(180deg, #1c2500 0%, #0d0d0d 55%)' }}
         >
           {/* Top bar */}
