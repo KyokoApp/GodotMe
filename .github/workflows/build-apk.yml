@@ -1,65 +1,14 @@
 name: Build KyokoBeat APK
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
-    inputs:
-      generate_keystore:
-        description: 'Generate NEW keystore (download artifact keystore_base64.txt lalu paste ke secret KEYSTORE_BASE64)'
-        required: false
-        default: 'false'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Build Vite
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npm run build
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Capacitor CLI
-        run: npm install -g @capacitor/cli@6
-
-      - name: Add Android platform
-        run: npx cap add android
-
-      - name: Capacitor sync
-        run: npx cap sync android
-
-      - name: Configure Android (permissions & native plugin)
-        run: node scripts/configure-android.cjs
-
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
-
-      # ── GENERATE KEYSTORE BARU (jalankan sekali, simpan ke secret) ──
-      - name: Generate new keystore & save to file
-        if: ${{ github.event.inputs.generate_keystore == 'true' }}
+      - name: Generate keystore
         run: |
           mkdir -p /tmp/keystore-out
           keytool -genkey -v \
@@ -71,75 +20,11 @@ jobs:
             -keypass kyokobeat123 \
             -dname "CN=KyokoBeat, O=Kyoko, C=ID"
           base64 -w 0 /tmp/keystore-out/kyokobeat-release.keystore > /tmp/keystore-out/keystore_base64.txt
-          echo "✅ Keystore generated. Download artifact lalu paste isinya ke secret KEYSTORE_BASE64"
+          echo "✅ Done! Download artifact keystore_base64.txt lalu paste isinya ke secret KEYSTORE_BASE64"
 
-      - name: Upload keystore base64 as artifact
-        if: ${{ github.event.inputs.generate_keystore == 'true' }}
+      - name: Upload keystore as artifact
         uses: actions/upload-artifact@v4
         with:
           name: keystore-base64
           path: /tmp/keystore-out/keystore_base64.txt
           retention-days: 1
-
-      # ── LOAD KEYSTORE DARI SECRET ──
-      - name: Setup release keystore
-        run: |
-          mkdir -p android/app/keystore
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/keystore/kyokobeat-release.keystore
-            echo "✅ Keystore loaded from secret"
-          else
-            echo "❌ SECRET KEYSTORE_BASE64 TIDAK ADA!"
-            echo "Jalankan workflow dengan generate_keystore=true dulu, download artifact, lalu set secret."
-            exit 1
-          fi
-
-      # ── BUAT key.properties ──
-      - name: Create key.properties
-        run: |
-          cat > android/key.properties << EOF
-          storePassword=kyokobeat123
-          keyPassword=kyokobeat123
-          keyAlias=kyokobeat
-          storeFile=keystore/kyokobeat-release.keystore
-          EOF
-
-      # ── INJECT SIGNING CONFIG KE build.gradle ──
-      - name: Inject signing config into build.gradle
-        run: |
-          BUILD_GRADLE="android/app/build.gradle"
-
-          # Tambah def keystoreProperties di atas android { }
-          sed -i '/^android {/i\
-          def keystorePropertiesFile = rootProject.file("key.properties")\
-          def keystoreProperties = new Properties()\
-          keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\
-          ' "$BUILD_GRADLE"
-
-          # Tambah signingConfigs block sebelum buildTypes
-          sed -i '/buildTypes {/i\
-              signingConfigs {\
-                  release {\
-                      keyAlias keystoreProperties["keyAlias"]\
-                      keyPassword keystoreProperties["keyPassword"]\
-                      storeFile file(keystoreProperties["storeFile"])\
-                      storePassword keystoreProperties["storePassword"]\
-                  }\
-              }\
-          ' "$BUILD_GRADLE"
-
-          # Set signing config di release buildType
-          sed -i '/buildTypes {/,/^    }/ s/release {/release {\n                signingConfig signingConfigs.release/' "$BUILD_GRADLE"
-
-          echo "✅ Signing config injected"
-          cat "$BUILD_GRADLE"
-
-      - name: Build APK release
-        run: cd android && ./gradlew assembleRelease
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: KyokoBeat-release
-          path: android/app/build/outputs/apk/release/app-release.apk
-          retention-days: 7
