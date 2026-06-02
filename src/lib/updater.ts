@@ -6,7 +6,7 @@ const VERSION_URL =
 
 // Versi app saat ini — otomatis dari package.json via Vite
 export const CURRENT_VERSION: string =
-  (import.meta as any).env?.VITE_APP_VERSION || '1.0.0';
+  (import.meta as any).env?.VITE_APP_VERSION || '1.2.0';
 
 export interface UpdateInfo {
   version: string;
