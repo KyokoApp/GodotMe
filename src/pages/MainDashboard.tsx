@@ -92,6 +92,7 @@ export default function MainDashboard() {
 
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<'none' | 'one' | 'all'>('none');
+  const [playerVisible, setPlayerVisible] = useState(true);
 
   // Scanning / Syncing states
   const [scanning, setScanning] = useState(false);
@@ -153,7 +154,13 @@ export default function MainDashboard() {
   // 2. Sync Audio Manager State
   useEffect(() => {
     const unsubscribe = audioManager.subscribe((state) => {
-      setPlayerState(state);
+      setPlayerState(prev => {
+        // Kalau lagu baru mulai, tampilkan player lagi
+        if (state.currentSong && state.currentSong.id !== prev.currentSong?.id) {
+          setPlayerVisible(true);
+        }
+        return state;
+      });
     });
 
     // Handle track ended
@@ -920,7 +927,7 @@ export default function MainDashboard() {
   };
 
   return (
-    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body ${playerState.currentSong ? 'pb-48' : 'pb-8'}`}>
+    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body ${playerState.currentSong ? 'pb-32' : 'pb-8'}`}>
       {/* Glow Header Background */}
       <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-[#c8f500]/5 to-transparent pointer-events-none"></div>
 
@@ -1494,9 +1501,46 @@ export default function MainDashboard() {
         </div>
       </main>
 
+      {/* Floating Bubble - muncul saat player disembunyikan */}
+      {playerState.currentSong && !playerVisible && (
+        <button
+          onClick={() => setPlayerVisible(true)}
+          className="fixed bottom-6 right-4 z-50 w-14 h-14 rounded-full bg-[#c8f500] shadow-[0_0_20px_rgba(200,245,0,0.5)] flex items-center justify-center cursor-pointer animate-bounce-slow"
+          style={{ animation: 'floatBubble 2s ease-in-out infinite' }}
+        >
+          <style>{`
+            @keyframes floatBubble {
+              0%, 100% { transform: translateY(0px); box-shadow: 0 0 20px rgba(200,245,0,0.5); }
+              50% { transform: translateY(-6px); box-shadow: 0 0 30px rgba(200,245,0,0.7); }
+            }
+          `}</style>
+          {playerState.isPlaying ? (
+            <Pause className="w-6 h-6 fill-black text-black" />
+          ) : (
+            <Play className="w-6 h-6 fill-black text-black ml-0.5" />
+          )}
+        </button>
+      )}
+
       {/* Bottom Player Bar */}
       {playerState.currentSong && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[#c8f500]/20 p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.8)] backdrop-blur-lg">
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50"
+          style={{
+            transform: playerVisible ? 'translateY(0)' : 'translateY(110%)',
+            transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          {/* Swipe down handle + hide button */}
+          <div className="flex justify-center pt-1 pb-0 bg-transparent">
+            <button
+              onClick={() => setPlayerVisible(false)}
+              className="flex flex-col items-center gap-0.5 cursor-pointer group"
+            >
+              <div className="w-10 h-1 rounded-full bg-[#c8f500]/40 group-hover:bg-[#c8f500] transition-colors" />
+            </button>
+          </div>
+        <div className="bg-[#0a0a0a] border-t border-[#c8f500]/20 p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.8)] backdrop-blur-lg">
           <div className="max-w-7xl w-full mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
             
             {/* Song Cover & Info */}
@@ -1645,6 +1689,7 @@ export default function MainDashboard() {
             </div>
 
           </div>
+        </div>
         </div>
       )}
 
