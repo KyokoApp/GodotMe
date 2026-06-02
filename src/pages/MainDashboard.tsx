@@ -976,8 +976,6 @@ export default function MainDashboard() {
           <div>
             <h1 className="text-4xl font-heading text-[#c8f500] tracking-widest leading-none">KYOKOBEAT</h1>
             <p className="text-[9px] text-gray-500 uppercase tracking-widest mt-0.5">OFFLINE & CLOUD PLAYER</p>
-            {/* DEBUG - hapus setelah test */}
-            <button onClick={() => setUpdateInfo({ version: '9.9.9', apkUrl: '', changelog: 'Test badge' })} className="text-[9px] text-red-400 mt-1 underline">TEST BADGE</button>
           </div>
         </div>
 
