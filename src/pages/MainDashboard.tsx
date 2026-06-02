@@ -32,6 +32,7 @@ import {
   EyeOff,
   Youtube,
   ChevronDown,
+  CloudDownload,
 } from 'lucide-react';
 import audioManager from '../lib/audio';
 import {
@@ -63,6 +64,7 @@ import PlaylistModal from '../components/PlaylistModal';
 import RenameModal from '../components/RenameModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import YtDownloadModal from '../components/YtDownloadModal';
+import SoundCloudSearchModal from '../components/SoundCloudSearchModal';
 import { useToast } from '../components/Toast';
 import supabase from '../lib/supabase';
 
@@ -134,6 +136,9 @@ export default function MainDashboard() {
 
   // YouTube Download modal state
   const [isYtModalOpen, setIsYtModalOpen] = useState(false);
+
+  // SoundCloud Search modal state
+  const [isScModalOpen, setIsScModalOpen] = useState(false);
 
   // Auth state
   const [user, setUser] = useState<any>(null);
@@ -1026,6 +1031,15 @@ export default function MainDashboard() {
             >
               <Youtube className="w-3.5 h-3.5" />
             </button>
+
+            {/* SoundCloud Search */}
+            <button
+              onClick={() => setIsScModalOpen(true)}
+              title="Cari Lagu Online (SoundCloud)"
+              className="w-8 h-8 rounded-full bg-[#c8f500]/10 border border-[#c8f500]/30 hover:border-[#c8f500] text-[#c8f500] transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
+            >
+              <CloudDownload className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
@@ -1727,6 +1741,17 @@ export default function MainDashboard() {
       <YtDownloadModal
         isOpen={isYtModalOpen}
         onClose={() => setIsYtModalOpen(false)}
+        onDownloadComplete={() => {
+          loadLocalDataAndSync();
+          setSourceFilter('offline');
+        }}
+        toast={toast}
+      />
+
+      {/* SoundCloud Search Modal */}
+      <SoundCloudSearchModal
+        isOpen={isScModalOpen}
+        onClose={() => setIsScModalOpen(false)}
         onDownloadComplete={() => {
           loadLocalDataAndSync();
           setSourceFilter('offline');
