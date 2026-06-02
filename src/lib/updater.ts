@@ -51,7 +51,7 @@ export async function downloadAndInstall(
   }
 
   // Gabung semua chunk jadi base64
-  const blob = new Blob(chunks, { type: 'application/vnd.android.package-archive' });
+  const blob = new Blob(chunks as BlobPart[], { type: 'application/vnd.android.package-archive' });
   const base64 = await blobToBase64(blob);
 
   // Simpan ke Downloads
@@ -62,17 +62,19 @@ export async function downloadAndInstall(
   });
 
   // Trigger install via Android Intent
-  const { path } = await Filesystem.getUri({
+  const getUriResult = await Filesystem.getUri({
     path: 'KyokoBeat-update.apk',
     directory: Directory.External,
   });
 
+  const fileUri = getUriResult.uri;
+
   // Pakai Capacitor Browser / window open untuk trigger install
-  (window as any).AndroidInstallApk?.install(path);
+  (window as any).AndroidInstallApk?.install(fileUri);
 
   // Fallback: buka file manager ke path apk
   if (!(window as any).AndroidInstallApk) {
-    window.open(path, '_system');
+    window.open(fileUri, '_system');
   }
 }
 
