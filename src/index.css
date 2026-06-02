@@ -100,14 +100,18 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* Prevent horizontal scroll - ONLY on html, NOT body (body overflow breaks position:fixed!) */
+  /* Prevent horizontal scroll & overscroll bounce (swipe-back white screen fix) */
   html {
-    overflow-x: clip;
+    overflow-x: clip;          /* clip = no scroll, but doesn't break position:fixed */
+    overscroll-behavior-x: none; /* disable swipe-back / horizontal bounce */
     max-width: 100vw;
+    touch-action: pan-y;       /* allow vertical scroll, block horizontal swipe */
   }
   body, #root {
     max-width: 100%;
     width: 100%;
+    overflow-x: clip;          /* same on body – clip doesn't break position:fixed */
+    overscroll-behavior: none; /* block both axes on body */
   }
 
   /* Responsive font scaling — prevents tiny text on high-DPI devices */
