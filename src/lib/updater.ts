@@ -5,8 +5,7 @@ const VERSION_URL =
   'https://github.com/KyokoApp/KyokoBeat/releases/latest/download/version.json';
 
 // Versi app saat ini — otomatis dari package.json via Vite
-export const CURRENT_VERSION: string =
-  (import.meta as any).env?.VITE_APP_VERSION || '0.2.0';
+export const CURRENT_VERSION: string = '0.2.0';
 
 export interface UpdateInfo {
   version: string;
