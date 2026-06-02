@@ -4,8 +4,9 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 const VERSION_URL =
   'https://github.com/KyokoApp/KyokoBeat/releases/latest/download/version.json';
 
-// Versi app saat ini — samakan dengan package.json & workflow
-export const CURRENT_VERSION = '1.0.0';
+// Versi app saat ini — otomatis dari package.json via Vite
+export const CURRENT_VERSION: string =
+  (import.meta as any).env?.VITE_APP_VERSION || '1.0.0';
 
 export interface UpdateInfo {
   version: string;
