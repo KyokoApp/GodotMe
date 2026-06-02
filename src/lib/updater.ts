@@ -1,11 +1,11 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
 // URL file version.json di GitHub Releases
-const VERSION_URL =
-  'https://github.com/KyokoApp/KyokoBeat/releases/latest/download/version.json';
+const VERSION_URL = 'https://kyokobeat.vercel.app/version.json';
 
 // Versi app saat ini — otomatis dari package.json via Vite
-export const CURRENT_VERSION: string = '0.2.0';
+export const CURRENT_VERSION: string =
+  (import.meta as any).env?.VITE_APP_VERSION || '1.0.0';
 
 export interface UpdateInfo {
   version: string;
