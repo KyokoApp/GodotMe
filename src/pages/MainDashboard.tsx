@@ -51,6 +51,8 @@ import {
 } from '../lib/db';
 import { scanDirectoryRecursive, verifyPermission, syncFolderIncremental } from '../lib/scanner';
 import { isCapacitorActive, requestMobileStoragePermission, scanAllMobileStorage } from '../lib/mobileScanner';
+import { checkForUpdate } from '../lib/updater';
+import UpdateDialog from '../components/UpdateDialog';
 import { ensureMusicFolder, downloadCloudSong } from '../lib/cloudMusic';
 import SongCard from '../components/SongCard';
 import WaveformVisualizer from '../components/WaveformVisualizer';
@@ -93,6 +95,10 @@ export default function MainDashboard() {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<'none' | 'one' | 'all'>('none');
   const [playerVisible, setPlayerVisible] = useState(true);
+
+  // Update checker
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
   // Scanning / Syncing states
   const [scanning, setScanning] = useState(false);
@@ -147,6 +153,13 @@ export default function MainDashboard() {
     loadLocalDataAndSync();
     // Load pre-seeded cloud songs
     loadCloudSongs();
+
+    // Cek update di Android
+    if (isCapacitorActive()) {
+      checkForUpdate().then((info) => {
+        if (info) setUpdateInfo(info);
+      });
+    }
 
     return () => subscription.unsubscribe();
   }, []);
@@ -935,8 +948,30 @@ export default function MainDashboard() {
       <header className="relative z-30 p-4 border-b border-white/5 bg-black/40 backdrop-blur-md sticky top-0 flex flex-col md:flex-row gap-4 items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-[#111] border border-[#c8f500]/20 shadow-[0_0_15px_rgba(200,245,0,0.1)]">
-            <Disc className="w-6 h-6 text-[#c8f500] animate-spin-slow" />
+          <div className="relative">
+            <div className="p-2 rounded-lg bg-[#111] border border-[#c8f500]/20 shadow-[0_0_15px_rgba(200,245,0,0.1)]">
+              <Disc className="w-6 h-6 text-[#c8f500] animate-spin-slow" />
+            </div>
+            {/* Update badge ZZZ-style */}
+            {updateInfo && (
+              <button
+                onClick={() => setShowUpdateDialog(true)}
+                className="absolute -top-2 -right-2 cursor-pointer group"
+                title="Ada update tersedia!"
+              >
+                <div className="relative">
+                  <div className="w-5 h-5 rounded-full bg-red-500 border-2 border-[#0a0a0a] flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.8)]" style={{ animation: 'updatePulse 1.5s ease-in-out infinite' }}>
+                    <style>{`
+                      @keyframes updatePulse {
+                        0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(239,68,68,0.8); }
+                        50% { transform: scale(1.2); box-shadow: 0 0 14px rgba(239,68,68,1); }
+                      }
+                    `}</style>
+                    <span className="text-white font-black text-[8px] leading-none">!</span>
+                  </div>
+                </div>
+              </button>
+            )}
           </div>
           <div>
             <h1 className="text-4xl font-heading text-[#c8f500] tracking-widest leading-none">KYOKOBEAT</h1>
@@ -1744,6 +1779,14 @@ export default function MainDashboard() {
         }}
         toast={toast}
       />
+
+      {/* In-App Update Dialog */}
+      {showUpdateDialog && updateInfo && (
+        <UpdateDialog
+          info={updateInfo}
+          onDismiss={() => setShowUpdateDialog(false)}
+        />
+      )}
 
       {/* Delete All Modal - Choose Action */}
       {isDeleteAllOpen === 'choose' && (
