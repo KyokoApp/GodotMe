@@ -942,7 +942,10 @@ export default function MainDashboard() {
   };
 
   return (
-    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body w-full max-w-full ${playerState.currentSong ? 'pb-[72px]' : 'pb-8'}`}>
+    <div
+      className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body w-full max-w-full overflow-x-hidden ${playerState.currentSong ? 'pb-[72px]' : 'pb-8'}`}
+      style={{ overscrollBehavior: 'none', touchAction: 'pan-y' }}
+    >
       {/* Subtle top glow — constrained to not overflow */}
       <div className="w-full h-32 bg-gradient-to-b from-[#c8f500]/5 to-transparent pointer-events-none flex-shrink-0" style={{marginBottom: '-8rem'}}></div>
 
@@ -1469,7 +1472,10 @@ export default function MainDashboard() {
 
       {/* ─── MINI PLAYER (Spotify-style compact bar) ─── */}
       {playerState.currentSong && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 px-2 pb-2 overflow-hidden">
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50 px-2 overflow-hidden"
+          style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))' }}
+        >
           <div
             className="bg-[#1e1e1e] rounded-xl overflow-hidden shadow-[0_-4px_24px_rgba(0,0,0,0.6)] cursor-pointer active:scale-[0.99] transition-transform"
             onClick={() => setShowFullPlayer(true)}
@@ -1524,7 +1530,7 @@ export default function MainDashboard() {
       {playerState.currentSong && showFullPlayer && (
         <div
           className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
-          style={{ background: 'linear-gradient(180deg, #1c2500 0%, #0d0d0d 55%)' }}
+          style={{ background: 'linear-gradient(180deg, #1c2500 0%, #0d0d0d 55%)', touchAction: 'pan-y', overscrollBehavior: 'none' }}
         >
           {/* Top bar */}
           <div className="flex items-center justify-between px-4 pt-10 pb-2 flex-shrink-0">
