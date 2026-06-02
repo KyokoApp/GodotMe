@@ -31,6 +31,7 @@ import {
   RefreshCw,
   EyeOff,
   Youtube,
+  ChevronDown,
 } from 'lucide-react';
 import audioManager from '../lib/audio';
 import {
@@ -95,6 +96,7 @@ export default function MainDashboard() {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<'none' | 'one' | 'all'>('none');
   const [playerVisible, setPlayerVisible] = useState(true);
+  const [showFullPlayer, setShowFullPlayer] = useState(false);
 
   // Update checker
   const [updateInfo, setUpdateInfo] = useState<any>(null);
@@ -940,127 +942,56 @@ export default function MainDashboard() {
   };
 
   return (
-    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body ${playerState.currentSong ? 'pb-32' : 'pb-8'}`}>
+    <div className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body ${playerState.currentSong ? 'pb-[72px]' : 'pb-8'}`}>
       {/* Glow Header Background */}
       <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-[#c8f500]/5 to-transparent pointer-events-none"></div>
 
-      {/* Header */}
-      <header className="relative z-30 p-4 border-b border-white/5 bg-black/40 backdrop-blur-md sticky top-0 flex flex-col md:flex-row gap-4 items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="p-2 rounded-lg bg-[#111] border border-[#c8f500]/20 shadow-[0_0_15px_rgba(200,245,0,0.1)]">
-              <Disc className="w-6 h-6 text-[#c8f500] animate-spin-slow" />
-            </div>
-            {/* Update badge ZZZ-style */}
-            {updateInfo && (
-              <button
-                onClick={() => setShowUpdateDialog(true)}
-                className="absolute -top-2 -right-2 cursor-pointer group"
-                title="Ada update tersedia!"
-              >
-                <div className="relative">
-                  <div className="w-5 h-5 rounded-full bg-red-500 border-2 border-[#0a0a0a] flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.8)]" style={{ animation: 'updatePulse 1.5s ease-in-out infinite' }}>
-                    <style>{`
-                      @keyframes updatePulse {
-                        0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(239,68,68,0.8); }
-                        50% { transform: scale(1.2); box-shadow: 0 0 14px rgba(239,68,68,1); }
-                      }
-                    `}</style>
-                    <span className="text-white font-black text-[8px] leading-none">!</span>
+      {/* Header - scrolls with content */}
+      <header className="relative z-30 px-3 py-2.5 border-b border-white/5 flex flex-col gap-2">
+        {/* Row 1: Logo + core actions */}
+        <div className="flex items-center gap-2 justify-between">
+          {/* Logo compact */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="relative">
+              <div className="p-1.5 rounded-lg bg-[#111] border border-[#c8f500]/20">
+                <Disc className="w-4 h-4 text-[#c8f500] animate-spin-slow" />
+              </div>
+              {updateInfo && (
+                <button onClick={() => setShowUpdateDialog(true)} className="absolute -top-1.5 -right-1.5">
+                  <div className="w-4 h-4 rounded-full bg-red-500 border border-[#0a0a0a] flex items-center justify-center">
+                    <span className="text-white font-black text-[7px]">!</span>
                   </div>
-                </div>
-              </button>
-            )}
+                </button>
+              )}
+            </div>
+            <div>
+              <h1 className="text-2xl font-heading text-[#c8f500] tracking-widest leading-none">KYOKOBEAT</h1>
+              <p className="text-[8px] text-gray-600 uppercase tracking-widest">OFFLINE & CLOUD PLAYER</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-4xl font-heading text-[#c8f500] tracking-widest leading-none">KYOKOBEAT</h1>
-            <p className="text-[9px] text-gray-500 uppercase tracking-widest mt-0.5">OFFLINE & CLOUD PLAYER</p>
+
+          {/* Right actions */}
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setShowHelp(!showHelp)} className="p-1.5 rounded-full bg-[#111] border border-gray-800 hover:border-[#c8f500]/40 text-gray-500 hover:text-[#c8f500] transition-colors cursor-pointer" title="Bantuan">
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+            <CloudSyncIndicator user={user} onLoginClick={() => setIsAuthOpen(true)} onLogoutSuccess={() => setUser(null)} favorites={favorites} playlists={playlists} onSyncComplete={loadLocalDataAndSync} />
+            <button onClick={handleRescan} disabled={scanning} className="p-1.5 px-2.5 rounded-full bg-[#111] border border-[#c8f500]/30 hover:border-[#c8f500] text-[#c8f500] text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer">
+              {scanning ? <><Loader2 className="w-3 h-3 animate-spin" /><span>Scan...</span></> : <><FolderSync className="w-3 h-3" /><span>Rescan</span></>}
+            </button>
+            <button onClick={handleRefreshCloud} disabled={syncingCloud} className="p-1.5 px-2.5 rounded-full bg-[#111] border border-blue-500/30 hover:border-blue-400 text-blue-400 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer">
+              {syncingCloud ? <><Loader2 className="w-3 h-3 animate-spin" /><span>...</span></> : <><RefreshCw className="w-3 h-3" /><span>Cloud</span></>}
+            </button>
+            <button onClick={() => setIsYtModalOpen(true)} className="p-1.5 px-2.5 rounded-full bg-red-500/10 border border-red-500/40 hover:border-red-500 text-red-400 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer">
+              <Youtube className="w-3 h-3" /><span>YT</span>
+            </button>
           </div>
         </div>
 
-        {/* Search & Cloud Actions */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          {/* Help Button */}
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-2 rounded-full bg-[#111] border border-gray-800 hover:border-[#c8f500]/40 text-gray-400 hover:text-[#c8f500] transition-colors cursor-pointer"
-            title="Apa itu KyokoBeat?"
-          >
-            <HelpCircle className="w-4 h-4" />
-          </button>
-
-          {/* Search bar */}
-          <div className="relative flex-1 sm:flex-initial min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Cari lagu, artis, album..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-[#111] border border-[#c8f500]/10 rounded-full text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#c8f500] focus:shadow-[0_0_15px_rgba(200,245,0,0.1)] transition-all"
-            />
-          </div>
-
-          {/* Cloud Sync Indicator */}
-          <CloudSyncIndicator
-            user={user}
-            onLoginClick={() => setIsAuthOpen(true)}
-            onLogoutSuccess={() => setUser(null)}
-            favorites={favorites}
-            playlists={playlists}
-            onSyncComplete={loadLocalDataAndSync}
-          />
-
-          {/* Rescan Button */}
-          <button
-            onClick={handleRescan}
-            disabled={scanning}
-            className="p-2 px-3 rounded-full bg-[#111] border border-[#c8f500]/30 hover:border-[#c8f500] hover:bg-[#c8f500]/5 text-[#c8f500] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            {scanning ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Scanning...</span>
-              </>
-            ) : (
-              <>
-                <FolderSync className="w-3.5 h-3.5" />
-                <span>Rescan Folder</span>
-              </>
-            )}
-          </button>
-
-          {/* Refresh Cloud Button */}
-          <button
-            onClick={handleRefreshCloud}
-            disabled={syncingCloud}
-            className="p-2 px-3 rounded-full bg-[#111] border border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/5 text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            {syncingCloud ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Memuat...</span>
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Refresh Cloud</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Row 2: YouTube Download — full width, always visible */}
-        <div className="w-full flex justify-end mt-1">
-          <button
-            onClick={() => setIsYtModalOpen(true)}
-            className="p-2 px-4 rounded-full bg-red-500/10 border border-red-500/40 hover:border-red-500 hover:bg-red-500/20 text-red-400 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
-            title="Download audio dari YouTube"
-          >
-            <Youtube className="w-3.5 h-3.5" />
-            <span>⬇ YT Download</span>
-          </button>
+        {/* Row 2: Search bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+          <input type="text" placeholder="Cari lagu, artis, album..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-[#111] border border-[#c8f500]/10 rounded-full text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c8f500]/40 transition-all" />
         </div>
       </header>
 
@@ -1536,199 +1467,174 @@ export default function MainDashboard() {
         </div>
       </main>
 
-      {/* Floating Bubble - muncul saat player disembunyikan */}
-      {playerState.currentSong && !playerVisible && (
-        <button
-          onClick={() => setPlayerVisible(true)}
-          className="fixed bottom-6 right-4 z-50 w-14 h-14 rounded-full bg-[#c8f500] shadow-[0_0_20px_rgba(200,245,0,0.5)] flex items-center justify-center cursor-pointer animate-bounce-slow"
-          style={{ animation: 'floatBubble 2s ease-in-out infinite' }}
-        >
-          <style>{`
-            @keyframes floatBubble {
-              0%, 100% { transform: translateY(0px); box-shadow: 0 0 20px rgba(200,245,0,0.5); }
-              50% { transform: translateY(-6px); box-shadow: 0 0 30px rgba(200,245,0,0.7); }
-            }
-          `}</style>
-          {playerState.isPlaying ? (
-            <Pause className="w-6 h-6 fill-black text-black" />
-          ) : (
-            <Play className="w-6 h-6 fill-black text-black ml-0.5" />
-          )}
-        </button>
-      )}
-
-      {/* Bottom Player Bar */}
+      {/* ─── MINI PLAYER (Spotify-style compact bar) ─── */}
       {playerState.currentSong && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50"
-          style={{
-            transform: playerVisible ? 'translateY(0)' : 'translateY(110%)',
-            transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-        >
-          {/* Swipe down handle + hide button */}
-          <div className="flex justify-center pt-1 pb-0 bg-transparent">
-            <button
-              onClick={() => setPlayerVisible(false)}
-              className="flex flex-col items-center gap-0.5 cursor-pointer group"
-            >
-              <div className="w-10 h-1 rounded-full bg-[#c8f500]/40 group-hover:bg-[#c8f500] transition-colors" />
-            </button>
-          </div>
-        <div className="bg-[#0a0a0a] border-t border-[#c8f500]/20 p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.8)] backdrop-blur-lg">
-          <div className="max-w-7xl w-full mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
-            
-            {/* Song Cover & Info */}
-            <div className="flex items-center gap-4 w-full md:w-1/4 min-w-0">
-              <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-[#111] border border-white/5 flex-shrink-0" style={{
-                animation: playerState.isPlaying ? 'albumGlow 2s ease-in-out infinite' : 'none',
-              }}>
-                <style>{`
-                  @keyframes albumGlow {
-                    0%, 100% { box-shadow: 0 0 8px rgba(200, 245, 0, 0.3), 0 0 0 0 rgba(200,245,0,0.15); transform: scale(1); }
-                    50% { box-shadow: 0 0 20px rgba(200, 245, 0, 0.6), 0 0 0 4px rgba(200,245,0,0.08); transform: scale(1.04); }
-                  }
-                `}</style>
-                {playerState.currentSong.cover ? (
-                  <img
-                    src={playerState.currentSong.cover}
-                    alt={playerState.currentSong.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : null}
-                {/* Fallback music icon - always rendered, hidden by image when cover loads */}
-                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a2200] to-[#111]">
-                  <svg viewBox="0 0 40 40" className="w-8 h-8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    {/* Vinyl record design */}
-                    <circle cx="20" cy="20" r="18" fill="#1a1a1a" stroke="#c8f500" strokeWidth="0.8" strokeOpacity="0.4"/>
-                    <circle cx="20" cy="20" r="12" fill="#0d0d0d" stroke="#c8f500" strokeWidth="0.5" strokeOpacity="0.2"/>
-                    <circle cx="20" cy="20" r="6" fill="#151515" stroke="#c8f500" strokeWidth="0.5" strokeOpacity="0.3"/>
-                    <circle cx="20" cy="20" r="2.5" fill="#c8f500" fillOpacity="0.7"/>
-                    {/* Music note */}
-                    <path d="M22 14v7.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V16h2v-2h-4z" fill="#c8f500" fillOpacity="0.9"/>
-                  </svg>
-                </div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-sm font-semibold truncate text-white">{playerState.currentSong.title}</h4>
-                <p className="text-xs text-gray-400 truncate mt-0.5">{playerState.currentSong.artist}</p>
-                
-                {/* Waveform Visualizer */}
-                <div className="mt-1 hidden sm:block">
-                  <WaveformVisualizer isPlaying={playerState.isPlaying} />
-                </div>
-              </div>
+        <div className="fixed bottom-0 left-0 right-0 z-50 px-2 pb-2">
+          <div
+            className="bg-[#1e1e1e] rounded-xl overflow-hidden shadow-[0_-4px_24px_rgba(0,0,0,0.6)] cursor-pointer active:scale-[0.99] transition-transform"
+            onClick={() => setShowFullPlayer(true)}
+          >
+            {/* Thin progress bar at top */}
+            <div className="h-[2px] bg-white/10">
+              <div
+                className="h-full bg-[#c8f500]"
+                style={{
+                  width: `${playerState.duration ? (playerState.currentTime / playerState.duration) * 100 : 0}%`,
+                  transition: 'width 0.5s linear',
+                }}
+              />
             </div>
-
-            {/* Player Controls & Seekbar */}
-            <div className="flex flex-col items-center gap-2 w-full md:w-2/4">
-              {/* Control Buttons */}
-              <div className="flex items-center gap-4">
-                {/* Shuffle */}
-                <button
-                  onClick={() => setShuffle(!shuffle)}
-                  className={`p-2 transition-colors cursor-pointer ${shuffle ? 'text-[#c8f500]' : 'text-gray-500 hover:text-white'}`}
-                  title="Acak Lagu"
-                >
-                  <Shuffle className="w-4 h-4" />
-                </button>
-
-                {/* Prev */}
-                <button
-                  onClick={playPrevTrack}
-                  className="p-2 text-gray-400 hover:text-[#c8f500] transition-colors cursor-pointer"
-                  title="Sebelumnya"
-                >
+            <div className="flex items-center gap-3 px-3 py-2.5">
+              {/* Album art */}
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#111] flex-shrink-0 relative">
+                {playerState.currentSong.cover ? (
+                  <img src={playerState.currentSong.cover} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : null}
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a2200] to-[#111]">
+                  <Disc className="w-5 h-5 text-[#c8f500]/50" />
+                </div>
+              </div>
+              {/* Song info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate leading-tight">{playerState.currentSong.title}</p>
+                <p className="text-xs text-gray-400 truncate">{playerState.currentSong.artist}</p>
+              </div>
+              {/* Controls */}
+              <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                <button onClick={playPrevTrack} className="p-2 text-gray-400 active:text-white transition-colors cursor-pointer">
                   <SkipBack className="w-5 h-5 fill-current" />
                 </button>
-
-                {/* Play/Pause */}
-                <button
-                  onClick={() => audioManager.togglePlay()}
-                  className="p-3 bg-[#c8f500] hover:bg-[#b0dc00] text-black rounded-full shadow-[0_0_15px_rgba(200,245,0,0.3)] hover:shadow-[0_0_20px_rgba(200,245,0,0.5)] transition-all cursor-pointer"
-                >
+                <button onClick={() => audioManager.togglePlay()} className="p-2 text-white cursor-pointer">
                   {playerState.isPlaying ? (
                     <Pause className="w-6 h-6 fill-current" />
                   ) : (
                     <Play className="w-6 h-6 fill-current ml-0.5" />
                   )}
                 </button>
-
-                {/* Next */}
-                <button
-                  onClick={playNextTrack}
-                  className="p-2 text-gray-400 hover:text-[#c8f500] transition-colors cursor-pointer"
-                  title="Berikutnya"
-                >
+                <button onClick={playNextTrack} className="p-2 text-gray-400 active:text-white transition-colors cursor-pointer">
                   <SkipForward className="w-5 h-5 fill-current" />
                 </button>
-
-                {/* Repeat */}
-                <button
-                  onClick={() => {
-                    if (repeat === 'none') setRepeat('all');
-                    else if (repeat === 'all') setRepeat('one');
-                    else setRepeat('none');
-                  }}
-                  className={`p-2 transition-colors relative cursor-pointer ${repeat !== 'none' ? 'text-[#c8f500]' : 'text-gray-500 hover:text-white'}`}
-                  title="Ulangi Lagu"
-                >
-                  <Repeat className="w-4 h-4" />
-                  {repeat === 'one' && (
-                    <span className="absolute bottom-0 right-0 bg-[#c8f500] text-black text-[7px] font-bold px-1 rounded-full scale-75">1</span>
-                  )}
-                </button>
-              </div>
-
-              {/* Seekbar */}
-              <div className="flex items-center gap-3 w-full">
-                <span className="text-[10px] text-gray-500 font-mono w-10 text-right">
-                  {formatTime(playerState.currentTime)}
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max={playerState.duration || 100}
-                  value={playerState.currentTime}
-                  onChange={(e) => audioManager.seek(parseFloat(e.target.value))}
-                  className="flex-1 h-1 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer accent-[#c8f500] outline-none"
-                />
-                <span className="text-[10px] text-gray-500 font-mono w-10">
-                  {formatTime(playerState.duration)}
-                </span>
               </div>
             </div>
-
-            {/* Volume Control */}
-            <div className="flex items-center gap-3 w-full md:w-1/4 justify-end">
-              <button
-                onClick={() => audioManager.toggleMute()}
-                className="p-2 text-gray-400 hover:text-[#c8f500] transition-colors cursor-pointer"
-              >
-                {playerState.isMuted || playerState.volume === 0 ? (
-                  <VolumeX className="w-4 h-4" />
-                ) : (
-                  <Volume2 className="w-4 h-4" />
-                )}
-              </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={playerState.isMuted ? 0 : playerState.volume}
-                onChange={(e) => audioManager.setVolume(parseFloat(e.target.value))}
-                className="w-20 sm:w-24 h-1 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer accent-[#c8f500] outline-none"
-              />
-            </div>
-
           </div>
-        </div>
         </div>
       )}
 
-      {/* Auth Modal */}
+      {/* ─── FULL SCREEN PLAYER ─── */}
+      {playerState.currentSong && showFullPlayer && (
+        <div
+          className="fixed inset-0 z-[100] flex flex-col"
+          style={{ background: 'linear-gradient(180deg, #1c2500 0%, #0d0d0d 55%)' }}
+        >
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-4 pt-10 pb-2 flex-shrink-0">
+            <button onClick={() => setShowFullPlayer(false)} className="p-2 text-gray-400 hover:text-white transition-colors cursor-pointer">
+              <ChevronDown className="w-6 h-6" />
+            </button>
+            <div className="text-center">
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest">Memutar dari</p>
+              <p className="text-xs font-semibold text-white truncate max-w-[180px]">{playerState.currentSong.album || 'Library'}</p>
+            </div>
+            <div className="w-10" />
+          </div>
+
+          {/* Album art + song info */}
+          <div className="flex-1 flex flex-col items-center justify-center px-8 gap-5 min-h-0">
+            <div
+              className="w-full rounded-2xl overflow-hidden bg-[#111] relative"
+              style={{
+                maxWidth: 'min(280px, 70vw)',
+                aspectRatio: '1/1',
+                boxShadow: playerState.isPlaying
+                  ? '0 24px 64px rgba(200,245,0,0.18), 0 0 0 1px rgba(200,245,0,0.08)'
+                  : '0 24px 64px rgba(0,0,0,0.8)',
+                transform: playerState.isPlaying ? 'scale(1)' : 'scale(0.94)',
+                transition: 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.4s ease',
+              }}
+            >
+              {playerState.currentSong.cover ? (
+                <img src={playerState.currentSong.cover} alt={playerState.currentSong.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              ) : null}
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a2200] to-[#111]">
+                <Disc className="w-20 h-20 text-[#c8f500]/30" />
+              </div>
+            </div>
+            <div className="w-full flex items-center justify-between" style={{ maxWidth: 'min(280px, 70vw)' }}>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-bold text-white truncate leading-tight">{playerState.currentSong.title}</h2>
+                <p className="text-sm text-gray-400 truncate mt-0.5">{playerState.currentSong.artist}</p>
+              </div>
+              <button
+                onClick={() => handleToggleFav(playerState.currentSong!)}
+                className={`p-2 ml-3 flex-shrink-0 transition-colors ${favorites.includes(playerState.currentSong.id) ? 'text-[#c8f500]' : 'text-gray-600 hover:text-gray-400'}`}
+              >
+                <Heart className={`w-6 h-6 ${favorites.includes(playerState.currentSong.id) ? 'fill-current' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="px-6 pb-10 space-y-4 flex-shrink-0">
+            <div className="space-y-1">
+              <input
+                type="range"
+                min="0"
+                max={playerState.duration || 100}
+                value={playerState.currentTime}
+                onChange={(e) => audioManager.seek(parseFloat(e.target.value))}
+                className="w-full h-1 rounded-full appearance-none cursor-pointer outline-none"
+                style={{ background: `linear-gradient(to right, #c8f500 ${playerState.duration ? (playerState.currentTime / playerState.duration) * 100 : 0}%, rgba(255,255,255,0.15) 0%)` }}
+              />
+              <div className="flex justify-between">
+                <span className="text-[11px] text-gray-500 font-mono">{formatTime(playerState.currentTime)}</span>
+                <span className="text-[11px] text-gray-500 font-mono">{formatTime(playerState.duration)}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <button onClick={() => setShuffle(!shuffle)} className={`p-2 cursor-pointer ${shuffle ? 'text-[#c8f500]' : 'text-gray-600'}`}>
+                <Shuffle className="w-5 h-5" />
+              </button>
+              <button onClick={playPrevTrack} className="p-2 text-white cursor-pointer">
+                <SkipBack className="w-7 h-7 fill-current" />
+              </button>
+              <button
+                onClick={() => audioManager.togglePlay()}
+                className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-105 transition-transform cursor-pointer"
+              >
+                {playerState.isPlaying ? (
+                  <Pause className="w-8 h-8 fill-black text-black" />
+                ) : (
+                  <Play className="w-8 h-8 fill-black text-black ml-1" />
+                )}
+              </button>
+              <button onClick={playNextTrack} className="p-2 text-white cursor-pointer">
+                <SkipForward className="w-7 h-7 fill-current" />
+              </button>
+              <button
+                onClick={() => { if (repeat === 'none') setRepeat('all'); else if (repeat === 'all') setRepeat('one'); else setRepeat('none'); }}
+                className={`p-2 relative cursor-pointer ${repeat !== 'none' ? 'text-[#c8f500]' : 'text-gray-600'}`}
+              >
+                <Repeat className="w-5 h-5" />
+                {repeat === 'one' && <span className="absolute bottom-1 right-1 bg-[#c8f500] text-black text-[7px] font-bold px-0.5 rounded-full">1</span>}
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={() => audioManager.toggleMute()} className="text-gray-500 cursor-pointer">
+                {playerState.isMuted || playerState.volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+              <input
+                type="range" min="0" max="1" step="0.05"
+                value={playerState.isMuted ? 0 : playerState.volume}
+                onChange={(e) => audioManager.setVolume(parseFloat(e.target.value))}
+                className="flex-1 h-1 rounded-full appearance-none cursor-pointer outline-none"
+                style={{ background: `linear-gradient(to right, rgba(255,255,255,0.7) ${(playerState.isMuted ? 0 : playerState.volume) * 100}%, rgba(255,255,255,0.15) 0%)` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* Auth Modal */}
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
