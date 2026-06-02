@@ -95,28 +95,42 @@
     background: #c8f500;
   }
 
-  /* Safe area bottom padding for notched phones */
+  /* Safe area — support notch, punch-hole, dan rounded corner HP apapun */
   .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 
-  /* Prevent horizontal scroll & overscroll bounce (swipe-back white screen fix) */
+  /* Prevent horizontal scroll & overscroll bounce */
   html {
     overflow-x: clip;
     overscroll-behavior-x: none;
     max-width: 100vw;
+    /* Background hitam agar tidak ada flash putih di HP apapun */
+    background-color: #0a0a0a;
   }
   body, #root {
     max-width: 100%;
     width: 100%;
     overflow-x: clip;
     overscroll-behavior-x: none;
+    background-color: #0a0a0a;
+    /* Full height termasuk safe area notch */
+    min-height: 100dvh;
+  }
+  #root {
+    /* Isolate stacking context */
+    isolation: isolate;
   }
 
-  /* Responsive font scaling — prevents tiny text on high-DPI devices */
+  /* Responsive font scaling — auto-scale sesuai lebar layar, bukan dikunci per DPI */
   html {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
+    -webkit-text-size-adjust: auto;
+    text-size-adjust: auto;
+    /* Fluid base font: 360px layar = ~14px, 430px+ = ~16px */
+    font-size: clamp(13px, 3.8vw, 17px);
   }
 
   /* Range input track styling for full-screen player */
