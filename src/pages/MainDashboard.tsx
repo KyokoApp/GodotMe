@@ -944,7 +944,6 @@ export default function MainDashboard() {
   return (
     <div
       className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body w-full max-w-full overflow-x-hidden ${playerState.currentSong ? 'pb-[72px]' : 'pb-8'}`}
-      style={{ overscrollBehavior: 'none', touchAction: 'pan-y' }}
     >
       {/* Subtle top glow — constrained to not overflow */}
       <div className="w-full h-32 bg-gradient-to-b from-[#c8f500]/5 to-transparent pointer-events-none flex-shrink-0" style={{marginBottom: '-8rem'}}></div>
