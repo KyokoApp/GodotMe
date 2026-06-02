@@ -94,4 +94,34 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #c8f500;
   }
+
+  /* Safe area bottom padding for notched phones */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Responsive font scaling — prevents tiny text on high-DPI devices */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Range input track styling for full-screen player */
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  input[type='range']::-webkit-slider-thumb:active {
+    transform: scale(1.2);
+  }
 }
