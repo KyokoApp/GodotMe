@@ -51,34 +51,12 @@ jobs:
 
       - name: Inject app icon
         run: |
-          ICON_SRC="assets/icon/ic_launcher.png"
-          if [ ! -f "$ICON_SRC" ]; then
+          if [ ! -f "assets/icon/ic_launcher.png" ]; then
             echo "⚠️ Icon tidak ditemukan di assets/icon/ic_launcher.png, skip."
           else
             echo "✅ Icon ditemukan, generate semua ukuran..."
             pip install Pillow --quiet --break-system-packages
-            python3 << 'PYEOF'
-          from PIL import Image
-          import os
-
-          src = "assets/icon/ic_launcher.png"
-          sizes = {
-              "mipmap-mdpi": 48,
-              "mipmap-hdpi": 72,
-              "mipmap-xhdpi": 96,
-              "mipmap-xxhdpi": 144,
-              "mipmap-xxxhdpi": 192,
-          }
-          img = Image.open(src).convert("RGBA")
-          base = "android/app/src/main/res"
-          for folder, size in sizes.items():
-              d = os.path.join(base, folder)
-              os.makedirs(d, exist_ok=True)
-              resized = img.resize((size, size), Image.LANCZOS)
-              resized.save(os.path.join(d, "ic_launcher.png"))
-              resized.save(os.path.join(d, "ic_launcher_round.png"))
-              print(f"✅ {folder}: {size}x{size}")
-          PYEOF
+            python3 scripts/gen_icons.py
           fi
 
       - name: Make gradlew executable
