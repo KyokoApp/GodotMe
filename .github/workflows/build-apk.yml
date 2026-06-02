@@ -70,13 +70,11 @@ jobs:
       - name: Inject signing config into build.gradle
         run: |
           BUILD_GRADLE="android/app/build.gradle"
-
           sed -i '/^android {/i\
           def keystorePropertiesFile = rootProject.file("key.properties")\
           def keystoreProperties = new Properties()\
           keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\
           ' "$BUILD_GRADLE"
-
           sed -i '/buildTypes {/i\
               signingConfigs {\
                   release {\
@@ -87,17 +85,39 @@ jobs:
                   }\
               }\
           ' "$BUILD_GRADLE"
-
           sed -i '/buildTypes {/,/^    }/ s/release {/release {\n                signingConfig signingConfigs.release/' "$BUILD_GRADLE"
-
           echo "✅ Signing config injected"
 
       - name: Build APK release
         run: cd android && ./gradlew assembleRelease
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk KyokoBeat.apk
+
+      # ── Ambil versi dari package.json ──
+      - name: Get version
+        id: version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      # ── Update version.json dengan versi & URL terbaru ──
+      - name: Update version.json
+        run: |
+          cat > version.json << EOF
+          {
+            "version": "${{ steps.version.outputs.VERSION }}",
+            "apkUrl": "https://github.com/KyokoApp/KyokoBeat/releases/latest/download/KyokoBeat.apk",
+            "changelog": "Update v${{ steps.version.outputs.VERSION }}"
+          }
+          EOF
+
+      # ── Upload ke GitHub Releases ──
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: KyokoBeat-release
-          path: android/app/build/outputs/apk/release/app-release.apk
-          retention-days: 7
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: KyokoBeat v${{ steps.version.outputs.VERSION }}
+          files: |
+            KyokoBeat.apk
+            version.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+          make_latest: true
