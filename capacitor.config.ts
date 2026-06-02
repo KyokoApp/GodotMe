@@ -10,8 +10,20 @@ const config: CapacitorConfig = {
     cleartext: true
   },
   android: {
-    allowMixedContent: true
-  }
+    allowMixedContent: true,
+    // Background hitam agar tidak ada flash putih saat app loading di HP apapun
+    backgroundColor: '#0a0a0a',
+    // Paksa WebView pakai hardware acceleration penuh
+    webContentsDebuggingEnabled: false,
+  },
+  plugins: {
+    SplashScreen: {
+      backgroundColor: '#0a0a0a',
+      showSpinner: false,
+      launchAutoHide: true,
+      launchShowDuration: 0,
+    },
+  },
 };
 
 export default config;

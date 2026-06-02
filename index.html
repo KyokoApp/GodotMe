@@ -3,7 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- Mobile app appearance -->
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="background-color" content="#0a0a0a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>KyokoBeat - Offline & Cloud Music Player</title>
     <!-- Google Fonts: Bebas Neue & Space Grotesk -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,7 +41,7 @@ loadRrweb();
 })();</script>
   <script data-arena-views="true">(function(){var isTop=false;try{isTop=window.self===window.top;}catch(e){}if(!isTop)return;window.__ARENA_META={generationId:"gemini-3.5-flash",tournamentId:"b4158979-9842-4566-ba97-f29e3f2f3314"};var payload={tournamentId:"b4158979-9842-4566-ba97-f29e3f2f3314",modelId:"gemini-3.5-flash"};try{var r=document.referrer;if(r){var u=new URL(r);payload.referrerDomain=u.hostname;}}catch(e){}try{var vid=null;try{vid=localStorage.getItem('arena_vid');}catch(e){}if(!vid){vid=typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)).slice(0,32);try{localStorage.setItem('arena_vid',vid);}catch(e){}}if(vid)payload.viewerId=vid;}catch(e){}try{fetch("https://www.designarena.ai/api/agon/page-views",{"method":"POST","headers":{"Content-Type":"application/json"},"body":JSON.stringify(payload),"keepalive":true});}catch(e){}})();</script>
 </head>
-  <body>
+  <body style="background:#0a0a0a;margin:0;padding:0;">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
       <script data-element-picker>/**
