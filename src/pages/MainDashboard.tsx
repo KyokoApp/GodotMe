@@ -76,7 +76,7 @@ export default function MainDashboard() {
   
   // Tab & Filter states
   const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'favorites'>('library');
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('offline');
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'album'>('title');
@@ -124,7 +124,7 @@ export default function MainDashboard() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [songToDelete, setSongToDelete] = useState<LocalSong | null>(null);
   const [isDeleteAllOpen, setIsDeleteAllOpen] = useState<false | 'choose' | 'hide' | 'delete'>(false);
-  const [durationFilter, setDurationFilter] = useState<'all' | 'under1' | '1to2' | 'over2'>('all');
+  const [durationFilter, setDurationFilter] = useState<'all' | 'under1' | '1to2' | 'over2'>('over2');
   const [syncingCloud, setSyncingCloud] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -1126,18 +1126,6 @@ export default function MainDashboard() {
             {activeTab === 'library' && !selectedPlaylistId && (
               <div className="ml-2 border-l border-[#c8f500]/20 pl-2 space-y-0.5 animate-fade-in">
                 <button
-                  onClick={() => setSourceFilter('all')}
-                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    sourceFilter === 'all'
-                      ? 'text-[#c8f500] bg-[#c8f500]/10'
-                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />
-                  Semua
-                  <span className="ml-auto opacity-60">({allSongs.length})</span>
-                </button>
-                <button
                   onClick={() => setSourceFilter('online')}
                   className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     sourceFilter === 'online'
@@ -1487,25 +1475,35 @@ export default function MainDashboard() {
               return (
                 <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4' : 'flex flex-col gap-2'}>
                   {displaySongs.map((song) => (
-                    <SongCard
+                    <div
                       key={song.id}
-                      song={song}
-                      isCurrent={playerState.currentSong?.id === song.id}
-                      isPlaying={playerState.isPlaying}
-                      isFav={favorites.includes(song.id)}
-                      onPlay={() => handlePlaySong(song)}
-                      onToggleFav={() => handleToggleFav(song)}
-                      onAddToPlaylist={() => {
-                        setSongToAddToPlaylist(song);
-                        setIsPlaylistOpen(true);
+                      onClick={(e) => {
+                        // Play only if tap is NOT on an action button (heart, menu, download, etc.)
+                        if (!(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('a')) {
+                          handlePlaySong(song);
+                        }
                       }}
-                      onRename={handleRenameSongClick}
-                      onDelete={handleDeleteSong}
-                      onDownload={song.isCloud ? () => handleDownloadSong(song) : undefined}
-                      onDeleteCloud={song.isCloud && user?.email === 'kyokomd2006@gmail.com' ? () => handleDeleteCloudSong(song) : undefined}
-                      isDownloading={downloadingId === song.id}
-                      isDownloaded={song.isCloud ? downloadedCloudIds.has(`cloud-dl-${song.id.replace('cloud-', '')}`) : false}
-                    />
+                      className="cursor-pointer"
+                    >
+                      <SongCard
+                        song={song}
+                        isCurrent={playerState.currentSong?.id === song.id}
+                        isPlaying={playerState.isPlaying}
+                        isFav={favorites.includes(song.id)}
+                        onPlay={() => handlePlaySong(song)}
+                        onToggleFav={() => handleToggleFav(song)}
+                        onAddToPlaylist={() => {
+                          setSongToAddToPlaylist(song);
+                          setIsPlaylistOpen(true);
+                        }}
+                        onRename={handleRenameSongClick}
+                        onDelete={handleDeleteSong}
+                        onDownload={song.isCloud ? () => handleDownloadSong(song) : undefined}
+                        onDeleteCloud={song.isCloud && user?.email === 'kyokomd2006@gmail.com' ? () => handleDeleteCloudSong(song) : undefined}
+                        isDownloading={downloadingId === song.id}
+                        isDownloaded={song.isCloud ? downloadedCloudIds.has(`cloud-dl-${song.id.replace('cloud-', '')}`) : false}
+                      />
+                    </div>
                   ))}
                 </div>
               );
