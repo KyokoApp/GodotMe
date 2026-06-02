@@ -1032,14 +1032,7 @@ export default function MainDashboard() {
               <Youtube className="w-3.5 h-3.5" />
             </button>
 
-            {/* SoundCloud Search */}
-            <button
-              onClick={() => setIsScModalOpen(true)}
-              title="Cari Lagu Online (SoundCloud)"
-              className="w-8 h-8 rounded-full bg-[#c8f500]/10 border border-[#c8f500]/30 hover:border-[#c8f500] text-[#c8f500] transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
-            >
-              <CloudDownload className="w-3.5 h-3.5" />
-            </button>
+
           </div>
         </div>
 
@@ -1349,7 +1342,7 @@ export default function MainDashboard() {
               </div>
             </div>
 
-            {/* View Mode controls */}
+            {/* View Mode controls + Search button */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setViewMode('grid')}
@@ -1362,6 +1355,19 @@ export default function MainDashboard() {
                 className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'list' ? 'text-[#c8f500] bg-white/5' : 'text-gray-500 hover:text-white'}`}
               >
                 <List className="w-4 h-4" />
+              </button>
+
+              {/* Divider */}
+              <div className="w-px h-5 bg-white/10 mx-1" />
+
+              {/* Cari Lagu Online */}
+              <button
+                onClick={() => setIsScModalOpen(true)}
+                title="Cari Lagu Online"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#c8f500] hover:bg-[#d4ff00] text-black text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(200,245,0,0.3)] hover:shadow-[0_0_18px_rgba(200,245,0,0.5)] active:scale-95"
+              >
+                <CloudDownload className="w-3.5 h-3.5" />
+                Cari Lagu
               </button>
             </div>
           </div>
