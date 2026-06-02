@@ -119,5 +119,5 @@ jobs:
           files: |
             KyokoBeat.apk
             version.json
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           make_latest: true
