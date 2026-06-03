@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import defaultCover from '../assets/default-cover.jpg';
 import {
   Search,
   FolderSync,
@@ -130,25 +131,36 @@ function CircularSpectrumPlayer({ cover, title, isPlaying }: { cover: string | n
       </svg>
 
       {/* Circular album art */}
-      <div style={{
-        width: 176, height: 176,
-        borderRadius: '50%', overflow: 'hidden',
-        border: '2px solid rgba(200,245,0,0.2)',
-        boxShadow: isPlaying
-          ? '0 0 0 5px rgba(200,245,0,0.05), 0 0 40px rgba(200,245,0,0.15)'
-          : '0 0 30px rgba(0,0,0,0.6)',
-        position: 'relative', zIndex: 2,
-        background: 'linear-gradient(135deg, #1a2200, #111)',
-        transition: 'box-shadow 0.4s ease',
-        animation: isPlaying ? 'kyokoSpin 22s linear infinite' : 'none',
-      }}>
+      <div
+        className={isPlaying ? 'kyoko-spinning' : ''}
+        style={{
+          width: 176, height: 176,
+          borderRadius: '50%', overflow: 'hidden',
+          border: '2px solid rgba(200,245,0,0.2)',
+          boxShadow: isPlaying
+            ? '0 0 0 5px rgba(200,245,0,0.05), 0 0 40px rgba(200,245,0,0.15)'
+            : '0 0 30px rgba(0,0,0,0.6)',
+          position: 'absolute', zIndex: 2,
+          top: '50%', left: '50%',
+          marginTop: -88, marginLeft: -88,
+          background: '#111',
+          transition: 'box-shadow 0.4s ease',
+        }}
+      >
         <img
-          src={cover || 'https://raw.githubusercontent.com/Crashmant/rizky/main/uploads/1780465102494-416.jpeg'}
-          alt={title}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+          src={cover || defaultCover}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          onError={(e) => {
+            const img = e.target as HTMLImageElement;
+            if (!img.dataset.retried) {
+              img.dataset.retried = '1';
+              img.src = 'https://raw.githubusercontent.com/Crashmant/rizky/main/uploads/1780465102494-416.jpeg';
+            }
+          }}
         />
       </div>
-      <style>{`@keyframes kyokoSpin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`@keyframes kyokoSpin { to { transform: rotate(360deg); } } .kyoko-spinning { animation: kyokoSpin 22s linear infinite; }`}</style>
     </div>
   );
 }
