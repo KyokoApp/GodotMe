@@ -74,20 +74,19 @@ export default function SongCard({
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           ) : (() => {
-            // Generate warna unik berdasarkan title — tiap lagu punya "warna" nya sendiri
-            const colors = [
-              ['#1a0a2e', '#7c3aed'], // purple
-              ['#0a1a2e', '#2563eb'], // blue
-              ['#0a2e1a', '#16a34a'], // green
-              ['#2e1a0a', '#ea580c'], // orange
-              ['#2e0a1a', '#db2777'], // pink
-              ['#1a2e0a', '#65a30d'], // lime
-              ['#0a2e2e', '#0891b2'], // cyan
-              ['#2e2e0a', '#ca8a04'], // yellow
+            // Generate warna unik berdasarkan title
+            const palettes = [
+              { bg: '#1a0a2e', accent: '#a855f7', glow: 'rgba(168,85,247,0.3)' },
+              { bg: '#0a1a2e', accent: '#3b82f6', glow: 'rgba(59,130,246,0.3)' },
+              { bg: '#0a2e1a', accent: '#22c55e', glow: 'rgba(34,197,94,0.3)' },
+              { bg: '#2e1a0a', accent: '#f97316', glow: 'rgba(249,115,22,0.3)' },
+              { bg: '#2e0a1a', accent: '#ec4899', glow: 'rgba(236,72,153,0.3)' },
+              { bg: '#1a2e0a', accent: '#c8f500', glow: 'rgba(200,245,0,0.3)' },
+              { bg: '#0a2e2e', accent: '#06b6d4', glow: 'rgba(6,182,212,0.3)' },
+              { bg: '#2e2e0a', accent: '#eab308', glow: 'rgba(234,179,8,0.3)' },
             ];
-            const idx = (song.title?.charCodeAt(0) || 0) % colors.length;
-            const [bg, accent] = colors[idx];
-            // Inisial dari title
+            const idx = (song.title?.charCodeAt(0) || 0) % palettes.length;
+            const { bg, accent, glow } = palettes[idx];
             const initials = song.title
               ? song.title.replace(/^\[.*?\]\s*/, '').slice(0, 2).toUpperCase()
               : '♪';
@@ -104,6 +103,7 @@ export default function SongCard({
                         className="w-[3px] rounded-full"
                         style={{
                           background: accent,
+                          boxShadow: `0 0 4px ${glow}`,
                           animation: `musicBar 0.8s ease-in-out infinite`,
                           animationDelay: `${i * 0.15}s`,
                           height: '100%',
@@ -119,15 +119,24 @@ export default function SongCard({
                   </div>
                 ) : (
                   <>
-                    <span
-                      className="text-[13px] font-black leading-none tracking-tight"
+                    {/* Icon musik kecil di pojok atas */}
+                    <div
+                      className="absolute top-1 right-1 w-3 h-3 opacity-40"
                       style={{ color: accent }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                      </svg>
+                    </div>
+                    <span
+                      className="text-[13px] font-black leading-none tracking-tight drop-shadow-sm"
+                      style={{ color: accent, textShadow: `0 0 8px ${glow}` }}
                     >
                       {initials}
                     </span>
                     <div
-                      className="w-4 h-[2px] rounded-full opacity-40"
-                      style={{ background: accent }}
+                      className="w-5 h-[2px] rounded-full opacity-50"
+                      style={{ background: accent, boxShadow: `0 0 4px ${glow}` }}
                     />
                   </>
                 )}
