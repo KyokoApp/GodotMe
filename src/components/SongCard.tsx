@@ -34,6 +34,7 @@ export default function SongCard({
   isDownloaded = false,
 }: SongCardProps) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,83 +67,47 @@ export default function SongCard({
       <div className="flex items-center gap-4 min-w-0 flex-1">
         {/* Album Art */}
         <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-[#1a1a1a] flex-shrink-0 border border-white/5">
-          {song.cover ? (
+          {song.cover && !imgError ? (
             <img
               src={song.cover}
               alt={song.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              onError={() => setImgError(true)}
             />
-          ) : (() => {
-            // Generate warna unik berdasarkan title
-            const palettes = [
-              { bg: '#1a0a2e', accent: '#a855f7', glow: 'rgba(168,85,247,0.3)' },
-              { bg: '#0a1a2e', accent: '#3b82f6', glow: 'rgba(59,130,246,0.3)' },
-              { bg: '#0a2e1a', accent: '#22c55e', glow: 'rgba(34,197,94,0.3)' },
-              { bg: '#2e1a0a', accent: '#f97316', glow: 'rgba(249,115,22,0.3)' },
-              { bg: '#2e0a1a', accent: '#ec4899', glow: 'rgba(236,72,153,0.3)' },
-              { bg: '#1a2e0a', accent: '#c8f500', glow: 'rgba(200,245,0,0.3)' },
-              { bg: '#0a2e2e', accent: '#06b6d4', glow: 'rgba(6,182,212,0.3)' },
-              { bg: '#2e2e0a', accent: '#eab308', glow: 'rgba(234,179,8,0.3)' },
-            ];
-            const idx = (song.title?.charCodeAt(0) || 0) % palettes.length;
-            const { bg, accent, glow } = palettes[idx];
-            const initials = song.title
-              ? song.title.replace(/^\[.*?\]\s*/, '').slice(0, 2).toUpperCase()
-              : '♪';
-            return (
-              <div
-                className="w-full h-full flex flex-col items-center justify-center gap-0.5 transition-all duration-300"
-                style={{ background: `linear-gradient(135deg, ${bg} 0%, ${bg}cc 100%)` }}
-              >
-                {isCurrentlyPlaying ? (
-                  <div className="flex items-end gap-[3px] h-5">
-                    {[0, 1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="w-[3px] rounded-full"
-                        style={{
-                          background: accent,
-                          boxShadow: `0 0 4px ${glow}`,
-                          animation: `musicBar 0.8s ease-in-out infinite`,
-                          animationDelay: `${i * 0.15}s`,
-                          height: '100%',
-                        }}
-                      />
-                    ))}
-                    <style>{`
-                      @keyframes musicBar {
-                        0%, 100% { transform: scaleY(0.2); }
-                        50% { transform: scaleY(1); }
-                      }
-                    `}</style>
-                  </div>
-                ) : (
-                  <>
-                    {/* Icon musik kecil di pojok atas */}
+          ) : (
+            <div className="w-full h-full flex items-center justify-center relative bg-[#1a1a1a]">
+              <div className="absolute inset-0 border border-[#c8f500]/15 rounded-lg pointer-events-none" />
+              {isCurrentlyPlaying ? (
+                <div className="flex items-end gap-[3px] h-4">
+                  {[0, 1, 2, 3].map((i) => (
                     <div
-                      className="absolute top-1 right-1 w-3 h-3 opacity-40"
-                      style={{ color: accent }}
-                    >
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                      </svg>
-                    </div>
-                    <span
-                      className="text-[13px] font-black leading-none tracking-tight drop-shadow-sm"
-                      style={{ color: accent, textShadow: `0 0 8px ${glow}` }}
-                    >
-                      {initials}
-                    </span>
-                    <div
-                      className="w-5 h-[2px] rounded-full opacity-50"
-                      style={{ background: accent, boxShadow: `0 0 4px ${glow}` }}
+                      key={i}
+                      className="w-[3px] rounded-full bg-[#c8f500]"
+                      style={{
+                        animation: `musicBar 0.8s ease-in-out infinite`,
+                        animationDelay: `${i * 0.15}s`,
+                        height: '100%',
+                      }}
                     />
-                  </>
-                )}
-              </div>
-            );
-          })()}
+                  ))}
+                  <style>{`
+                    @keyframes musicBar {
+                      0%, 100% { transform: scaleY(0.2); }
+                      50% { transform: scaleY(1); }
+                    }
+                  `}</style>
+                </div>
+              ) : (
+                <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none">
+                  <path
+                    d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
+                    fill="#c8f500"
+                    opacity="0.6"
+                  />
+                </svg>
+              )}
+            </div>
+          )}
 
           <button
             onClick={onPlay}
