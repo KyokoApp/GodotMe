@@ -6,10 +6,7 @@ import {
   RotateCcw,
   ZoomIn,
   ZoomOut,
-  Crop,
   Sparkles,
-  X,
-  CheckCircle,
   ImagePlus,
   Sticker,
 } from 'lucide-react';
@@ -21,8 +18,6 @@ interface StickerMakerPanelProps {
 
 type ShapeMode = 'square' | 'circle' | 'rounded';
 type FilterMode = 'none' | 'vivid' | 'pop' | 'neon';
-
-const STICKER_SIZE = 512;
 
 const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -47,7 +42,6 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     setTimeout(() => setToastMsg(null), 2500);
   };
 
-  // Draw preview canvas
   const drawPreview = useCallback(() => {
     const canvas = previewCanvasRef.current;
     if (!canvas || !image) return;
@@ -57,17 +51,13 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     const size = canvas.width;
     ctx.clearRect(0, 0, size, size);
 
-    // Background transparent
-    ctx.fillStyle = 'transparent';
-
-    // Clip shape
     ctx.save();
     if (shape === 'circle') {
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
       ctx.clip();
     } else if (shape === 'rounded') {
-      const r = size * 0.15;
+      const r = size * 0.16;
       ctx.beginPath();
       ctx.moveTo(r, 0);
       ctx.lineTo(size - r, 0);
@@ -82,25 +72,19 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
       ctx.clip();
     }
 
-    // Draw image
-    const scale = zoom;
-    const iw = image.width * scale;
-    const ih = image.height * scale;
     const aspect = image.width / image.height;
-
     let drawW, drawH;
     if (aspect >= 1) {
-      drawH = size * scale;
+      drawH = size * zoom;
       drawW = drawH * aspect;
     } else {
-      drawW = size * scale;
+      drawW = size * zoom;
       drawH = drawW / aspect;
     }
 
     const dx = (size - drawW) / 2 + offsetX;
     const dy = (size - drawH) / 2 + offsetY;
 
-    // Apply filter
     if (filter === 'vivid') ctx.filter = 'saturate(1.8) contrast(1.1)';
     else if (filter === 'pop') ctx.filter = 'saturate(2) brightness(1.1) contrast(1.15)';
     else if (filter === 'neon') ctx.filter = 'saturate(3) brightness(1.2) hue-rotate(20deg) contrast(1.2)';
@@ -110,17 +94,17 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     ctx.filter = 'none';
     ctx.restore();
 
-    // Neon border for sticker effect
+    // White border stroke
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = size * 0.025;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = size * 0.022;
+    const lw = ctx.lineWidth / 2;
     if (shape === 'circle') {
       ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2 - ctx.lineWidth / 2, 0, Math.PI * 2);
+      ctx.arc(size / 2, size / 2, size / 2 - lw, 0, Math.PI * 2);
       ctx.stroke();
     } else if (shape === 'rounded') {
-      const r = size * 0.15;
-      const lw = ctx.lineWidth / 2;
+      const r = size * 0.16 - lw;
       ctx.beginPath();
       ctx.moveTo(r + lw, lw);
       ctx.lineTo(size - r - lw, lw);
@@ -134,16 +118,13 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
       ctx.closePath();
       ctx.stroke();
     } else {
-      ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, size - ctx.lineWidth, size - ctx.lineWidth);
+      ctx.strokeRect(lw, lw, size - lw * 2, size - lw * 2);
     }
     ctx.restore();
   }, [image, shape, filter, zoom, offsetX, offsetY]);
 
-  useEffect(() => {
-    drawPreview();
-  }, [drawPreview]);
+  useEffect(() => { drawPreview(); }, [drawPreview]);
 
-  // Reset on close
   useEffect(() => {
     if (!isOpen) {
       setImage(null);
@@ -166,38 +147,31 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     img.onload = () => {
       setImage(img);
       setImageDataUrl(url);
-      setZoom(1);
-      setOffsetX(0);
-      setOffsetY(0);
-      setStickerReady(false);
-      setStickerUrl(null);
+      setZoom(1); setOffsetX(0); setOffsetY(0);
+      setStickerReady(false); setStickerUrl(null);
     };
     img.src = url;
     e.target.value = '';
   };
 
-  // Drag to pan
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!image) return;
     setIsDragging(true);
     const pos = 'touches' in e ? e.touches[0] : e;
     setDragStart({ x: pos.clientX - offsetX, y: pos.clientY - offsetY });
   };
-
   const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDragging) return;
     const pos = 'touches' in e ? e.touches[0] : e;
     setOffsetX(pos.clientX - dragStart.x);
     setOffsetY(pos.clientY - dragStart.y);
   };
-
   const handleMouseUp = () => setIsDragging(false);
 
   const generateSticker = () => {
     const canvas = previewCanvasRef.current;
     if (!canvas) return;
-    const url = canvas.toDataURL('image/png');
-    setStickerUrl(url);
+    setStickerUrl(canvas.toDataURL('image/png'));
     setStickerReady(true);
     showToast('✅ Stiker siap!');
   };
@@ -215,19 +189,13 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     if (!stickerUrl) return;
     setSharing(true);
     try {
-      // Convert dataURL to blob
       const res = await fetch(stickerUrl);
       const blob = await res.blob();
       const file = new File([blob], 'stiker.png', { type: 'image/png' });
-
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: 'Stiker KyokoBeat',
-          files: [file],
-        });
+        await navigator.share({ title: 'Stiker KyokoBeat', files: [file] });
         showToast('✅ Berhasil dibagikan!');
       } else {
-        // Fallback: download
         handleDownload();
         showToast('📲 Simpan dulu, lalu kirim ke WA manual ya!');
       }
@@ -238,148 +206,205 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     }
   };
 
-  const CANVAS_SIZE = 260;
+  const CANVAS_SIZE = 256;
 
   return (
     <>
       {/* Fullscreen panel */}
       <div
-        className="fixed inset-0 z-[100] flex flex-col"
+        className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
         style={{
-          background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 40%, #6d28d9 100%)',
+          background: '#5b21b6',
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {/* Decorative noise texture */}
+        {/* Rich gradient overlay */}
         <div
-          className="absolute inset-0 pointer-events-none opacity-[0.04]"
+          className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-            backgroundSize: '200px 200px',
+            background: 'radial-gradient(ellipse 80% 60% at 20% 10%, rgba(139,92,246,0.7) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 80%, rgba(109,40,217,0.6) 0%, transparent 60%), linear-gradient(160deg, #4c1d95 0%, #5b21b6 40%, #6d28d9 100%)',
           }}
         />
 
-        {/* Geometric accent shapes */}
-        <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
-          <div className="w-full h-full" style={{ background: 'linear-gradient(45deg, #c8f500, transparent)', clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} />
-        </div>
-        <div className="absolute bottom-20 left-0 w-24 h-24 opacity-10">
-          <div className="w-full h-full" style={{ background: 'linear-gradient(225deg, #c8f500, transparent)', clipPath: 'polygon(0 100%, 0 0, 100% 100%)' }} />
-        </div>
+        {/* Top geometric accent */}
+        <div className="absolute top-0 right-8 w-0 h-0 pointer-events-none" style={{
+          borderLeft: '60px solid transparent',
+          borderRight: '0px solid transparent',
+          borderTop: '60px solid rgba(200,245,0,0.08)',
+        }} />
+        <div className="absolute top-0 right-0 w-0 h-0 pointer-events-none" style={{
+          borderLeft: '90px solid transparent',
+          borderRight: '0px solid transparent',
+          borderTop: '90px solid rgba(200,245,0,0.05)',
+        }} />
 
-        {/* Close tab on right edge */}
+        {/* Bottom geometric accent */}
+        <div className="absolute bottom-0 left-0 w-0 h-0 pointer-events-none" style={{
+          borderRight: '70px solid transparent',
+          borderLeft: '0px solid transparent',
+          borderBottom: '70px solid rgba(200,245,0,0.06)',
+        }} />
+
+        {/* ── CLOSE TAB: smooth SVG arrow on RIGHT edge ── */}
         <button
           onClick={onClose}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center"
-          style={{
-            width: 32,
-            height: 64,
-            background: '#c8f500',
-            clipPath: 'polygon(0 0, 100% 25%, 100% 75%, 0 100%)',
-            cursor: 'pointer',
-          }}
           aria-label="Tutup panel stiker"
+          className="absolute right-0 top-1/2 z-10 p-0 border-0 bg-transparent transition-transform active:scale-90"
+          style={{
+            transform: 'translateY(-50%)',
+            cursor: 'pointer',
+            filter: 'drop-shadow(-2px 0 8px rgba(200,245,0,0.5))',
+          }}
         >
-          {/* invisible hitbox filler */}
+          <svg width="22" height="60" viewBox="0 0 22 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,0 L22,30 L0,60 Z" fill="#c8f500"/>
+          </svg>
         </button>
 
         {/* Header */}
-        <div className="relative z-10 flex items-center gap-3 px-5 pt-10 pb-4">
-          <div className="p-2 rounded-xl" style={{ background: 'rgba(200,245,0,0.15)', border: '1px solid rgba(200,245,0,0.3)' }}>
+        <div className="relative z-10 flex items-center gap-3 px-5 pt-12 pb-5">
+          <div
+            className="p-2.5 rounded-xl flex-shrink-0"
+            style={{
+              background: 'rgba(200,245,0,0.15)',
+              border: '1.5px solid rgba(200,245,0,0.35)',
+              boxShadow: '0 0 16px rgba(200,245,0,0.15)',
+            }}
+          >
             <Sticker className="w-5 h-5" style={{ color: '#c8f500' }} />
           </div>
           <div>
-            <h1 className="font-bold text-xl text-white tracking-widest uppercase" style={{ fontFamily: 'system-ui, sans-serif', letterSpacing: '0.15em' }}>STIKER MAKER</h1>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>Upload foto → jadi stiker WA</p>
+            <h1
+              className="font-black text-white tracking-[0.12em] uppercase"
+              style={{ fontSize: 20, letterSpacing: '0.12em', textShadow: '0 0 20px rgba(200,245,0,0.2)' }}
+            >
+              STIKER MAKER
+            </h1>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Upload foto → edit → kirim ke WA
+            </p>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="relative z-10 flex-1 overflow-y-auto px-5 pb-8 flex flex-col gap-5">
+        {/* Divider */}
+        <div className="relative z-10 mx-5 mb-4 h-px" style={{ background: 'linear-gradient(90deg, rgba(200,245,0,0.3), rgba(200,245,0,0.05))' }} />
+
+        {/* Scrollable content */}
+        <div className="relative z-10 flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-5">
 
           {/* Upload area */}
           {!imageDataUrl ? (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed py-10 transition-all active:scale-95"
-              style={{ borderColor: 'rgba(200,245,0,0.4)', background: 'rgba(0,0,0,0.2)' }}
+              className="flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed py-12 transition-all active:scale-[0.98]"
+              style={{
+                borderColor: 'rgba(200,245,0,0.35)',
+                background: 'rgba(0,0,0,0.18)',
+                boxShadow: 'inset 0 0 30px rgba(0,0,0,0.15)',
+              }}
             >
-              <div className="p-4 rounded-full" style={{ background: 'rgba(200,245,0,0.1)' }}>
+              <div
+                className="p-4 rounded-2xl"
+                style={{
+                  background: 'rgba(200,245,0,0.12)',
+                  border: '1.5px solid rgba(200,245,0,0.25)',
+                  boxShadow: '0 0 20px rgba(200,245,0,0.1)',
+                }}
+              >
                 <ImagePlus className="w-8 h-8" style={{ color: '#c8f500' }} />
               </div>
               <div className="text-center">
-                <p className="font-bold text-white text-sm uppercase tracking-widest">Pilih Foto</p>
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>dari galeri atau kamera</p>
+                <p
+                  className="font-black uppercase tracking-[0.15em] text-white"
+                  style={{ fontSize: 14, textShadow: '0 0 10px rgba(200,245,0,0.3)' }}
+                >
+                  PILIH FOTO
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  dari galeri atau kamera
+                </p>
               </div>
             </button>
           ) : (
             <>
               {/* Canvas preview */}
               <div className="flex flex-col items-center gap-2">
-                <canvas
-                  ref={previewCanvasRef}
-                  width={CANVAS_SIZE}
-                  height={CANVAS_SIZE}
-                  className="rounded-2xl select-none"
+                <div
+                  className="rounded-2xl p-1"
                   style={{
-                    background: 'repeating-conic-gradient(rgba(255,255,255,0.07) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px',
-                    cursor: isDragging ? 'grabbing' : 'grab',
-                    touchAction: 'none',
-                    boxShadow: '0 0 40px rgba(124,58,237,0.5), 0 0 80px rgba(200,245,0,0.1)',
+                    background: 'rgba(0,0,0,0.25)',
+                    boxShadow: '0 0 40px rgba(109,40,217,0.4), 0 0 80px rgba(200,245,0,0.08), inset 0 1px 0 rgba(255,255,255,0.1)',
                   }}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                  onTouchStart={handleMouseDown}
-                  onTouchMove={handleMouseMove}
-                  onTouchEnd={handleMouseUp}
-                />
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Geser untuk mengatur posisi</p>
+                >
+                  <canvas
+                    ref={previewCanvasRef}
+                    width={CANVAS_SIZE}
+                    height={CANVAS_SIZE}
+                    className="rounded-xl block select-none"
+                    style={{
+                      background: 'repeating-conic-gradient(rgba(255,255,255,0.06) 0% 25%, transparent 0% 50%) 0 0 / 14px 14px',
+                      cursor: isDragging ? 'grabbing' : 'grab',
+                      touchAction: 'none',
+                    }}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={handleMouseDown}
+                    onTouchMove={handleMouseMove}
+                    onTouchEnd={handleMouseUp}
+                  />
+                </div>
+                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  ✋ Geser untuk atur posisi
+                </p>
               </div>
 
-              {/* Zoom controls */}
-              <div className="flex items-center gap-3">
+              {/* Zoom */}
+              <div
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
                 <button
-                  onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}
-                  className="p-2 rounded-lg transition-all active:scale-90"
-                  style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.1).toFixed(2))))}
+                  className="p-1.5 rounded-lg transition-all active:scale-90"
+                  style={{ background: 'rgba(255,255,255,0.08)' }}
                 >
                   <ZoomOut className="w-4 h-4 text-white" />
                 </button>
-                <div className="flex-1 relative h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                <div className="flex-1 relative h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }}>
                   <div
                     className="absolute inset-y-0 left-0 rounded-full"
-                    style={{ width: `${((zoom - 0.5) / 2.5) * 100}%`, background: '#c8f500' }}
+                    style={{ width: `${((zoom - 0.5) / 2.5) * 100}%`, background: 'linear-gradient(90deg, #a855f7, #c8f500)' }}
                   />
                   <input
-                    type="range"
-                    min={0.5} max={3} step={0.05}
-                    value={zoom}
-                    onChange={e => setZoom(parseFloat(e.target.value))}
-                    className="absolute inset-0 w-full opacity-0 cursor-pointer"
+                    type="range" min={0.5} max={3} step={0.05} value={zoom}
+                    onChange={e => { setZoom(parseFloat(e.target.value)); setStickerReady(false); }}
+                    className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
                   />
                 </div>
                 <button
-                  onClick={() => setZoom(z => Math.min(3, z + 0.1))}
-                  className="p-2 rounded-lg transition-all active:scale-90"
-                  style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  onClick={() => setZoom(z => Math.min(3, parseFloat((z + 0.1).toFixed(2))))}
+                  className="p-1.5 rounded-lg transition-all active:scale-90"
+                  style={{ background: 'rgba(255,255,255,0.08)' }}
                 >
                   <ZoomIn className="w-4 h-4 text-white" />
                 </button>
                 <button
-                  onClick={() => { setZoom(1); setOffsetX(0); setOffsetY(0); }}
-                  className="p-2 rounded-lg transition-all active:scale-90"
-                  style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  onClick={() => { setZoom(1); setOffsetX(0); setOffsetY(0); setStickerReady(false); }}
+                  className="p-1.5 rounded-lg transition-all active:scale-90"
+                  style={{ background: 'rgba(255,255,255,0.08)' }}
                 >
-                  <RotateCcw className="w-4 h-4 text-white" />
+                  <RotateCcw className="w-3.5 h-3.5 text-white" />
                 </button>
               </div>
 
-              {/* Shape selector */}
+              {/* Shape */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Bentuk Stiker</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Bentuk
+                </p>
                 <div className="flex gap-2">
                   {(['square', 'rounded', 'circle'] as ShapeMode[]).map(s => (
                     <button
@@ -387,21 +412,26 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
                       onClick={() => { setShape(s); setStickerReady(false); }}
                       className="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-all active:scale-95"
                       style={{
-                        borderRadius: s === 'circle' ? '9999px' : s === 'rounded' ? '12px' : '6px',
-                        background: shape === s ? '#c8f500' : 'rgba(0,0,0,0.3)',
-                        color: shape === s ? '#1a0a4a' : 'rgba(255,255,255,0.7)',
+                        borderRadius: s === 'circle' ? '9999px' : s === 'rounded' ? '14px' : '6px',
+                        background: shape === s
+                          ? 'linear-gradient(135deg, #c8f500, #a3e000)'
+                          : 'rgba(0,0,0,0.25)',
+                        color: shape === s ? '#1a0a4a' : 'rgba(255,255,255,0.6)',
                         border: shape === s ? '1.5px solid #c8f500' : '1.5px solid rgba(255,255,255,0.1)',
+                        boxShadow: shape === s ? '0 0 12px rgba(200,245,0,0.3)' : 'none',
                       }}
                     >
-                      {s === 'square' ? 'Kotak' : s === 'rounded' ? 'Bulat Sudut' : 'Lingkaran'}
+                      {s === 'square' ? 'Kotak' : s === 'rounded' ? 'Sudut' : 'Bulat'}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Filter selector */}
+              {/* Filter */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Filter</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Filter
+                </p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {(['none', 'vivid', 'pop', 'neon'] as FilterMode[]).map(f => (
                     <button
@@ -409,9 +439,12 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
                       onClick={() => { setFilter(f); setStickerReady(false); }}
                       className="flex-shrink-0 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-full transition-all active:scale-95"
                       style={{
-                        background: filter === f ? '#c8f500' : 'rgba(0,0,0,0.3)',
-                        color: filter === f ? '#1a0a4a' : 'rgba(255,255,255,0.7)',
+                        background: filter === f
+                          ? 'linear-gradient(135deg, #c8f500, #a3e000)'
+                          : 'rgba(0,0,0,0.25)',
+                        color: filter === f ? '#1a0a4a' : 'rgba(255,255,255,0.6)',
                         border: filter === f ? '1.5px solid #c8f500' : '1.5px solid rgba(255,255,255,0.1)',
+                        boxShadow: filter === f ? '0 0 12px rgba(200,245,0,0.3)' : 'none',
                       }}
                     >
                       {f === 'none' ? 'Original' : f === 'vivid' ? 'Vivid' : f === 'pop' ? 'Pop' : '⚡ Neon'}
@@ -420,16 +453,15 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex flex-col gap-3 mt-2">
-                {/* Generate sticker */}
+              {/* Actions */}
+              <div className="flex flex-col gap-3 mt-1">
                 <button
                   onClick={generateSticker}
-                  className="w-full py-3.5 flex items-center justify-center gap-2 rounded-2xl font-bold uppercase tracking-widest text-sm transition-all active:scale-95"
+                  className="w-full py-3.5 flex items-center justify-center gap-2 rounded-2xl font-black uppercase tracking-[0.12em] text-sm transition-all active:scale-95"
                   style={{
-                    background: '#c8f500',
+                    background: 'linear-gradient(135deg, #c8f500, #a3e000)',
                     color: '#1a0a4a',
-                    boxShadow: '0 0 20px rgba(200,245,0,0.4)',
+                    boxShadow: '0 4px 20px rgba(200,245,0,0.35), 0 0 0 1px rgba(200,245,0,0.2)',
                   }}
                 >
                   <Sparkles className="w-4 h-4" />
@@ -442,9 +474,10 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
                       onClick={handleDownload}
                       className="w-full py-3 flex items-center justify-center gap-2 rounded-2xl font-bold uppercase tracking-wider text-sm transition-all active:scale-95"
                       style={{
-                        background: 'rgba(200,245,0,0.12)',
+                        background: 'rgba(200,245,0,0.1)',
                         color: '#c8f500',
-                        border: '1.5px solid rgba(200,245,0,0.4)',
+                        border: '1.5px solid rgba(200,245,0,0.35)',
+                        boxShadow: 'inset 0 1px 0 rgba(200,245,0,0.1)',
                       }}
                     >
                       <Download className="w-4 h-4" />
@@ -456,30 +489,27 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
                       disabled={sharing}
                       className="w-full py-3 flex items-center justify-center gap-2 rounded-2xl font-bold uppercase tracking-wider text-sm transition-all active:scale-95"
                       style={{
-                        background: 'rgba(37,211,102,0.15)',
+                        background: 'rgba(37,211,102,0.12)',
                         color: '#25d366',
-                        border: '1.5px solid rgba(37,211,102,0.4)',
+                        border: '1.5px solid rgba(37,211,102,0.35)',
                         opacity: sharing ? 0.7 : 1,
                       }}
                     >
-                      {sharing ? (
-                        <div className="w-4 h-4 border-2 border-[#25d366] border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Share2 className="w-4 h-4" />
-                      )}
+                      {sharing
+                        ? <div className="w-4 h-4 border-2 border-[#25d366] border-t-transparent rounded-full animate-spin" />
+                        : <Share2 className="w-4 h-4" />}
                       {sharing ? 'Membagikan...' : 'Kirim ke WhatsApp'}
                     </button>
                   </>
                 )}
 
-                {/* Change photo */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-3 flex items-center justify-center gap-2 rounded-2xl text-sm transition-all active:scale-95"
+                  className="w-full py-2.5 flex items-center justify-center gap-2 rounded-xl text-sm transition-all active:scale-95"
                   style={{
-                    background: 'rgba(0,0,0,0.25)',
-                    color: 'rgba(255,255,255,0.55)',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(0,0,0,0.2)',
+                    color: 'rgba(255,255,255,0.45)',
+                    border: '1px solid rgba(255,255,255,0.08)',
                   }}
                 >
                   <Upload className="w-4 h-4" />
@@ -491,23 +521,18 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
         </div>
 
         {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileSelect}
-        />
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
 
         {/* Toast */}
         {toastMsg && (
           <div
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[110] px-5 py-3 rounded-xl text-sm font-semibold text-white shadow-lg"
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[110] px-5 py-3 rounded-2xl text-sm font-semibold text-white whitespace-nowrap"
             style={{
-              background: 'rgba(30,10,70,0.95)',
-              border: '1px solid rgba(200,245,0,0.3)',
-              backdropFilter: 'blur(10px)',
-              animation: 'fadeInUp 0.3s ease',
+              background: 'rgba(30,10,70,0.92)',
+              border: '1.5px solid rgba(200,245,0,0.3)',
+              backdropFilter: 'blur(12px)',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+              animation: 'sbFadeUp 0.3s ease forwards',
             }}
           >
             {toastMsg}
@@ -516,9 +541,9 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
       </div>
 
       <style>{`
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        @keyframes sbFadeUp {
+          from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
       `}</style>
     </>
