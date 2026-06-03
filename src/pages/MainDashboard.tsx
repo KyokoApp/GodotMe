@@ -65,6 +65,7 @@ import RenameModal from '../components/RenameModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import YtDownloadModal from '../components/YtDownloadModal';
 import SoundCloudSearchModal from '../components/SoundCloudSearchModal';
+import StickerMakerPanel from '../components/StickerMakerPanel';
 import { useToast } from '../components/Toast';
 import supabase from '../lib/supabase';
 
@@ -175,6 +176,9 @@ export default function MainDashboard() {
   const [playlists, setPlaylists] = useState<LocalPlaylist[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   
+  // Sticker Maker panel
+  const [isStickerOpen, setIsStickerOpen] = useState(false);
+
   // Tab & Filter states
   const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'favorites'>('library');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('offline');
@@ -1149,6 +1153,25 @@ export default function MainDashboard() {
     <div
       className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body w-full max-w-full overflow-x-hidden ${playerState.currentSong ? 'pb-[72px]' : 'pb-8'}`}
     >
+      {/* ── STIKER TAB: purple arrow on left edge ── */}
+      {!isStickerOpen && (
+        <button
+          onClick={() => setIsStickerOpen(true)}
+          aria-label="Buka Stiker Maker"
+          className="fixed left-0 top-1/2 z-[90] flex items-center justify-center transition-transform active:scale-95"
+          style={{
+            transform: 'translateY(-50%)',
+            width: 28,
+            height: 56,
+            background: '#7c3aed',
+            clipPath: 'polygon(0 0, 100% 25%, 100% 75%, 0 100%)',
+            cursor: 'pointer',
+          }}
+        />
+      )}
+
+      {/* ── STIKER MAKER PANEL ── */}
+      <StickerMakerPanel isOpen={isStickerOpen} onClose={() => setIsStickerOpen(false)} />
       {/* Subtle top glow — constrained to not overflow */}
       <div className="w-full h-32 bg-gradient-to-b from-[#c8f500]/5 to-transparent pointer-events-none flex-shrink-0" style={{marginBottom: '-8rem'}}></div>
 
