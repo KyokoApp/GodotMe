@@ -198,6 +198,29 @@ export default function MainDashboard() {
   const [playerVisible, setPlayerVisible] = useState(true);
   const [showFullPlayer, setShowFullPlayer] = useState(false);
 
+  // Hardware back button handler (Android)
+  useEffect(() => {
+    let listener: any = null;
+    const setupBackButton = async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        listener = await App.addListener('backButton', ({ canGoBack }: { canGoBack: boolean }) => {
+          if (showFullPlayer) {
+            setShowFullPlayer(false);
+          } else if (canGoBack) {
+            window.history.back();
+          } else {
+            App.exitApp();
+          }
+        });
+      } catch (e) {
+        // Not on native, ignore
+      }
+    };
+    setupBackButton();
+    return () => { if (listener) listener.remove(); };
+  }, [showFullPlayer]);
+
   // Update checker
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
