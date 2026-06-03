@@ -73,37 +73,67 @@ export default function SongCard({
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
-          ) : (
-            <div className={`w-full h-full flex items-center justify-center transition-all duration-300 ${
-              isCurrentlyPlaying ? 'bg-[#0d1a00]' : 'bg-[#151515]'
-            }`}>
-              {isCurrentlyPlaying ? (
-                <div className="flex items-end gap-[3px] h-6">
-                  {[0, 1, 2, 3].map((i) => (
+          ) : (() => {
+            // Generate warna unik berdasarkan title — tiap lagu punya "warna" nya sendiri
+            const colors = [
+              ['#1a0a2e', '#7c3aed'], // purple
+              ['#0a1a2e', '#2563eb'], // blue
+              ['#0a2e1a', '#16a34a'], // green
+              ['#2e1a0a', '#ea580c'], // orange
+              ['#2e0a1a', '#db2777'], // pink
+              ['#1a2e0a', '#65a30d'], // lime
+              ['#0a2e2e', '#0891b2'], // cyan
+              ['#2e2e0a', '#ca8a04'], // yellow
+            ];
+            const idx = (song.title?.charCodeAt(0) || 0) % colors.length;
+            const [bg, accent] = colors[idx];
+            // Inisial dari title
+            const initials = song.title
+              ? song.title.replace(/^\[.*?\]\s*/, '').slice(0, 2).toUpperCase()
+              : '♪';
+            return (
+              <div
+                className="w-full h-full flex flex-col items-center justify-center gap-0.5 transition-all duration-300"
+                style={{ background: `linear-gradient(135deg, ${bg} 0%, ${bg}cc 100%)` }}
+              >
+                {isCurrentlyPlaying ? (
+                  <div className="flex items-end gap-[3px] h-5">
+                    {[0, 1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className="w-[3px] rounded-full"
+                        style={{
+                          background: accent,
+                          animation: `musicBar 0.8s ease-in-out infinite`,
+                          animationDelay: `${i * 0.15}s`,
+                          height: '100%',
+                        }}
+                      />
+                    ))}
+                    <style>{`
+                      @keyframes musicBar {
+                        0%, 100% { transform: scaleY(0.2); }
+                        50% { transform: scaleY(1); }
+                      }
+                    `}</style>
+                  </div>
+                ) : (
+                  <>
+                    <span
+                      className="text-[13px] font-black leading-none tracking-tight"
+                      style={{ color: accent }}
+                    >
+                      {initials}
+                    </span>
                     <div
-                      key={i}
-                      className="w-[3px] rounded-full bg-[#c8f500]"
-                      style={{
-                        animation: `musicBar 0.8s ease-in-out infinite`,
-                        animationDelay: `${i * 0.15}s`,
-                        height: '100%',
-                      }}
+                      className="w-4 h-[2px] rounded-full opacity-40"
+                      style={{ background: accent }}
                     />
-                  ))}
-                  <style>{`
-                    @keyframes musicBar {
-                      0%, 100% { transform: scaleY(0.2); }
-                      50% { transform: scaleY(1); }
-                    }
-                  `}</style>
-                </div>
-              ) : (
-                <svg className={`w-6 h-6 transition-colors duration-300 ${isCurrent ? 'text-[#c8f500]/60' : 'text-gray-600'}`} viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                </svg>
-              )}
-            </div>
-          )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           <button
             onClick={onPlay}

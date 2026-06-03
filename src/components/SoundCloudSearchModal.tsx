@@ -146,6 +146,23 @@ export default function SoundCloudSearchModal({
         typeof window !== 'undefined' &&
         (window as any).Capacitor?.isNativePlatform?.();
 
+      // Fetch thumbnail jadi base64 dulu biar tidak expire & bebas CORS masalah
+      let coverBase64: string | null = null;
+      if (track.thumbnail) {
+        try {
+          const thumbRes = await fetch(track.thumbnail);
+          const thumbBlob = await thumbRes.blob();
+          coverBase64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(thumbBlob);
+          });
+        } catch (_) {
+          coverBase64 = null; // fallback ke placeholder kalau gagal
+        }
+      }
+
       if (isNative) {
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
         const { Capacitor } = await import('@capacitor/core');
@@ -189,7 +206,7 @@ export default function SoundCloudSearchModal({
           artist: track.user || 'SoundCloud',
           album: 'SoundCloud',
           duration: 0,
-          cover: track.thumbnail || null,
+          cover: coverBase64,
           fileHandle: null as any,
           path: `/storage/emulated/0/${filePath}`,
           fileSize: blob.size,
@@ -206,7 +223,7 @@ export default function SoundCloudSearchModal({
           artist: track.user || 'SoundCloud',
           album: 'SoundCloud',
           duration: 0,
-          cover: track.thumbnail || null,
+          cover: coverBase64,
           fileHandle: null as any,
           path: track.url,
           fileSize: 0,
