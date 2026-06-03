@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { X, Search, Download, Loader2, Music, CheckCircle, CloudDownload } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Search, Download, Loader2, Music, CheckCircle, CloudDownload, Play, Pause, Volume2 } from 'lucide-react';
 
 interface SoundCloudSearchModalProps {
   isOpen: boolean;
@@ -30,6 +30,79 @@ export default function SoundCloudSearchModal({
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadedTitles, setDownloadedTitles] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Preview player state
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [previewProgress, setPreviewProgress] = useState(0);
+  const [previewDuration, setPreviewDuration] = useState(0);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Cleanup audio on close / unmount
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+    };
+  }, []);
+
+  const stopPreview = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+    setPreviewProgress(0);
+    setPreviewDuration(0);
+  };
+
+  const togglePreview = (url: string) => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.ontimeupdate = () => {
+        setPreviewProgress(audioRef.current?.currentTime || 0);
+      };
+      audioRef.current.onloadedmetadata = () => {
+        setPreviewDuration(audioRef.current?.duration || 0);
+        setPreviewLoading(false);
+      };
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        setPreviewProgress(0);
+      };
+      audioRef.current.onerror = () => {
+        setPreviewLoading(false);
+        setIsPlaying(false);
+      };
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      if (audioRef.current.src !== url) {
+        audioRef.current.src = url;
+        setPreviewProgress(0);
+        setPreviewDuration(0);
+        setPreviewLoading(true);
+      }
+      audioRef.current.play().then(() => setIsPlaying(true)).catch(() => setPreviewLoading(false));
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const t = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = t;
+      setPreviewProgress(t);
+    }
+  };
+
+  const formatTime = (s: number) => {
+    if (!s || isNaN(s)) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
 
   if (!isOpen) return null;
 
@@ -156,6 +229,7 @@ export default function SoundCloudSearchModal({
   };
 
   const handleClose = () => {
+    stopPreview();
     setQuery('');
     setResult(null);
     setError('');
@@ -238,6 +312,7 @@ export default function SoundCloudSearchModal({
           {/* Result Card */}
           {result && !searching && (
             <div className="bg-[#0a0a0a] rounded-lg border border-white/5 overflow-hidden">
+              {/* Track info row */}
               <div className="flex items-center gap-3 p-3">
                 {result.thumbnail ? (
                   <img
@@ -254,6 +329,52 @@ export default function SoundCloudSearchModal({
                   <p className="text-xs font-semibold text-white truncate">{result.title}</p>
                   <p className="text-[10px] text-gray-500 mt-0.5 truncate">{result.user}</p>
                   <p className="text-[9px] text-[#c8f500]/50 mt-0.5">SoundCloud</p>
+                </div>
+              </div>
+
+              {/* Preview Player */}
+              <div className="px-3 pb-2">
+                <div className="bg-[#111] rounded-lg border border-white/5 p-2.5">
+                  {/* Play/Pause + Progress */}
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      onClick={() => togglePreview(result.url)}
+                      disabled={previewLoading}
+                      className="w-8 h-8 rounded-full bg-[#c8f500] hover:bg-[#d4ff00] disabled:opacity-50 flex items-center justify-center flex-shrink-0 transition-all active:scale-95 cursor-pointer shadow-[0_0_10px_rgba(200,245,0,0.3)]"
+                    >
+                      {previewLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 text-black animate-spin" />
+                      ) : isPlaying ? (
+                        <Pause className="w-3.5 h-3.5 text-black fill-black" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 text-black fill-black ml-0.5" />
+                      )}
+                    </button>
+
+                    <div className="flex-1 space-y-1">
+                      <input
+                        type="range"
+                        min={0}
+                        max={previewDuration || 100}
+                        value={previewProgress}
+                        onChange={handleSeek}
+                        className="w-full h-1 rounded-full appearance-none cursor-pointer outline-none"
+                        style={{
+                          background: `linear-gradient(to right, #c8f500 ${previewDuration ? (previewProgress / previewDuration) * 100 : 0}%, rgba(255,255,255,0.1) 0%)`
+                        }}
+                      />
+                      <div className="flex justify-between">
+                        <span className="text-[9px] text-gray-600 font-mono">{formatTime(previewProgress)}</span>
+                        <span className="text-[9px] text-gray-600 font-mono">{formatTime(previewDuration)}</span>
+                      </div>
+                    </div>
+
+                    <Volume2 className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
+                  </div>
+
+                  <p className="text-[9px] text-gray-600 text-center mt-1">
+                    {isPlaying ? '▶ Preview sedang diputar' : 'Tap play untuk preview sebelum download'}
+                  </p>
                 </div>
               </div>
 
