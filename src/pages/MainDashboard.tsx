@@ -142,16 +142,11 @@ function CircularSpectrumPlayer({ cover, title, isPlaying }: { cover: string | n
         transition: 'box-shadow 0.4s ease',
         animation: isPlaying ? 'kyokoSpin 22s linear infinite' : 'none',
       }}>
-        {cover ? (
-          <img src={cover} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="rgba(200,245,0,0.25)">
-              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-            </svg>
-          </div>
-        )}
+        <img
+          src={cover || 'https://raw.githubusercontent.com/Crashmant/rizky/main/uploads/1780465102494-416.jpeg'}
+          alt={title}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+        />
       </div>
       <style>{`@keyframes kyokoSpin { to { transform: rotate(360deg); } }`}</style>
     </div>
