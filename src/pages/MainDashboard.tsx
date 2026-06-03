@@ -1153,21 +1153,24 @@ export default function MainDashboard() {
     <div
       className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body w-full max-w-full overflow-x-hidden ${playerState.currentSong ? 'pb-[72px]' : 'pb-8'}`}
     >
-      {/* ── STIKER TAB: purple arrow on left edge ── */}
+      {/* ── STIKER TAB: smooth SVG arrow on left edge ── */}
       {!isStickerOpen && (
         <button
           onClick={() => setIsStickerOpen(true)}
           aria-label="Buka Stiker Maker"
-          className="fixed left-0 top-1/2 z-[90] flex items-center justify-center transition-transform active:scale-95"
-          style={{
-            transform: 'translateY(-50%)',
-            width: 28,
-            height: 56,
-            background: '#7c3aed',
-            clipPath: 'polygon(0 0, 100% 25%, 100% 75%, 0 100%)',
-            cursor: 'pointer',
-          }}
-        />
+          className="fixed left-0 top-1/2 z-[90] p-0 border-0 bg-transparent transition-transform active:scale-90"
+          style={{ transform: 'translateY(-50%)', cursor: 'pointer', filter: 'drop-shadow(2px 0 8px rgba(124,58,237,0.7))' }}
+        >
+          <svg width="22" height="60" viewBox="0 0 22 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="tabGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#9333ea"/>
+                <stop offset="100%" stopColor="#6d28d9"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,0 L22,30 L0,60 Z" fill="url(#tabGrad)"/>
+          </svg>
+        </button>
       )}
 
       {/* ── STIKER MAKER PANEL ── */}
