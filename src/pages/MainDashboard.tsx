@@ -140,6 +140,18 @@ export default function MainDashboard() {
   // SoundCloud Search modal state
   const [isScModalOpen, setIsScModalOpen] = useState(false);
 
+  // Dropdown states for compact filter UI
+  const [showDurationDropdown, setShowDurationDropdown] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    if (!showDurationDropdown && !showSortDropdown) return;
+    const handler = () => { setShowDurationDropdown(false); setShowSortDropdown(false); };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, [showDurationDropdown, showSortDropdown]);
+
   // Auth state
   const [user, setUser] = useState<any>(null);
 
@@ -782,6 +794,21 @@ export default function MainDashboard() {
     }
   };
 
+  // Rescan All — gabungan rescan folder lokal + refresh cloud dalam satu tombol
+  const handleRescanAll = async () => {
+    // Jalankan rescan folder lokal
+    handleRescan();
+    // Sekaligus refresh cloud
+    setSyncingCloud(true);
+    try {
+      await loadCloudSongs();
+    } catch (e) {
+      console.warn('Cloud refresh during rescan failed:', e);
+    } finally {
+      setSyncingCloud(false);
+    }
+  };
+
   // Delete cloud song (admin only)
   const handleDeleteCloudSong = async (song: LocalSong) => {
     if (!confirm(`Hapus "${song.title}" dari cloud? File akan dihapus dari database.`)) return;
@@ -1009,18 +1036,18 @@ export default function MainDashboard() {
             </div>
           </div>
 
-          {/* Right: icon-only action buttons */}
-          <div className="flex items-center gap-1">
+          {/* Right: icon-only action buttons — compact 3 icons */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {/* Help */}
             <button
               onClick={() => setShowHelp(!showHelp)}
               title="Bantuan"
-              className="w-8 h-8 rounded-full bg-[#111] border border-gray-800 hover:border-[#c8f500]/40 text-gray-500 hover:text-[#c8f500] transition-colors cursor-pointer flex items-center justify-center flex-shrink-0"
+              className="w-8 h-8 rounded-full bg-[#111] border border-gray-800 hover:border-[#c8f500]/40 text-gray-500 hover:text-[#c8f500] transition-colors cursor-pointer flex items-center justify-center"
             >
               <HelpCircle className="w-3.5 h-3.5" />
             </button>
 
-            {/* Cloud account */}
+            {/* Cloud account — icon only (no username) */}
             <CloudSyncIndicator
               user={user}
               onLoginClick={() => setIsAuthOpen(true)}
@@ -1030,40 +1057,17 @@ export default function MainDashboard() {
               onSyncComplete={loadLocalDataAndSync}
             />
 
-            {/* Rescan folder */}
+            {/* Rescan gabungan (folder lokal + cloud) */}
             <button
-              onClick={handleRescan}
-              disabled={scanning}
-              title="Rescan Folder"
-              className="w-8 h-8 rounded-full bg-[#111] border border-[#c8f500]/30 hover:border-[#c8f500] text-[#c8f500] transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
+              onClick={handleRescanAll}
+              disabled={scanning || syncingCloud}
+              title="Rescan Folder & Cloud"
+              className="w-8 h-8 rounded-full bg-[#111] border border-[#c8f500]/30 hover:border-[#c8f500] text-[#c8f500] transition-all cursor-pointer flex items-center justify-center"
             >
-              {scanning
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <FolderSync className="w-3.5 h-3.5" />}
-            </button>
-
-            {/* Refresh cloud */}
-            <button
-              onClick={handleRefreshCloud}
-              disabled={syncingCloud}
-              title="Refresh Cloud"
-              className="w-8 h-8 rounded-full bg-[#111] border border-blue-500/30 hover:border-blue-400 text-blue-400 transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
-            >
-              {syncingCloud
+              {(scanning || syncingCloud)
                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 : <RefreshCw className="w-3.5 h-3.5" />}
             </button>
-
-            {/* YouTube download */}
-            <button
-              onClick={() => setIsYtModalOpen(true)}
-              title="Download dari YouTube"
-              className="w-8 h-8 rounded-full bg-red-500/10 border border-red-500/40 hover:border-red-500 text-red-400 transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
-            >
-              <Youtube className="w-3.5 h-3.5" />
-            </button>
-
-
           </div>
         </div>
 
@@ -1307,100 +1311,137 @@ export default function MainDashboard() {
             </div>
           )}
 
-          {/* Duration Filter + Delete All */}
-          <div className="flex flex-wrap items-center gap-2 p-3 bg-[#111] rounded-xl border border-white/5">
-            <span className="text-xs text-gray-500 mr-1">Durasi:</span>
-            {([
-              { key: 'all', label: 'Semua' },
-              { key: 'under1', label: '< 1 menit' },
-              { key: '1to2', label: '1–2 menit' },
-              { key: 'over2', label: '> 2 menit' },
-            ] as const).map(({ key, label }) => (
+          {/* Duration Filter + Sort + View + Download — compact 1 baris */}
+          <div className="flex items-center gap-2 p-3 bg-[#111] rounded-xl border border-white/5">
+
+            {/* Durasi Dropdown */}
+            <div className="relative">
               <button
-                key={key}
-                onClick={() => setDurationFilter(key)}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  durationFilter === key
-                    ? 'bg-[#c8f500]/10 border border-[#c8f500]/30 text-[#c8f500]'
-                    : 'bg-[#0a0a0a] border border-transparent text-gray-400 hover:text-white'
+                onClick={() => { setShowDurationDropdown(p => !p); setShowSortDropdown(false); }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                  durationFilter !== 'all'
+                    ? 'bg-[#c8f500]/10 border-[#c8f500]/40 text-[#c8f500]'
+                    : 'bg-[#0a0a0a] border-gray-800 text-gray-400 hover:text-white'
                 }`}
               >
-                {label}
+                <span>⏱</span>
+                <span>
+                  {durationFilter === 'all' ? 'Durasi' :
+                   durationFilter === 'under1' ? '< 1 mnt' :
+                   durationFilter === '1to2' ? '1–2 mnt' : '> 2 mnt'}
+                </span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${showDurationDropdown ? 'rotate-180' : ''}`} />
               </button>
-            ))}
-            {durationFilter !== 'all' && (
+              {showDurationDropdown && (
+                <div className="absolute top-full left-0 mt-1 z-50 bg-[#1a1a1a] border border-gray-700/60 rounded-xl shadow-xl min-w-[160px] overflow-hidden animate-scale-up">
+                  {([
+                    { key: 'all', label: 'Semua Durasi' },
+                    { key: 'under1', label: '< 1 menit' },
+                    { key: '1to2', label: '1 – 2 menit' },
+                    { key: 'over2', label: '> 2 menit' },
+                  ] as const).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => { setDurationFilter(key); setShowDurationDropdown(false); }}
+                      className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                        durationFilter === key
+                          ? 'text-[#c8f500] bg-[#c8f500]/10'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  {/* Hapus Semua di dalam dropdown kalau filter aktif */}
+                  {durationFilter !== 'all' && (
+                    <>
+                      <div className="border-t border-gray-700/50 my-1" />
+                      <button
+                        onClick={() => { setIsDeleteAllOpen('choose'); setShowDurationDropdown(false); }}
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer flex items-center gap-2"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Hapus Semua ({getFilteredSongs().filter(s => !s.isCloud).length})
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Urutkan Dropdown */}
+            <div className="relative">
               <button
-                onClick={() => setIsDeleteAllOpen('choose')}
-                className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
+                onClick={() => { setShowSortDropdown(p => !p); setShowDurationDropdown(false); }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border bg-[#0a0a0a] border-gray-800 text-gray-400 hover:text-white transition-all cursor-pointer"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                Hapus Semua ({getFilteredSongs().length})
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>
+                  {sortBy === 'title' ? 'Judul' : sortBy === 'artist' ? 'Artis' : 'Album'}
+                  {sortOrder === 'asc' ? ' ↑' : ' ↓'}
+                </span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
               </button>
-            )}
+              {showSortDropdown && (
+                <div className="absolute top-full left-0 mt-1 z-50 bg-[#1a1a1a] border border-gray-700/60 rounded-xl shadow-xl min-w-[150px] overflow-hidden animate-scale-up">
+                  {(['title', 'artist', 'album'] as const).map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        if (sortBy === key) setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+                        else { setSortBy(key); setSortOrder('asc'); }
+                        setShowSortDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors cursor-pointer flex items-center justify-between ${
+                        sortBy === key
+                          ? 'text-[#c8f500] bg-[#c8f500]/10'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <span>{key === 'title' ? 'Judul' : key === 'artist' ? 'Artis' : 'Album'}</span>
+                      {sortBy === key && <ArrowUpDown className="w-3 h-3" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* View mode: grid / list */}
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'grid' ? 'text-[#c8f500] bg-white/5' : 'text-gray-500 hover:text-white'}`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'list' ? 'text-[#c8f500] bg-white/5' : 'text-gray-500 hover:text-white'}`}
+            >
+              <List className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Sorting / View controls */}
-          <div className="flex items-center justify-between p-3 bg-[#111] rounded-xl border border-white/5">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-500 flex items-center gap-1">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-gray-400" />
-                Urutkan:
-              </span>
-              <div className="flex gap-1.5">
-                {(['title', 'artist', 'album'] as const).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      if (sortBy === key) {
-                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                      } else {
-                        setSortBy(key);
-                        setSortOrder('asc');
-                      }
-                    }}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold capitalize transition-all cursor-pointer ${
-                      sortBy === key
-                        ? 'bg-[#c8f500]/10 border border-[#c8f500]/30 text-[#c8f500]'
-                        : 'bg-[#0a0a0a] border border-transparent text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {key === 'title' ? 'Judul' : key === 'artist' ? 'Artis' : 'Album'}
-                    {sortBy === key && (
-                      <ArrowUpDown className="w-3 h-3 inline-block ml-1" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* View Mode controls + Search button */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'grid' ? 'text-[#c8f500] bg-white/5' : 'text-gray-500 hover:text-white'}`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'list' ? 'text-[#c8f500] bg-white/5' : 'text-gray-500 hover:text-white'}`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-
-              {/* Divider */}
-              <div className="w-px h-5 bg-white/10 mx-1" />
-
-              {/* Cari Lagu Online */}
-              <button
-                onClick={() => setIsScModalOpen(true)}
-                title="Cari Lagu Online"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#c8f500] hover:bg-[#d4ff00] text-black text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(200,245,0,0.3)] hover:shadow-[0_0_18px_rgba(200,245,0,0.5)] active:scale-95"
-              >
-                <CloudDownload className="w-3.5 h-3.5" />
-                Cari Lagu
-              </button>
-            </div>
+          {/* Download buttons: Cari Lagu + YouTube — 2 kolom sejajar */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setIsScModalOpen(true)}
+              title="Cari Lagu Online"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#c8f500] hover:bg-[#d4ff00] text-black text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(200,245,0,0.3)] hover:shadow-[0_0_18px_rgba(200,245,0,0.5)] active:scale-95"
+            >
+              <CloudDownload className="w-3.5 h-3.5" />
+              Cari Lagu
+            </button>
+            <button
+              onClick={() => setIsYtModalOpen(true)}
+              title="Download dari YouTube"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/15 border border-red-500/40 hover:border-red-500 hover:bg-red-500/25 text-red-400 text-xs font-bold transition-all cursor-pointer active:scale-95"
+            >
+              <Youtube className="w-3.5 h-3.5" />
+              YouTube
+            </button>
           </div>
 
           {/* Songs Display Grid / List */}
