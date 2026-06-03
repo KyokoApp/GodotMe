@@ -143,13 +143,23 @@ export default function MainDashboard() {
   // Dropdown states for compact filter UI
   const [showDurationDropdown, setShowDurationDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const durationDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns on outside click
+  // Close dropdowns on outside mousedown (bukan capture click, biar tidak konflik dgn item onClick)
   useEffect(() => {
     if (!showDurationDropdown && !showSortDropdown) return;
-    const handler = () => { setShowDurationDropdown(false); setShowSortDropdown(false); };
-    document.addEventListener('click', handler, true);
-    return () => document.removeEventListener('click', handler, true);
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (durationDropdownRef.current && !durationDropdownRef.current.contains(target)) {
+        setShowDurationDropdown(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(target)) {
+        setShowSortDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, [showDurationDropdown, showSortDropdown]);
 
   // Auth state
@@ -311,12 +321,12 @@ export default function MainDashboard() {
       }
 
       // Step 4: Merge: keep valid downloaded songs + fresh local scan
-      // PENTING: pertahankan title/artist yang sudah di-rename dari DB
+      // PENTING: pertahankan title/artist/cover yang sudah di-rename/di-set dari DB
       const existingMap = new Map(currentSongs.map(s => [s.path, s]));
       const mergedScanned = songs.map(scanned => {
         const existing = existingMap.get(scanned.path);
         if (existing) {
-          // Lagu sudah ada di DB — pakai title/artist dari DB (bisa sudah di-rename)
+          // Lagu sudah ada di DB — pakai metadata dari DB (bisa sudah di-rename/set cover)
           return {
             ...scanned,
             title: existing.title,
@@ -328,7 +338,12 @@ export default function MainDashboard() {
         return scanned;
       });
       const validDownloaded = existingDownloaded.filter(s => validCloudIds.has(s.id));
-      const allSongsToSave = [...mergedScanned, ...validDownloaded];
+      // Tambahkan juga lagu SC/YT downloaded yang tidak ada validCloudIds-nya tapi punya cover
+      const scYtDownloaded = currentSongs.filter(
+        s => s.isDownloaded && (s.id.startsWith('sc-dl-') || s.id.startsWith('yt-dl-'))
+      );
+      const allDownloaded = [...validDownloaded, ...scYtDownloaded];
+      const allSongsToSave = [...mergedScanned, ...allDownloaded];
 
       if (allSongsToSave.length !== currentSongs.length) {
         await clearSongs();
@@ -574,19 +589,25 @@ export default function MainDashboard() {
         const songs = await scanAllMobileStorage((progress) => {
           setScanProgress(progress);
         });
-        // Pertahankan title/artist yang sudah di-rename dari DB
+        // Pertahankan title/artist/cover yang sudah di-rename dari DB
         const existingDb = await getSongs();
         const existingMap = new Map(existingDb.map(s => [s.path, s]));
         const merged = songs.map(scanned => {
           const existing = existingMap.get(scanned.path);
           if (existing) {
+            // Preserve semua metadata yang sudah di-edit/di-set termasuk cover
             return { ...scanned, title: existing.title, artist: existing.artist, album: existing.album, cover: existing.cover ?? scanned.cover };
           }
           return scanned;
         });
+        // Pertahankan juga lagu yang didownload dari cloud/YT/SC (tidak ada di scan)
+        const downloadedSongs = existingDb.filter(s => s.isDownloaded && s.cover);
+        const mergedPaths = new Set(merged.map(s => s.path));
+        const extraDownloaded = downloadedSongs.filter(s => !mergedPaths.has(s.path));
+        const finalSongs = [...merged, ...extraDownloaded];
         await clearSongs();
-        await saveSongs(merged);
-        setLocalSongs(merged);
+        await saveSongs(finalSongs);
+        setLocalSongs(finalSongs);
         toast(`Berhasil mendeteksi ${merged.length} lagu dari HP Anda!`, 'success');
       } catch (e: any) {
         toast('Gagal memindai HP: ' + e.message, 'error');
@@ -1315,7 +1336,7 @@ export default function MainDashboard() {
           <div className="flex items-center gap-2 p-3 bg-[#111] rounded-xl border border-white/5">
 
             {/* Durasi Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={durationDropdownRef}>
               <button
                 onClick={() => { setShowDurationDropdown(p => !p); setShowSortDropdown(false); }}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
@@ -1370,7 +1391,7 @@ export default function MainDashboard() {
             </div>
 
             {/* Urutkan Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={sortDropdownRef}>
               <button
                 onClick={() => { setShowSortDropdown(p => !p); setShowDurationDropdown(false); }}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border bg-[#0a0a0a] border-gray-800 text-gray-400 hover:text-white transition-all cursor-pointer"
