@@ -17,6 +17,7 @@ import {
   Trash2,
   FolderOpen,
   Cloud,
+  CloudOff,
   Laptop,
   CheckCircle,
   Loader2,
@@ -33,6 +34,7 @@ import {
   Youtube,
   ChevronDown,
   CloudDownload,
+  LogOut,
 } from 'lucide-react';
 import audioManager from '../lib/audio';
 import {
@@ -139,6 +141,10 @@ export default function MainDashboard() {
 
   // SoundCloud Search modal state
   const [isScModalOpen, setIsScModalOpen] = useState(false);
+
+  // Dropdown states for compact filter UI
+  const [showDurationDropdown, setShowDurationDropdown] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   // Auth state
   const [user, setUser] = useState<any>(null);
@@ -978,8 +984,8 @@ export default function MainDashboard() {
             </div>
           </div>
 
-          {/* Right: icon-only action buttons */}
-          <div className="flex items-center gap-1">
+          {/* Right: compact icon buttons */}
+          <div className="flex items-center gap-1.5">
             {/* Help */}
             <button
               onClick={() => setShowHelp(!showHelp)}
@@ -989,54 +995,66 @@ export default function MainDashboard() {
               <HelpCircle className="w-3.5 h-3.5" />
             </button>
 
-            {/* Cloud account */}
-            <CloudSyncIndicator
-              user={user}
-              onLoginClick={() => setIsAuthOpen(true)}
-              onLogoutSuccess={() => setUser(null)}
-              favorites={favorites}
-              playlists={playlists}
-              onSyncComplete={loadLocalDataAndSync}
-            />
-
-            {/* Rescan folder */}
+            {/* Cloud icon only — klik buka auth / sync menu */}
             <button
-              onClick={handleRescan}
-              disabled={scanning}
-              title="Rescan Folder"
-              className="w-8 h-8 rounded-full bg-[#111] border border-[#c8f500]/30 hover:border-[#c8f500] text-[#c8f500] transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
+              onClick={() => user ? (() => { /* handleSync via CloudSyncIndicator */ })() : setIsAuthOpen(true)}
+              title={user ? user.email : 'Login Cloud'}
+              className={`w-8 h-8 rounded-full bg-[#111] border flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
+                user
+                  ? 'border-[#c8f500]/40 text-[#c8f500] hover:border-[#c8f500]'
+                  : 'border-gray-700 text-gray-500 hover:text-white hover:border-gray-500'
+              }`}
             >
-              {scanning
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <FolderSync className="w-3.5 h-3.5" />}
+              {user ? <Cloud className="w-3.5 h-3.5 animate-pulse" /> : <CloudOff className="w-3.5 h-3.5" />}
             </button>
 
-            {/* Refresh cloud */}
+            {/* Logout (hanya tampil kalau login) */}
+            {user && (
+              <button
+                onClick={async () => { await supabase.auth.signOut(); setUser(null); }}
+                title="Keluar Akun"
+                className="w-8 h-8 rounded-full bg-[#111] border border-gray-800 hover:border-red-500/50 text-gray-500 hover:text-red-400 transition-colors cursor-pointer flex items-center justify-center flex-shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {/* Gabungan Rescan Folder + Refresh Cloud */}
             <button
-              onClick={handleRefreshCloud}
-              disabled={syncingCloud}
-              title="Refresh Cloud"
-              className="w-8 h-8 rounded-full bg-[#111] border border-blue-500/30 hover:border-blue-400 text-blue-400 transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
+              onClick={async () => {
+                await handleRescan();
+                await handleRefreshCloud();
+              }}
+              disabled={scanning || syncingCloud}
+              title="Rescan & Refresh Cloud"
+              className="w-8 h-8 rounded-full bg-[#111] border border-[#c8f500]/30 hover:border-[#c8f500] text-[#c8f500] transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
             >
-              {syncingCloud
+              {(scanning || syncingCloud)
                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 : <RefreshCw className="w-3.5 h-3.5" />}
             </button>
-
-            {/* YouTube download */}
-            <button
-              onClick={() => setIsYtModalOpen(true)}
-              title="Download dari YouTube"
-              className="w-8 h-8 rounded-full bg-red-500/10 border border-red-500/40 hover:border-red-500 text-red-400 transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
-            >
-              <Youtube className="w-3.5 h-3.5" />
-            </button>
-
-
           </div>
         </div>
 
-        {/* Row 2: Search bar */}
+        {/* Row 2: YouTube + Cari Lagu — 2 kolom sejajar */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setIsYtModalOpen(true)}
+            className="flex items-center justify-center gap-2 py-2 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 hover:border-red-500/60 text-red-400 text-xs font-bold transition-all cursor-pointer active:scale-95"
+          >
+            <Youtube className="w-3.5 h-3.5" />
+            Download YouTube
+          </button>
+          <button
+            onClick={() => setIsScModalOpen(true)}
+            className="flex items-center justify-center gap-2 py-2 rounded-lg bg-[#c8f500] hover:bg-[#d4ff00] text-black text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-[0_0_10px_rgba(200,245,0,0.25)]"
+          >
+            <CloudDownload className="w-3.5 h-3.5" />
+            Cari Lagu Online
+          </button>
+        </div>
+
+        {/* Row 3: Search bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
           <input
@@ -1277,99 +1295,107 @@ export default function MainDashboard() {
           )}
 
           {/* Duration Filter + Delete All */}
-          <div className="flex flex-wrap items-center gap-2 p-3 bg-[#111] rounded-xl border border-white/5">
-            <span className="text-xs text-gray-500 mr-1">Durasi:</span>
-            {([
-              { key: 'all', label: 'Semua' },
-              { key: 'under1', label: '< 1 menit' },
-              { key: '1to2', label: '1–2 menit' },
-              { key: 'over2', label: '> 2 menit' },
-            ] as const).map(({ key, label }) => (
+          {/* Compact Filter Bar: Durasi + Urutkan + View + Hapus Semua */}
+          <div className="flex items-center gap-2 p-2.5 bg-[#111] rounded-xl border border-white/5">
+
+            {/* Durasi Dropdown */}
+            <div className="relative">
               <button
-                key={key}
-                onClick={() => setDurationFilter(key)}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  durationFilter === key
-                    ? 'bg-[#c8f500]/10 border border-[#c8f500]/30 text-[#c8f500]'
-                    : 'bg-[#0a0a0a] border border-transparent text-gray-400 hover:text-white'
+                onClick={() => { setShowDurationDropdown(v => !v); setShowSortDropdown(false); }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                  durationFilter !== 'all'
+                    ? 'bg-[#c8f500]/10 border-[#c8f500]/40 text-[#c8f500]'
+                    : 'bg-[#0a0a0a] border-white/10 text-gray-400 hover:text-white'
                 }`}
               >
-                {label}
+                <SlidersHorizontal className="w-3 h-3" />
+                {durationFilter === 'all' ? 'Durasi' : durationFilter === 'under1' ? '<1 mnt' : durationFilter === '1to2' ? '1-2 mnt' : '>2 mnt'}
+                <ChevronDown className={`w-3 h-3 transition-transform ${showDurationDropdown ? 'rotate-180' : ''}`} />
               </button>
-            ))}
-            {durationFilter !== 'all' && (
-              <button
-                onClick={() => setIsDeleteAllOpen('choose')}
-                className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Hapus Semua ({getFilteredSongs().length})
-              </button>
-            )}
-          </div>
-
-          {/* Sorting / View controls */}
-          <div className="flex items-center justify-between p-3 bg-[#111] rounded-xl border border-white/5">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-500 flex items-center gap-1">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-gray-400" />
-                Urutkan:
-              </span>
-              <div className="flex gap-1.5">
-                {(['title', 'artist', 'album'] as const).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      if (sortBy === key) {
-                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                      } else {
-                        setSortBy(key);
-                        setSortOrder('asc');
-                      }
-                    }}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold capitalize transition-all cursor-pointer ${
-                      sortBy === key
-                        ? 'bg-[#c8f500]/10 border border-[#c8f500]/30 text-[#c8f500]'
-                        : 'bg-[#0a0a0a] border border-transparent text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {key === 'title' ? 'Judul' : key === 'artist' ? 'Artis' : 'Album'}
-                    {sortBy === key && (
-                      <ArrowUpDown className="w-3 h-3 inline-block ml-1" />
-                    )}
-                  </button>
-                ))}
-              </div>
+              {showDurationDropdown && (
+                <div className="absolute top-full left-0 mt-1 z-50 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl overflow-hidden min-w-[130px]">
+                  {([
+                    { key: 'all', label: 'Semua' },
+                    { key: 'under1', label: '< 1 menit' },
+                    { key: '1to2', label: '1–2 menit' },
+                    { key: 'over2', label: '> 2 menit' },
+                  ] as const).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => { setDurationFilter(key); setShowDurationDropdown(false); }}
+                      className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                        durationFilter === key
+                          ? 'bg-[#c8f500]/10 text-[#c8f500]'
+                          : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  {durationFilter !== 'all' && (
+                    <>
+                      <div className="h-px bg-white/5 mx-2" />
+                      <button
+                        onClick={() => { setIsDeleteAllOpen('choose'); setShowDurationDropdown(false); }}
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer flex items-center gap-2"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Hapus Semua ({getFilteredSongs().filter(s => !s.isCloud).length})
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* View Mode controls + Search button */}
-            <div className="flex items-center gap-2">
+            {/* Sort Dropdown */}
+            <div className="relative">
               <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'grid' ? 'text-[#c8f500] bg-white/5' : 'text-gray-500 hover:text-white'}`}
+                onClick={() => { setShowSortDropdown(v => !v); setShowDurationDropdown(false); }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border bg-[#0a0a0a] border-white/10 text-gray-400 hover:text-white transition-all cursor-pointer"
               >
-                <LayoutGrid className="w-4 h-4" />
+                <ArrowUpDown className="w-3 h-3" />
+                {sortBy === 'title' ? 'Judul' : sortBy === 'artist' ? 'Artis' : 'Album'}
+                <ChevronDown className={`w-3 h-3 transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
               </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'list' ? 'text-[#c8f500] bg-white/5' : 'text-gray-500 hover:text-white'}`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-
-              {/* Divider */}
-              <div className="w-px h-5 bg-white/10 mx-1" />
-
-              {/* Cari Lagu Online */}
-              <button
-                onClick={() => setIsScModalOpen(true)}
-                title="Cari Lagu Online"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#c8f500] hover:bg-[#d4ff00] text-black text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(200,245,0,0.3)] hover:shadow-[0_0_18px_rgba(200,245,0,0.5)] active:scale-95"
-              >
-                <CloudDownload className="w-3.5 h-3.5" />
-                Cari Lagu
-              </button>
+              {showSortDropdown && (
+                <div className="absolute top-full left-0 mt-1 z-50 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl overflow-hidden min-w-[110px]">
+                  {(['title', 'artist', 'album'] as const).map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        if (sortBy === key) setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+                        else { setSortBy(key); setSortOrder('asc'); }
+                        setShowSortDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors cursor-pointer flex items-center justify-between ${
+                        sortBy === key ? 'bg-[#c8f500]/10 text-[#c8f500]' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      {key === 'title' ? 'Judul' : key === 'artist' ? 'Artis' : 'Album'}
+                      {sortBy === key && <ArrowUpDown className="w-3 h-3 ml-2" />}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* View Mode */}
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'grid' ? 'text-[#c8f500] bg-white/5' : 'text-gray-500 hover:text-white'}`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'list' ? 'text-[#c8f500] bg-white/5' : 'text-gray-500 hover:text-white'}`}
+            >
+              <List className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Songs Display Grid / List */}
