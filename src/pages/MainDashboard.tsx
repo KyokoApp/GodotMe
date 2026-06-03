@@ -68,6 +68,97 @@ import SoundCloudSearchModal from '../components/SoundCloudSearchModal';
 import { useToast } from '../components/Toast';
 import supabase from '../lib/supabase';
 
+// ── Circular Spectrum Player ──────────────────────────────────────────────────
+function CircularSpectrumPlayer({ cover, title, isPlaying }: { cover: string | null; title: string; isPlaying: boolean }) {
+  const BAR_COUNT = 60;
+  const CX = 140, CY = 140, R_INNER = 88, R_MAX_BAR = 52;
+  const smoothRef = React.useRef<Float32Array>(new Float32Array(BAR_COUNT).fill(2));
+  const [bars, setBars] = React.useState<number[]>(new Array(BAR_COUNT).fill(2));
+  const rafRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    const tick = () => {
+      rafRef.current = requestAnimationFrame(tick);
+      const dataArray = audioManager.getAnalyserData();
+      for (let i = 0; i < BAR_COUNT; i++) {
+        let target: number;
+        if (isPlaying && dataArray) {
+          const bin = Math.floor((i / BAR_COUNT) * dataArray.length);
+          target = (dataArray[bin] / 255) * R_MAX_BAR;
+        } else {
+          const t = Date.now() / 1200;
+          target = 2 + 2 * Math.abs(Math.sin(t * 0.6 + i * 0.22));
+        }
+        const prev = smoothRef.current[i];
+        smoothRef.current[i] = target > prev
+          ? prev + (target - prev) * 0.4
+          : prev + (target - prev) * 0.1;
+      }
+      setBars([...smoothRef.current]);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [isPlaying]);
+
+  return (
+    <div style={{ position: 'relative', width: 280, height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {/* SVG spectrum */}
+      <svg width="280" height="280" viewBox="0 0 280 280" style={{ position: 'absolute', top: 0, left: 0 }}>
+        {bars.map((h, i) => {
+          const angle = (i / BAR_COUNT) * Math.PI * 2 - Math.PI / 2;
+          const clamped = Math.max(2, Math.min(h, R_MAX_BAR));
+          const x1 = CX + R_INNER * Math.cos(angle);
+          const y1 = CY + R_INNER * Math.sin(angle);
+          const x2 = CX + (R_INNER + clamped) * Math.cos(angle);
+          const y2 = CY + (R_INNER + clamped) * Math.sin(angle);
+          const t = clamped / R_MAX_BAR;
+          const alpha = 0.3 + t * 0.7;
+          return (
+            <line
+              key={i}
+              x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={`rgba(${Math.round(160 + t * 40)},${Math.round(230 + t * 15)},0,${alpha})`}
+              strokeWidth={isPlaying && t > 0.65 ? 2.8 : 2}
+              strokeLinecap="round"
+            />
+          );
+        })}
+        {/* subtle ring */}
+        <circle cx={CX} cy={CY} r={R_INNER - 1} fill="none"
+          stroke={isPlaying ? 'rgba(200,245,0,0.12)' : 'rgba(200,245,0,0.05)'}
+          strokeWidth="1" />
+      </svg>
+
+      {/* Circular album art */}
+      <div style={{
+        width: 176, height: 176,
+        borderRadius: '50%', overflow: 'hidden',
+        border: '2px solid rgba(200,245,0,0.2)',
+        boxShadow: isPlaying
+          ? '0 0 0 5px rgba(200,245,0,0.05), 0 0 40px rgba(200,245,0,0.15)'
+          : '0 0 30px rgba(0,0,0,0.6)',
+        position: 'relative', zIndex: 2,
+        background: 'linear-gradient(135deg, #1a2200, #111)',
+        transition: 'box-shadow 0.4s ease',
+        animation: isPlaying ? 'kyokoSpin 22s linear infinite' : 'none',
+      }}>
+        {cover ? (
+          <img src={cover} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="rgba(200,245,0,0.25)">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            </svg>
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes kyokoSpin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function MainDashboard() {
   // App states
   const [localSongs, setLocalSongs] = useState<LocalSong[]>([]);
@@ -1699,27 +1790,13 @@ export default function MainDashboard() {
             <div className="w-10" />
           </div>
 
-          {/* Album art + song info */}
-          <div className="flex-1 flex flex-col items-center justify-center px-8 gap-5 min-h-0">
-            <div
-              className="w-full rounded-2xl overflow-hidden bg-[#111] relative"
-              style={{
-                maxWidth: 'min(280px, 70vw)',
-                aspectRatio: '1/1',
-                boxShadow: playerState.isPlaying
-                  ? '0 24px 64px rgba(200,245,0,0.18), 0 0 0 1px rgba(200,245,0,0.08)'
-                  : '0 24px 64px rgba(0,0,0,0.8)',
-                transform: playerState.isPlaying ? 'scale(1)' : 'scale(0.94)',
-                transition: 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.4s ease',
-              }}
-            >
-              {playerState.currentSong.cover ? (
-                <img src={playerState.currentSong.cover} alt={playerState.currentSong.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              ) : null}
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a2200] to-[#111]">
-                <Disc className="w-20 h-20 text-[#c8f500]/30" />
-              </div>
-            </div>
+          {/* Album art + Circular Spectrum + song info */}
+          <div className="flex-1 flex flex-col items-center justify-center px-8 gap-4 min-h-0">
+            <CircularSpectrumPlayer
+              cover={playerState.currentSong.cover ?? null}
+              title={playerState.currentSong.title}
+              isPlaying={playerState.isPlaying}
+            />
             <div className="w-full flex items-center justify-between" style={{ maxWidth: 'min(280px, 70vw)' }}>
               <div className="min-w-0 flex-1">
                 <h2 className="text-xl font-bold text-white truncate leading-tight">{playerState.currentSong.title}</h2>
