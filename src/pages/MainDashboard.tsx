@@ -199,19 +199,25 @@ export default function MainDashboard() {
   const [playerVisible, setPlayerVisible] = useState(true);
   const [showFullPlayer, setShowFullPlayer] = useState(false);
 
-  // Hardware back button handler (Android) - pakai document event, no extra package needed
+  // Hardware back button handler (Android)
   useEffect(() => {
-    const handler = (e: PopStateEvent) => {
-      if (showFullPlayer) {
-        setShowFullPlayer(false);
-      }
+    let handler: any = null;
+    const setup = async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        handler = await App.addListener('backButton', ({ canGoBack }: { canGoBack: boolean }) => {
+          if (showFullPlayer) {
+            setShowFullPlayer(false);
+          } else if (canGoBack) {
+            window.history.back();
+          } else {
+            App.exitApp();
+          }
+        });
+      } catch (e) {}
     };
-    // Push dummy state so back button triggers popstate
-    if (showFullPlayer) {
-      window.history.pushState({ fullPlayer: true }, '');
-    }
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
+    setup();
+    return () => { handler?.remove(); };
   }, [showFullPlayer]);
 
   // Update checker
