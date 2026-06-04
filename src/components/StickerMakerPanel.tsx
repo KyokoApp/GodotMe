@@ -220,15 +220,23 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     return zip.generateAsync({ type: 'blob' });
   };
 
-  // Convert blob to base64 string
-  const blobToBase64 = (blob: Blob): Promise<string> =>
+  // Canvas dataUrl → WebP base64 di ukuran tertentu
+  const toWebpBase64 = (dataUrl: string, size: number): Promise<string> =>
     new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.readAsDataURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = size; c.height = size;
+        const ctx = c.getContext('2d')!;
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        resolve(c.toDataURL('image/webp', 0.85).split(',')[1]);
+      };
+      img.src = dataUrl;
     });
 
-  // Export: Native WA Intent → Web Share → Download fallback
+  // Export: Native ENABLE_STICKER_PACK → Web Share → Download fallback
   const handleExportPack = async () => {
     if (pack.length === 0) return;
     if (pack.length < 3) {
@@ -240,27 +248,44 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     showToast('⏳ Menyiapkan sticker pack...');
 
     try {
-      const blob = await buildWastickers();
-      const fileName = packName;
-
-      // ── PATH 1: Capacitor native — buka WA langsung (0 tap ekstra) ──
+      // ── PATH 1: Capacitor native — ENABLE_STICKER_PACK intent (0 tap) ──
       if ((window as any).Capacitor?.isNativePlatform?.()) {
         try {
-          const { WASticker } = await import('../plugins/WASticker'); // src/plugins/WASticker.ts
-          const base64 = await blobToBase64(blob);
-          await WASticker.openPack({ data: base64, packName: fileName });
+          const { WASticker } = await import('../plugins/WASticker');
+
+          // tray image 96x96
+          const trayData = await toWebpBase64(pack[0].url, 96);
+
+          // stiker 512x512 WebP satu-satu
+          const stickers = await Promise.all(
+            pack.map(async (s, i) => ({
+              fileName: `${i + 1}.webp`,
+              data: await toWebpBase64(s.url, 512),
+              emoji: '😊',
+            }))
+          );
+
+          await WASticker.openPack({
+            packId: `kyoko_${Date.now()}`,
+            packName,
+            publisher: 'KyokoBeat',
+            trayData,
+            stickers,
+          });
+
           showToast('✅ WhatsApp terbuka!');
           setSharing(false);
           return;
         } catch (capErr: any) {
-          if (capErr?.message?.includes('AbortError')) { setSharing(false); return; }
-          // Native gagal → lanjut fallback
+          if ((capErr?.message ?? '').includes('AbortError')) { setSharing(false); return; }
           console.warn('WASticker native error:', capErr);
+          // lanjut fallback
         }
       }
 
-      // ── PATH 2: Web Share API (Android Chrome — 1 tap di share sheet) ──
-      const file = new File([blob], `${fileName}.wastickers`, { type: 'application/octet-stream' });
+      // ── PATH 2: Web Share API (Android Chrome) ──
+      const blob = await buildWastickers();
+      const file = new File([blob], `${packName}.wastickers`, { type: 'application/octet-stream' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ title: packName, files: [file] });
         showToast('✅ Pack dibagikan!');
@@ -271,7 +296,7 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
       // ── PATH 3: Download fallback ──
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `${fileName}.wastickers`;
+      a.href = url; a.download = `${packName}.wastickers`;
       document.body.appendChild(a); a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
