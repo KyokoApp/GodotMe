@@ -21,6 +21,29 @@ interface StickerItem {
 }
 
 const CANVAS_SIZE = 260;
+const WA_STICKER_SIZE = 512;       // px — WhatsApp requirement
+const WA_TRAY_SIZE    = 96;        // px — WhatsApp requirement
+const WA_MAX_STICKER_KB = 100;     // KB — WhatsApp requirement per sticker
+const WA_MAX_TRAY_KB    = 50;      // KB — WhatsApp requirement for tray icon
+const WA_MIN_STICKERS   = 3;       // WhatsApp minimum
+const WA_MAX_STICKERS   = 30;      // WhatsApp maximum
+
+// ─── Logging helper ──────────────────────────────────────────────────────────
+const LOG_TAG = '[StickerMaker]';
+const log  = (...args: any[]) => console.log (LOG_TAG, ...args);
+const warn = (...args: any[]) => console.warn(LOG_TAG, '⚠️', ...args);
+const err  = (...args: any[]) => console.error(LOG_TAG, '❌', ...args);
+
+// ─── WhatsApp detection (best-effort in web/Capacitor context) ────────────────
+const isWhatsAppInstalled = (): boolean => {
+  const ua = navigator.userAgent.toLowerCase();
+  // Heuristic: jika running di Android WebView (Capacitor), WA almost always ada
+  const isAndroid = /android/.test(ua);
+  const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.();
+  log('isWhatsAppInstalled check — android:', isAndroid, 'capacitor:', isCapacitor);
+  // Tidak bisa 100% deteksi dari web layer; return true as optimistic assumption
+  return isAndroid || isCapacitor;
+};
 
 const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }) => {
   const [screen, setScreen] = useState<Screen>('upload');
@@ -42,14 +65,14 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // ── Load JSZip from CDN (for .wastickers export) ──
+  // ── Load JSZip from CDN ───────────────────────────────────────────────────
   const loadJSZip = (): Promise<any> =>
     new Promise((resolve, reject) => {
       if ((window as any).JSZip) { resolve((window as any).JSZip); return; }
       const s = document.createElement('script');
       s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-      s.onload = () => resolve((window as any).JSZip);
-      s.onerror = () => reject(new Error('Gagal load JSZip'));
+      s.onload  = () => { log('JSZip loaded'); resolve((window as any).JSZip); };
+      s.onerror = () => reject(new Error('Gagal load JSZip dari CDN'));
       document.head.appendChild(s);
     });
 
@@ -58,9 +81,12 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 2500);
+    setTimeout(() => setToastMsg(null), 3000);
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Canvas draw (unchanged)
+  // ─────────────────────────────────────────────────────────────────────────
   const drawPreview = useCallback(() => {
     const canvas = previewCanvasRef.current;
     if (!canvas || !image) return;
@@ -164,101 +190,218 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     setSelectedId(null);
   };
 
-  // Convert dataURL → 512x512 WebP base64 (WA sticker requirement)
-  const toWebp512 = (dataUrl: string): Promise<string> =>
-    new Promise((resolve) => {
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Convert dataURL → N×N WebP base64, auto-compress to stay under maxKB
+  // ─────────────────────────────────────────────────────────────────────────
+  const toWebpBase64 = (
+    dataUrl: string,
+    size: number,
+    maxKB: number,
+  ): Promise<string> =>
+    new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         const c = document.createElement('canvas');
-        c.width = 512; c.height = 512;
+        c.width = size; c.height = size;
         const ctx = c.getContext('2d')!;
-        // draw with object-fit cover
-        const scale = Math.max(512 / img.width, 512 / img.height);
+        ctx.clearRect(0, 0, size, size);
+        // cover-fit so sticker fills the square
+        const scale = Math.max(size / img.width, size / img.height);
         const w = img.width * scale, h = img.height * scale;
-        ctx.drawImage(img, (512 - w) / 2, (512 - h) / 2, w, h);
-        resolve(c.toDataURL('image/webp', 0.85).split(',')[1]);
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+
+        // Step-down quality until under maxKB
+        let quality = 0.90;
+        let b64 = c.toDataURL('image/webp', quality).split(',')[1];
+        while (b64.length * 0.75 > maxKB * 1024 && quality > 0.20) {
+          quality = parseFloat((quality - 0.08).toFixed(2));
+          b64 = c.toDataURL('image/webp', quality).split(',')[1];
+        }
+        const finalKB = Math.round(b64.length * 0.75 / 1024);
+        log(`toWebpBase64 ${size}x${size} → ${finalKB}KB (quality=${quality})`);
+        if (finalKB > maxKB) {
+          warn(`Image still ${finalKB}KB after compression (max ${maxKB}KB). WhatsApp may reject it.`);
+        }
+        resolve(b64);
       };
+      img.onerror = () => reject(new Error('Image load failed in toWebpBase64'));
       img.src = dataUrl;
     });
 
-  // Build .wastickers blob
+  // ─────────────────────────────────────────────────────────────────────────
+  //  BUILD .wastickers ZIP
+  //  Format: Official WhatsApp Sticker Pack API
+  //  Ref: https://github.com/WhatsApp/stickers
+  // ─────────────────────────────────────────────────────────────────────────
   const buildWastickers = async (): Promise<Blob> => {
+    log('buildWastickers() start — pack.length:', pack.length);
+
     const JSZip = await loadJSZip();
     const zip = new JSZip();
 
-    const contents = {
-      title: packName,
-      author: 'StickerVibe',
-      publisher: 'StickerVibe',
-      privacy_policy_website: '',
-      license_agreement_website: '',
-      image_data_version: '1',
-      avoid_cache: 'false',
-      ios_app_store_link: '',
+    // ── 1. contents.json (OFFICIAL format dengan sticker_packs wrapper) ────
+    //  Bug lama: format flat tanpa sticker_packs → WhatsApp tidak mengenali pack
+    //  Fix: gunakan format resmi dengan sticker_packs array + semua field wajib
+    const packIdentifier = `kyokobeat_${packName.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}`;
+    const stickersJson = pack.map((_, i) => ({
+      image_file: `${i + 1}.webp`,
+      emojis: ['😊'],
+    }));
+
+    const contentsJson = {
       android_play_store_link: '',
-      stickers: pack.map((_, i) => ({
-        image_file: `${i + 1}.webp`,
-        emojis: ['😊'],
-      })),
+      ios_app_store_link: '',
+      sticker_packs: [
+        {
+          identifier:                packIdentifier,       // WAJIB — unik per pack
+          name:                      packName,             // WAJIB — nama pack
+          publisher:                 'KyokoBeat',          // WAJIB — nama publisher
+          tray_image_file:           'tray_icon.webp',     // WAJIB — harus WebP, 96x96
+          publisher_email:           '',
+          publisher_website:         '',
+          privacy_policy_website:    '',
+          license_agreement_website: '',
+          image_data_version:        '1',
+          avoid_cache:               false,
+          animated_sticker_pack:     false,
+          stickers:                  stickersJson,         // WAJIB — min 3, max 30
+        },
+      ],
     };
-    zip.file('contents.json', JSON.stringify(contents));
 
-    // tray image 96x96
-    const trayImg = new Image();
-    await new Promise<void>(r => { trayImg.onload = () => r(); trayImg.src = pack[0].url; });
-    const trayC = document.createElement('canvas');
-    trayC.width = 96; trayC.height = 96;
-    trayC.getContext('2d')!.drawImage(trayImg, 0, 0, 96, 96);
-    zip.file('tray.png', trayC.toDataURL('image/png').split(',')[1], { base64: true });
+    log('contents.json:\n', JSON.stringify(contentsJson, null, 2));
+    zip.file('contents.json', JSON.stringify(contentsJson, null, 2));
 
-    // stickers 512x512 WebP
+    // ── 2. tray_icon.webp — 96×96 WebP, max 50 KB ─────────────────────────
+    //  Bug lama: file PNG bernama 'tray.png' → WhatsApp tidak bisa baca
+    //  Fix: WebP 96×96, nama persis 'tray_icon.webp' sesuai contents.json
+    log('Creating tray_icon.webp (96×96 WebP)...');
+    const trayBase64 = await toWebpBase64(pack[0].url, WA_TRAY_SIZE, WA_MAX_TRAY_KB);
+    zip.file('tray_icon.webp', trayBase64, { base64: true });
+    log('tray_icon.webp done —', Math.round(trayBase64.length * 0.75 / 1024), 'KB');
+
+    // ── 3. Sticker files — 512×512 WebP, max 100 KB each ──────────────────
     for (let i = 0; i < pack.length; i++) {
-      const webp = await toWebp512(pack[i].url);
-      zip.file(`${i + 1}.webp`, webp, { base64: true });
+      log(`Processing sticker ${i + 1}/${pack.length}...`);
+      const b64 = await toWebpBase64(pack[i].url, WA_STICKER_SIZE, WA_MAX_STICKER_KB);
+      zip.file(`${i + 1}.webp`, b64, { base64: true });
+      log(`Sticker ${i + 1}.webp — ${Math.round(b64.length * 0.75 / 1024)}KB`);
     }
 
-    return zip.generateAsync({ type: 'blob' });
+    const blob = await zip.generateAsync({ type: 'blob' });
+    log('buildWastickers() complete —', Math.round(blob.size / 1024), 'KB total');
+    return blob;
   };
 
-  // Export: coba share langsung ke WA, fallback download
-  const handleExportPack = async () => {
-    if (pack.length === 0) return;
+  // ─────────────────────────────────────────────────────────────────────────
+  //  ADD STICKER PACK TO WHATSAPP
+  //  Menggunakan Web Share API (Capacitor Android menggunakan native share sheet)
+  //  MIME type: application/x-stickers-android (yang WhatsApp register sebagai handler)
+  // ─────────────────────────────────────────────────────────────────────────
+  const addStickerPackToWhatsApp = async (blob: Blob): Promise<'success' | 'download' | 'cancelled'> => {
+    const fileName = `${packName.replace(/[^a-zA-Z0-9_-]/g, '_')}.wastickers`;
+    log('addStickerPackToWhatsApp() — file:', fileName, 'size:', Math.round(blob.size / 1024), 'KB');
+    log('WhatsApp installed (estimate):', isWhatsAppInstalled());
 
-    // Validasi min 3 stiker (syarat WA)
-    if (pack.length < 3) {
-      showToast(`⚠️ Butuh minimal 3 stiker (sekarang ${pack.length})`);
+    // MIME types dicoba berurutan — WA mendaftar sebagai handler untuk keduanya
+    const mimeTypes = [
+      'application/x-stickers-android',  // Official WA sticker MIME type
+      'application/zip',                  // Fallback karena .wastickers adalah ZIP
+    ];
+
+    if (navigator.share) {
+      for (const mimeType of mimeTypes) {
+        try {
+          const file = new File([blob], fileName, { type: mimeType });
+          const canShare = navigator.canShare?.({ files: [file] });
+          log(`canShare with ${mimeType}:`, canShare);
+
+          if (canShare) {
+            log(`Attempting navigator.share with MIME: ${mimeType}`);
+            await navigator.share({
+              title: packName,
+              files: [file],
+            });
+            log('navigator.share() resolved — user completed share');
+            return 'success';
+          }
+        } catch (e: any) {
+          if (e.name === 'AbortError') {
+            log('User cancelled share dialog');
+            return 'cancelled';
+          }
+          warn(`Share with ${mimeType} failed:`, e.name, e.message);
+        }
+      }
+
+      // Last try: share tanpa canShare check (beberapa browser tidak implement canShare)
+      try {
+        log('Trying share without canShare guard...');
+        const file = new File([blob], fileName, { type: 'application/x-stickers-android' });
+        await navigator.share({ title: packName, files: [file] });
+        return 'success';
+      } catch (e: any) {
+        if (e.name === 'AbortError') return 'cancelled';
+        warn('Final share attempt failed:', e.name, e.message);
+      }
+    } else {
+      log('navigator.share not available — falling back to download');
+    }
+
+    // ── Fallback: download file ──────────────────────────────────────────
+    log('Fallback: downloading .wastickers file');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    log('File downloaded:', fileName);
+    return 'download';
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  HANDLE EXPORT — entry point dari tombol
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleExportPack = async () => {
+    log('handleExportPack() — pack.length:', pack.length);
+
+    if (pack.length === 0) {
+      warn('Pack kosong, tidak bisa export');
       return;
+    }
+    if (pack.length < WA_MIN_STICKERS) {
+      const msg = `⚠️ Butuh minimal ${WA_MIN_STICKERS} stiker (sekarang ${pack.length})`;
+      warn(msg); showToast(msg); return;
+    }
+    if (pack.length > WA_MAX_STICKERS) {
+      const msg = `⚠️ Maksimal ${WA_MAX_STICKERS} stiker per pack (sekarang ${pack.length})`;
+      warn(msg); showToast(msg); return;
     }
 
     setSharing(true);
-    showToast('⏳ Menyiapkan sticker pack...');
+    showToast('⏳ Membangun sticker pack...');
+    log('Validation passed — starting build');
 
     try {
       const blob = await buildWastickers();
-      const fileName = `${packName}.wastickers`;
-      const file = new File([blob], fileName, { type: 'application/octet-stream' });
+      log('Build success — starting WhatsApp send');
+      showToast('📤 Membuka WhatsApp...');
 
-      // Coba Web Share API (Android Chrome / Samsung Browser)
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: packName,
-          files: [file],
-        });
-        showToast('✅ Pack berhasil dibagikan ke WhatsApp!');
-      } else {
-        // Fallback: download file .wastickers
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('📥 Diunduh! Tap file .wastickers → langsung masuk WA');
+      const result = await addStickerPackToWhatsApp(blob);
+      log('addStickerPackToWhatsApp result:', result);
+
+      if (result === 'success') {
+        showToast('✅ Pack berhasil dikirim! Tekan "Add" di WhatsApp.');
+      } else if (result === 'download') {
+        showToast('📥 Diunduh! Buka file .wastickers → pilih WhatsApp → Add stickers');
       }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') showToast('Gagal: ' + err.message);
+      // cancelled: tidak perlu toast
+    } catch (e: any) {
+      err('handleExportPack failed:', e.name, e.message, e.stack);
+      showToast(`❌ Gagal: ${e.message}`);
     } finally {
       setSharing(false);
     }
@@ -267,17 +410,17 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
   const borderRadius = (s: ShapeMode) => s === 'circle' ? '50%' : s === 'rounded' ? '28px' : '8px';
 
   const filters: { key: FilterMode; label: string; icon: React.ReactNode; color: string }[] = [
-    { key: 'none', label: 'Original', icon: <Wand2 size={15} />, color: '#94a3b8' },
-    { key: 'vivid', label: 'Vivid', icon: <Sun size={15} />, color: '#f59e0b' },
-    { key: 'pop', label: 'Pop', icon: <Flame size={15} />, color: '#f43f5e' },
-    { key: 'neon', label: 'Neon', icon: <Zap size={15} />, color: '#8b5cf6' },
+    { key: 'none',  label: 'Original', icon: <Wand2 size={15} />, color: '#94a3b8' },
+    { key: 'vivid', label: 'Vivid',    icon: <Sun   size={15} />, color: '#f59e0b' },
+    { key: 'pop',   label: 'Pop',      icon: <Flame size={15} />, color: '#f43f5e' },
+    { key: 'neon',  label: 'Neon',     icon: <Zap   size={15} />, color: '#8b5cf6' },
   ];
 
   const totalSize = (pack.length * 25).toFixed(0);
 
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   //  PACK SCREEN
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   const PackScreen = (
     <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: '#f8fafc' }}>
       {/* Header */}
@@ -366,12 +509,12 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
         style={{ background: 'white', borderTop: '1px solid #e2e8f0', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         {pack.length > 0 && (
           <div className="mb-3 px-3 py-2 rounded-xl flex items-start gap-2"
-            style={{ background: pack.length < 3 ? 'rgba(245,158,11,0.08)' : 'rgba(0,196,124,0.07)', border: `1px solid ${pack.length < 3 ? 'rgba(245,158,11,0.25)' : 'rgba(0,196,124,0.18)'}` }}>
-            <span className="text-sm">{pack.length < 3 ? '⚠️' : '💡'}</span>
+            style={{ background: pack.length < WA_MIN_STICKERS ? 'rgba(245,158,11,0.08)' : 'rgba(0,196,124,0.07)', border: `1px solid ${pack.length < WA_MIN_STICKERS ? 'rgba(245,158,11,0.25)' : 'rgba(0,196,124,0.18)'}` }}>
+            <span className="text-sm">{pack.length < WA_MIN_STICKERS ? '⚠️' : '💡'}</span>
             <p className="text-xs leading-relaxed" style={{ color: '#475569' }}>
-              {pack.length < 3
-                ? `Tambah ${3 - pack.length} stiker lagi (min. 3 untuk export ke WA)`
-                : <>File <strong>.wastickers</strong> akan dibagikan. Di WA akan muncul tombol <em>"Add to your stickers"</em>.</>
+              {pack.length < WA_MIN_STICKERS
+                ? `Tambah ${WA_MIN_STICKERS - pack.length} stiker lagi (min. ${WA_MIN_STICKERS} untuk dikirim ke WA)`
+                : <>File <strong>.wastickers</strong> akan dibagikan ke WhatsApp. Tekan <em>"Add"</em> di preview WA untuk menggunakan.</>
               }
             </p>
           </div>
@@ -394,8 +537,8 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
             disabled={sharing}
             className="w-full py-4 flex items-center justify-center gap-2.5 rounded-2xl font-black text-white text-base transition-all active:scale-95"
             style={{
-              background: sharing ? '#94a3b8' : pack.length < 3 ? '#cbd5e1' : 'linear-gradient(135deg, #25d366, #1ebe5b)',
-              boxShadow: (sharing || pack.length < 3) ? 'none' : '0 6px 24px rgba(37,211,102,0.35)',
+              background: sharing ? '#94a3b8' : pack.length < WA_MIN_STICKERS ? '#cbd5e1' : 'linear-gradient(135deg, #25d366, #1ebe5b)',
+              boxShadow: (sharing || pack.length < WA_MIN_STICKERS) ? 'none' : '0 6px 24px rgba(37,211,102,0.35)',
               fontFamily: "'Nunito', sans-serif",
             }}>
             {sharing
@@ -403,8 +546,8 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
               : <Share2 size={20} />}
             {sharing
               ? 'Menyiapkan...'
-              : pack.length < 3
-                ? `Butuh ${3 - pack.length} stiker lagi...`
+              : pack.length < WA_MIN_STICKERS
+                ? `Butuh ${WA_MIN_STICKERS - pack.length} stiker lagi...`
                 : `Kirim ke WhatsApp (${pack.length} stiker)`}
           </button>
         )}
@@ -412,9 +555,9 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     </div>
   );
 
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   //  UPLOAD SCREEN
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   const UploadScreen = (
     <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: '#f8fafc' }}>
       <div className="flex-shrink-0 flex items-center justify-between px-4 pt-12 pb-4"
@@ -457,9 +600,9 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     </div>
   );
 
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   //  EDIT SCREEN
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   const EditScreen = (
     <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: '#f1f5f9' }}>
       {/* Header */}
@@ -595,9 +738,9 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     </div>
   );
 
-  // ─────────────────────────────────────────────────────────────────
-  //  DONE SCREEN  
-  // ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  //  DONE SCREEN
+  // ─────────────────────────────────────────────────────────────────────────
   const DoneScreen = (
     <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: '#f8fafc' }}>
       <div className="flex-shrink-0 flex items-center justify-between px-4 pt-12 pb-4"
@@ -610,7 +753,6 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
         <h1 className="font-black text-white" style={{ fontSize: 17, fontFamily: "'Nunito', sans-serif" }}>
           Buat Stiker
         </h1>
-        {/* step indicator */}
         <div className="flex items-center gap-1">
           {[0,1,2].map(i => (
             <div key={i} className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
@@ -633,7 +775,7 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
           <p className="text-sm text-gray-400 mt-1">Pack kamu sekarang punya {pack.length} stiker</p>
         </div>
 
-        {/* Preview + pack mini */}
+        {/* Preview */}
         {stickerUrl && (
           <div className="w-full rounded-3xl p-5 flex flex-col items-center gap-4"
             style={{ background: 'white', boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
@@ -679,7 +821,7 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
             {sharing
               ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <Share2 size={18} />}
-            {sharing ? 'Menyiapkan...' : `📥 Export ke WhatsApp (${pack.length} stiker)`}
+            {sharing ? 'Menyiapkan...' : `📲 Kirim ke WhatsApp (${pack.length} stiker)`}
           </button>
 
           <button onClick={() => setScreen('pack')}
@@ -696,10 +838,10 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
 
   return (
     <>
-      {screen === 'pack' && PackScreen}
+      {screen === 'pack'   && PackScreen}
       {screen === 'upload' && UploadScreen}
-      {screen === 'edit' && EditScreen}
-      {screen === 'done' && DoneScreen}
+      {screen === 'edit'   && EditScreen}
+      {screen === 'done'   && DoneScreen}
 
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
 
