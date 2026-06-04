@@ -6,6 +6,7 @@ console.log('--- KyokoBeat Android Native Customizer ---');
 const manifestPath = path.join(__dirname, '../android/app/src/main/AndroidManifest.xml');
 const mainActivityDir = path.join(__dirname, '../android/app/src/main/java/com/kyokobeat/musicplayer');
 const mainActivityPath = path.join(mainActivityDir, 'MainActivity.java');
+const xmlResDir = path.join(__dirname, '../android/app/src/main/res/xml');
 
 // 1. Configure AndroidManifest.xml
 if (fs.existsSync(manifestPath)) {
@@ -28,13 +29,51 @@ if (fs.existsSync(manifestPath)) {
     console.log('✓ Added requestLegacyExternalStorage to application tag');
   }
 
+  // ── FileProvider untuk WA Sticker ──
+  const fileProvider = `
+        <!-- WA Sticker FileProvider -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="\${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>`;
+
+  if (!manifest.includes('FILE_PROVIDER_PATHS')) {
+    manifest = manifest.replace('</application>', `${fileProvider}\n    </application>`);
+    console.log('✓ Injected FileProvider for WA Sticker into AndroidManifest.xml');
+  }
+
   fs.writeFileSync(manifestPath, manifest, 'utf8');
 } else {
   console.error('Error: AndroidManifest.xml not found at:', manifestPath);
   process.exit(1);
 }
 
-// 2. Write KyokoBeatNativePlugin as a separate file (FIXED - not in MainActivity)
+// 2. Create file_paths.xml (diperlukan FileProvider)
+fs.mkdirSync(xmlResDir, { recursive: true });
+const filePathsXml = `<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path name="cache" path="." />
+</paths>`;
+const filePathsPath = path.join(xmlResDir, 'file_paths.xml');
+if (!fs.existsSync(filePathsPath)) {
+  fs.writeFileSync(filePathsPath, filePathsXml, 'utf8');
+  console.log('✓ Created res/xml/file_paths.xml');
+} else {
+  // pastikan cache-path ada
+  let existing = fs.readFileSync(filePathsPath, 'utf8');
+  if (!existing.includes('cache-path')) {
+    existing = existing.replace('</paths>', '    <cache-path name="cache" path="." />\n</paths>');
+    fs.writeFileSync(filePathsPath, existing, 'utf8');
+    console.log('✓ Updated file_paths.xml with cache-path');
+  }
+}
+
+// 3. Write KyokoBeatNativePlugin.java
 const pluginPath = path.join(mainActivityDir, 'KyokoBeatNativePlugin.java');
 const pluginCode = `package com.kyokobeat.musicplayer;
 
@@ -104,7 +143,6 @@ public class KyokoBeatNativePlugin extends Plugin {
         ContentResolver contentResolver = getContext().getContentResolver();
 
         Uri uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
-        // No IS_MUSIC filter — detect all audio including WhatsApp, downloads, voice notes
         String selection = MediaStore.Audio.Media.DURATION + " > 0 AND " + MediaStore.Audio.Media.SIZE + " > 0";
         String sortOrder = MediaStore.Audio.Media.DATE_ADDED + " DESC";
 
@@ -174,7 +212,97 @@ fs.mkdirSync(mainActivityDir, { recursive: true });
 fs.writeFileSync(pluginPath, pluginCode, 'utf8');
 console.log('✓ Created KyokoBeatNativePlugin.java');
 
-// 3. Write MainActivity.java - register the plugin properly
+// 4. Write WAStickerPlugin.java  ← BARU
+const waStickerPluginPath = path.join(mainActivityDir, 'WAStickerPlugin.java');
+const waStickerPluginCode = `package com.kyokobeat.musicplayer;
+
+import android.content.Intent;
+import android.net.Uri;
+import android.util.Base64;
+import androidx.core.content.FileProvider;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import java.io.File;
+import java.io.FileOutputStream;
+
+/**
+ * WAStickerPlugin
+ * Buka WhatsApp "Add to your stickers" dialog langsung dari app.
+ * Dipanggil dari StickerMakerPanel.tsx via WASticker.ts wrapper.
+ */
+@CapacitorPlugin(name = "WASticker")
+public class WAStickerPlugin extends Plugin {
+
+    @PluginMethod
+    public void openPack(PluginCall call) {
+        String base64Data = call.getString("data");
+        String packName   = call.getString("packName", "sticker_pack");
+
+        if (base64Data == null) {
+            call.reject("No data provided");
+            return;
+        }
+
+        try {
+            // 1. Decode base64 -> bytes
+            byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
+
+            // 2. Tulis ke cache dengan ekstensi .wastickers
+            File file = new File(getContext().getCacheDir(), packName + ".wastickers");
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                fos.write(bytes);
+            }
+
+            // 3. URI aman via FileProvider
+            Uri uri = FileProvider.getUriForFile(
+                getContext(),
+                getContext().getPackageName() + ".fileprovider",
+                file
+            );
+
+            // 4. Intent VIEW -> WhatsApp tangkap & tampilkan "Add to your stickers"
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, "application/octet-stream");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            // Coba WhatsApp biasa dulu, lalu WA Business
+            String[] waPackages = {"com.whatsapp", "com.whatsapp.w4b"};
+            boolean launched = false;
+            for (String pkg : waPackages) {
+                try {
+                    intent.setPackage(pkg);
+                    getContext().startActivity(intent);
+                    launched = true;
+                    break;
+                } catch (Exception ignored) {}
+            }
+
+            // Fallback: share chooser jika WA tidak terinstall
+            if (!launched) {
+                intent.setPackage(null);
+                Intent chooser = Intent.createChooser(intent, "Buka dengan");
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(chooser);
+            }
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+
+        } catch (Exception e) {
+            call.reject("Failed: " + e.getMessage());
+        }
+    }
+}
+`;
+fs.writeFileSync(waStickerPluginPath, waStickerPluginCode, 'utf8');
+console.log('✓ Created WAStickerPlugin.java');
+
+// 5. Write MainActivity.java — daftarkan KEDUA plugin
 const mainActivityCode = `package com.kyokobeat.musicplayer;
 
 import android.os.Bundle;
@@ -184,12 +312,12 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(KyokoBeatNativePlugin.class);
+        registerPlugin(WAStickerPlugin.class);   // ← WA Sticker
         super.onCreate(savedInstanceState);
     }
 }
 `;
-
 fs.writeFileSync(mainActivityPath, mainActivityCode, 'utf8');
-console.log('✓ Updated MainActivity.java with plugin registration');
+console.log('✓ Updated MainActivity.java (KyokoBeatNative + WASticker)');
 
 console.log('--- Customization Completed successfully ---');
