@@ -8,7 +8,13 @@ import {
   ZoomOut,
   Sparkles,
   ImagePlus,
-  Sticker,
+  X,
+  ChevronLeft,
+  Check,
+  Wand2,
+  Sun,
+  Zap,
+  Flame,
 } from 'lucide-react';
 
 interface StickerMakerPanelProps {
@@ -18,6 +24,8 @@ interface StickerMakerPanelProps {
 
 type ShapeMode = 'square' | 'circle' | 'rounded';
 type FilterMode = 'none' | 'vivid' | 'pop' | 'neon';
+
+const CANVAS_SIZE = 280;
 
 const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -33,6 +41,7 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
   const [stickerUrl, setStickerUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [activeStep, setActiveStep] = useState<'upload' | 'edit' | 'done'>('upload');
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,37 +59,26 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
 
     const size = canvas.width;
     ctx.clearRect(0, 0, size, size);
-
     ctx.save();
+
     if (shape === 'circle') {
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
       ctx.clip();
     } else if (shape === 'rounded') {
-      const r = size * 0.16;
+      const r = size * 0.18;
       ctx.beginPath();
-      ctx.moveTo(r, 0);
-      ctx.lineTo(size - r, 0);
-      ctx.arcTo(size, 0, size, r, r);
-      ctx.lineTo(size, size - r);
-      ctx.arcTo(size, size, size - r, size, r);
-      ctx.lineTo(r, size);
-      ctx.arcTo(0, size, 0, size - r, r);
-      ctx.lineTo(0, r);
-      ctx.arcTo(0, 0, r, 0, r);
-      ctx.closePath();
-      ctx.clip();
+      ctx.moveTo(r, 0); ctx.lineTo(size - r, 0);
+      ctx.arcTo(size, 0, size, r, r); ctx.lineTo(size, size - r);
+      ctx.arcTo(size, size, size - r, size, r); ctx.lineTo(r, size);
+      ctx.arcTo(0, size, 0, size - r, r); ctx.lineTo(0, r);
+      ctx.arcTo(0, 0, r, 0, r); ctx.closePath(); ctx.clip();
     }
 
     const aspect = image.width / image.height;
     let drawW, drawH;
-    if (aspect >= 1) {
-      drawH = size * zoom;
-      drawW = drawH * aspect;
-    } else {
-      drawW = size * zoom;
-      drawH = drawW / aspect;
-    }
+    if (aspect >= 1) { drawH = size * zoom; drawW = drawH * aspect; }
+    else { drawW = size * zoom; drawH = drawW / aspect; }
 
     const dx = (size - drawW) / 2 + offsetX;
     const dy = (size - drawH) / 2 + offsetY;
@@ -94,29 +92,23 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     ctx.filter = 'none';
     ctx.restore();
 
-    // White border stroke
+    // White border
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = size * 0.022;
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+    ctx.lineWidth = size * 0.024;
     const lw = ctx.lineWidth / 2;
     if (shape === 'circle') {
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, size / 2 - lw, 0, Math.PI * 2);
       ctx.stroke();
     } else if (shape === 'rounded') {
-      const r = size * 0.16 - lw;
+      const r = size * 0.18 - lw;
       ctx.beginPath();
-      ctx.moveTo(r + lw, lw);
-      ctx.lineTo(size - r - lw, lw);
-      ctx.arcTo(size - lw, lw, size - lw, r + lw, r);
-      ctx.lineTo(size - lw, size - r - lw);
-      ctx.arcTo(size - lw, size - lw, size - r - lw, size - lw, r);
-      ctx.lineTo(r + lw, size - lw);
-      ctx.arcTo(lw, size - lw, lw, size - r - lw, r);
-      ctx.lineTo(lw, r + lw);
-      ctx.arcTo(lw, lw, r + lw, lw, r);
-      ctx.closePath();
-      ctx.stroke();
+      ctx.moveTo(r + lw, lw); ctx.lineTo(size - r - lw, lw);
+      ctx.arcTo(size - lw, lw, size - lw, r + lw, r); ctx.lineTo(size - lw, size - r - lw);
+      ctx.arcTo(size - lw, size - lw, size - r - lw, size - lw, r); ctx.lineTo(r + lw, size - lw);
+      ctx.arcTo(lw, size - lw, lw, size - r - lw, r); ctx.lineTo(lw, r + lw);
+      ctx.arcTo(lw, lw, r + lw, lw, r); ctx.closePath(); ctx.stroke();
     } else {
       ctx.strokeRect(lw, lw, size - lw * 2, size - lw * 2);
     }
@@ -127,15 +119,11 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
 
   useEffect(() => {
     if (!isOpen) {
-      setImage(null);
-      setImageDataUrl(null);
-      setStickerReady(false);
-      setStickerUrl(null);
-      setZoom(1);
-      setOffsetX(0);
-      setOffsetY(0);
-      setFilter('none');
-      setShape('rounded');
+      setImage(null); setImageDataUrl(null);
+      setStickerReady(false); setStickerUrl(null);
+      setZoom(1); setOffsetX(0); setOffsetY(0);
+      setFilter('none'); setShape('rounded');
+      setActiveStep('upload');
     }
   }, [isOpen]);
 
@@ -145,10 +133,10 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      setImage(img);
-      setImageDataUrl(url);
+      setImage(img); setImageDataUrl(url);
       setZoom(1); setOffsetX(0); setOffsetY(0);
       setStickerReady(false); setStickerUrl(null);
+      setActiveStep('edit');
     };
     img.src = url;
     e.target.value = '';
@@ -173,16 +161,15 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     if (!canvas) return;
     setStickerUrl(canvas.toDataURL('image/png'));
     setStickerReady(true);
-    showToast('✅ Stiker siap!');
+    setActiveStep('done');
+    showToast('✨ Stiker siap digunakan!');
   };
 
   const handleDownload = () => {
     if (!stickerUrl) return;
     const a = document.createElement('a');
-    a.href = stickerUrl;
-    a.download = `kyokobeat-stiker-${Date.now()}.png`;
-    a.click();
-    showToast('💾 Stiker disimpan!');
+    a.href = stickerUrl; a.download = `stiker-${Date.now()}.png`; a.click();
+    showToast('💾 Tersimpan ke galeri!');
   };
 
   const handleShareWA = async () => {
@@ -193,159 +180,187 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
       const blob = await res.blob();
       const file = new File([blob], 'stiker.png', { type: 'image/png' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: 'Stiker KyokoBeat', files: [file] });
+        await navigator.share({ title: 'StickerVibe', files: [file] });
         showToast('✅ Berhasil dibagikan!');
       } else {
         handleDownload();
-        showToast('📲 Simpan dulu, lalu kirim ke WA manual ya!');
+        showToast('📲 Simpan lalu kirim manual ya!');
       }
     } catch (err: any) {
-      if (err.name !== 'AbortError') showToast('Gagal berbagi: ' + err.message);
-    } finally {
-      setSharing(false);
-    }
+      if (err.name !== 'AbortError') showToast('Gagal: ' + err.message);
+    } finally { setSharing(false); }
   };
 
-  const CANVAS_SIZE = 256;
+  const shapes: { key: ShapeMode; label: string; preview: string }[] = [
+    { key: 'square', label: 'Kotak', preview: '⬛' },
+    { key: 'rounded', label: 'Sudut', preview: '⬜' },
+    { key: 'circle', label: 'Bulat', preview: '⚫' },
+  ];
+
+  const filters: { key: FilterMode; label: string; icon: React.ReactNode; color: string }[] = [
+    { key: 'none', label: 'Original', icon: <Wand2 size={16} />, color: '#94a3b8' },
+    { key: 'vivid', label: 'Vivid', icon: <Sun size={16} />, color: '#f59e0b' },
+    { key: 'pop', label: 'Pop', icon: <Flame size={16} />, color: '#f43f5e' },
+    { key: 'neon', label: 'Neon', icon: <Zap size={16} />, color: '#8b5cf6' },
+  ];
+
+  const steps = ['Upload', 'Edit', 'Selesai'];
+  const stepIndex = activeStep === 'upload' ? 0 : activeStep === 'edit' ? 1 : 2;
 
   return (
     <>
-      {/* Fullscreen panel */}
       <div
-        className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
+        className="fixed inset-0 z-[100] flex flex-col"
         style={{
-          background: '#5b21b6',
-          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)',
+          background: '#f8fafc',
+          transform: isOpen ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
         }}
       >
-        {/* Rich gradient overlay */}
+
+        {/* ── HEADER ── */}
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="flex-shrink-0 px-4 pt-12 pb-4"
           style={{
-            background: 'radial-gradient(ellipse 80% 60% at 20% 10%, rgba(139,92,246,0.7) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 80%, rgba(109,40,217,0.6) 0%, transparent 60%), linear-gradient(160deg, #4c1d95 0%, #5b21b6 40%, #6d28d9 100%)',
-          }}
-        />
-
-        {/* Top geometric accent */}
-        <div className="absolute top-0 right-8 w-0 h-0 pointer-events-none" style={{
-          borderLeft: '60px solid transparent',
-          borderRight: '0px solid transparent',
-          borderTop: '60px solid rgba(200,245,0,0.08)',
-        }} />
-        <div className="absolute top-0 right-0 w-0 h-0 pointer-events-none" style={{
-          borderLeft: '90px solid transparent',
-          borderRight: '0px solid transparent',
-          borderTop: '90px solid rgba(200,245,0,0.05)',
-        }} />
-
-        {/* Bottom geometric accent */}
-        <div className="absolute bottom-0 left-0 w-0 h-0 pointer-events-none" style={{
-          borderRight: '70px solid transparent',
-          borderLeft: '0px solid transparent',
-          borderBottom: '70px solid rgba(200,245,0,0.06)',
-        }} />
-
-        {/* ── CLOSE TAB: smooth SVG arrow on RIGHT edge ── */}
-        <button
-          onClick={onClose}
-          aria-label="Tutup panel stiker"
-          className="absolute right-0 top-1/2 z-10 p-0 border-0 bg-transparent transition-transform active:scale-90"
-          style={{
-            transform: 'translateY(-50%)',
-            cursor: 'pointer',
-            filter: 'drop-shadow(-2px 0 8px rgba(200,245,0,0.5))',
+            background: 'linear-gradient(135deg, #00c47c 0%, #00a86b 100%)',
           }}
         >
-          <svg width="22" height="60" viewBox="0 0 22 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0,0 L22,30 L0,60 Z" fill="#c8f500"/>
-          </svg>
-        </button>
-
-        {/* Header */}
-        <div className="relative z-10 flex items-center gap-3 px-5 pt-12 pb-5">
-          <div
-            className="p-2.5 rounded-xl flex-shrink-0"
-            style={{
-              background: 'rgba(200,245,0,0.15)',
-              border: '1.5px solid rgba(200,245,0,0.35)',
-              boxShadow: '0 0 16px rgba(200,245,0,0.15)',
-            }}
-          >
-            <Sticker className="w-5 h-5" style={{ color: '#c8f500' }} />
-          </div>
-          <div>
-            <h1
-              className="font-black text-white tracking-[0.12em] uppercase"
-              style={{ fontSize: 20, letterSpacing: '0.12em', textShadow: '0 0 20px rgba(200,245,0,0.2)' }}
+          {/* Back + Title */}
+          <div className="flex items-center justify-between mb-5">
+            <button
+              onClick={onClose}
+              className="w-9 h-9 flex items-center justify-center rounded-full transition-all active:scale-90"
+              style={{ background: 'rgba(255,255,255,0.2)' }}
             >
-              STIKER MAKER
+              <ChevronLeft size={20} color="white" />
+            </button>
+            <h1
+              className="font-black text-white tracking-tight"
+              style={{ fontSize: 18, fontFamily: "'Nunito', sans-serif" }}
+            >
+              Buat Stiker
             </h1>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              Upload foto → edit → kirim ke WA
-            </p>
+            {activeStep === 'edit' ? (
+              <button
+                onClick={generateSticker}
+                className="px-4 py-1.5 rounded-full font-bold text-sm transition-all active:scale-95"
+                style={{
+                  background: 'white',
+                  color: '#00c47c',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+                }}
+              >
+                Buat ✨
+              </button>
+            ) : (
+              <div className="w-9" />
+            )}
+          </div>
+
+          {/* Step indicator */}
+          <div className="flex items-center gap-0">
+            {steps.map((step, i) => (
+              <React.Fragment key={step}>
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all"
+                    style={{
+                      background: i <= stepIndex ? 'white' : 'rgba(255,255,255,0.3)',
+                      color: i <= stepIndex ? '#00c47c' : 'rgba(255,255,255,0.6)',
+                    }}
+                  >
+                    {i < stepIndex ? <Check size={12} /> : i + 1}
+                  </div>
+                  <span
+                    className="text-[10px] font-bold"
+                    style={{ color: i <= stepIndex ? 'white' : 'rgba(255,255,255,0.5)' }}
+                  >
+                    {step}
+                  </span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div
+                    className="flex-1 h-0.5 mb-4 mx-1 transition-all"
+                    style={{ background: i < stepIndex ? 'white' : 'rgba(255,255,255,0.3)' }}
+                  />
+                )}
+              </React.Fragment>
+            ))}
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="relative z-10 mx-5 mb-4 h-px" style={{ background: 'linear-gradient(90deg, rgba(200,245,0,0.3), rgba(200,245,0,0.05))' }} />
+        {/* ── SCROLLABLE BODY ── */}
+        <div className="flex-1 overflow-y-auto" style={{ background: '#f1f5f9' }}>
 
-        {/* Scrollable content */}
-        <div className="relative z-10 flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-5">
-
-          {/* Upload area */}
-          {!imageDataUrl ? (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed py-12 transition-all active:scale-[0.98]"
-              style={{
-                borderColor: 'rgba(200,245,0,0.35)',
-                background: 'rgba(0,0,0,0.18)',
-                boxShadow: 'inset 0 0 30px rgba(0,0,0,0.15)',
-              }}
-            >
+          {/* ── UPLOAD STATE ── */}
+          {!imageDataUrl && (
+            <div className="flex flex-col items-center justify-center h-full px-6 py-10 gap-6">
+              {/* Illustration area */}
               <div
-                className="p-4 rounded-2xl"
+                className="w-full rounded-3xl flex flex-col items-center justify-center py-14 gap-4 transition-all active:scale-[0.98]"
                 style={{
-                  background: 'rgba(200,245,0,0.12)',
-                  border: '1.5px solid rgba(200,245,0,0.25)',
-                  boxShadow: '0 0 20px rgba(200,245,0,0.1)',
+                  background: 'white',
+                  border: '2.5px dashed #00c47c',
+                  boxShadow: '0 4px 24px rgba(0,196,124,0.08)',
                 }}
+                onClick={() => fileInputRef.current?.click()}
               >
-                <ImagePlus className="w-8 h-8" style={{ color: '#c8f500' }} />
-              </div>
-              <div className="text-center">
-                <p
-                  className="font-black uppercase tracking-[0.15em] text-white"
-                  style={{ fontSize: 14, textShadow: '0 0 10px rgba(200,245,0,0.3)' }}
-                >
-                  PILIH FOTO
-                </p>
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  dari galeri atau kamera
-                </p>
-              </div>
-            </button>
-          ) : (
-            <>
-              {/* Canvas preview */}
-              <div className="flex flex-col items-center gap-2">
                 <div
-                  className="rounded-2xl p-1"
+                  className="w-20 h-20 rounded-3xl flex items-center justify-center"
                   style={{
-                    background: 'rgba(0,0,0,0.25)',
-                    boxShadow: '0 0 40px rgba(109,40,217,0.4), 0 0 80px rgba(200,245,0,0.08), inset 0 1px 0 rgba(255,255,255,0.1)',
+                    background: 'linear-gradient(135deg, #e8fdf4, #d0fae8)',
+                    border: '2px solid rgba(0,196,124,0.2)',
+                  }}
+                >
+                  <ImagePlus size={36} color="#00c47c" />
+                </div>
+                <div className="text-center">
+                  <p className="font-black text-gray-800 text-lg" style={{ fontFamily: "'Nunito', sans-serif" }}>
+                    Pilih Foto
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">dari galeri atau kamera kamu</p>
+                </div>
+                <div
+                  className="px-6 py-2.5 rounded-full font-bold text-sm text-white"
+                  style={{ background: 'linear-gradient(135deg, #00c47c, #00a86b)' }}
+                >
+                  📷 Buka Galeri
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-400 text-center">
+                Mendukung JPG, PNG, WEBP • Ukuran maks 10MB
+              </p>
+            </div>
+          )}
+
+          {/* ── EDIT STATE ── */}
+          {imageDataUrl && activeStep !== 'done' && (
+            <div className="flex flex-col gap-0">
+
+              {/* Canvas area */}
+              <div
+                className="flex flex-col items-center py-6 gap-3"
+                style={{ background: 'white' }}
+              >
+                {/* Canvas wrapper with shadow */}
+                <div
+                  className="relative"
+                  style={{
+                    filter: 'drop-shadow(0 8px 32px rgba(0,0,0,0.18)) drop-shadow(0 2px 8px rgba(0,0,0,0.1))',
                   }}
                 >
                   <canvas
                     ref={previewCanvasRef}
                     width={CANVAS_SIZE}
                     height={CANVAS_SIZE}
-                    className="rounded-xl block select-none"
+                    className="block select-none"
                     style={{
-                      background: 'repeating-conic-gradient(rgba(255,255,255,0.06) 0% 25%, transparent 0% 50%) 0 0 / 14px 14px',
+                      borderRadius: shape === 'circle' ? '50%' : shape === 'rounded' ? '48px' : '12px',
+                      background: 'repeating-conic-gradient(#e2e8f0 0% 25%, white 0% 50%) 0 0 / 16px 16px',
                       cursor: isDragging ? 'grabbing' : 'grab',
                       touchAction: 'none',
+                      transition: 'border-radius 0.3s ease',
                     }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
@@ -356,195 +371,274 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
                     onTouchEnd={handleMouseUp}
                   />
                 </div>
-                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                  ✋ Geser untuk atur posisi
-                </p>
+                <p className="text-xs text-gray-400">✋ Geser untuk atur posisi gambar</p>
               </div>
 
-              {/* Zoom */}
+              {/* Controls */}
+              <div className="px-4 py-5 flex flex-col gap-5" style={{ background: '#f1f5f9' }}>
+
+                {/* Zoom bar */}
+                <div
+                  className="rounded-2xl p-4 flex flex-col gap-3"
+                  style={{ background: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Zoom</span>
+                    <span className="text-xs font-bold text-green-500">{Math.round(zoom * 100)}%</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.1).toFixed(2))))}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90"
+                      style={{ background: '#f1f5f9' }}
+                    >
+                      <ZoomOut size={15} color="#64748b" />
+                    </button>
+                    <div className="flex-1 relative h-2 rounded-full" style={{ background: '#e2e8f0' }}>
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full transition-all"
+                        style={{
+                          width: `${((zoom - 0.5) / 2.5) * 100}%`,
+                          background: 'linear-gradient(90deg, #00c47c, #00e58c)',
+                        }}
+                      />
+                      <input
+                        type="range" min={0.5} max={3} step={0.05} value={zoom}
+                        onChange={e => { setZoom(parseFloat(e.target.value)); setStickerReady(false); }}
+                        className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setZoom(z => Math.min(3, parseFloat((z + 0.1).toFixed(2))))}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90"
+                      style={{ background: '#f1f5f9' }}
+                    >
+                      <ZoomIn size={15} color="#64748b" />
+                    </button>
+                    <button
+                      onClick={() => { setZoom(1); setOffsetX(0); setOffsetY(0); setStickerReady(false); }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90"
+                      style={{ background: '#f1f5f9' }}
+                    >
+                      <RotateCcw size={13} color="#64748b" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Shape selector */}
+                <div
+                  className="rounded-2xl p-4 flex flex-col gap-3"
+                  style={{ background: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}
+                >
+                  <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Bentuk</span>
+                  <div className="flex gap-3">
+                    {shapes.map(s => (
+                      <button
+                        key={s.key}
+                        onClick={() => { setShape(s.key); setStickerReady(false); }}
+                        className="flex-1 py-3 flex flex-col items-center gap-1.5 transition-all active:scale-95"
+                        style={{
+                          borderRadius: '16px',
+                          background: shape === s.key ? 'linear-gradient(135deg, #00c47c, #00a86b)' : '#f8fafc',
+                          border: shape === s.key ? 'none' : '1.5px solid #e2e8f0',
+                          boxShadow: shape === s.key ? '0 4px 16px rgba(0,196,124,0.3)' : 'none',
+                        }}
+                      >
+                        <div
+                          className="w-7 h-7 transition-all"
+                          style={{
+                            background: shape === s.key ? 'rgba(255,255,255,0.3)' : '#e2e8f0',
+                            borderRadius: s.key === 'circle' ? '50%' : s.key === 'rounded' ? '8px' : '4px',
+                          }}
+                        />
+                        <span
+                          className="text-xs font-bold"
+                          style={{ color: shape === s.key ? 'white' : '#64748b' }}
+                        >
+                          {s.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Filter selector */}
+                <div
+                  className="rounded-2xl p-4 flex flex-col gap-3"
+                  style={{ background: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}
+                >
+                  <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Filter</span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {filters.map(f => (
+                      <button
+                        key={f.key}
+                        onClick={() => { setFilter(f.key); setStickerReady(false); }}
+                        className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
+                        style={{
+                          background: filter === f.key ? f.color : '#f8fafc',
+                          border: filter === f.key ? 'none' : '1.5px solid #e2e8f0',
+                          boxShadow: filter === f.key ? `0 4px 16px ${f.color}55` : 'none',
+                        }}
+                      >
+                        <span style={{ color: filter === f.key ? 'white' : f.color }}>
+                          {f.icon}
+                        </span>
+                        <span
+                          className="text-[10px] font-bold"
+                          style={{ color: filter === f.key ? 'white' : '#64748b' }}
+                        >
+                          {f.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Change photo */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-3 flex items-center justify-center gap-2 rounded-2xl text-sm font-bold transition-all active:scale-95"
+                  style={{
+                    background: 'white',
+                    color: '#64748b',
+                    border: '1.5px solid #e2e8f0',
+                  }}
+                >
+                  <Upload size={15} />
+                  Ganti Foto
+                </button>
+
+                {/* Generate sticker CTA */}
+                <button
+                  onClick={generateSticker}
+                  className="w-full py-4 flex items-center justify-center gap-2 rounded-2xl font-black text-white text-base transition-all active:scale-95"
+                  style={{
+                    background: 'linear-gradient(135deg, #00c47c 0%, #00a86b 100%)',
+                    boxShadow: '0 6px 24px rgba(0,196,124,0.4), 0 2px 8px rgba(0,196,124,0.2)',
+                    letterSpacing: '0.02em',
+                    fontFamily: "'Nunito', sans-serif",
+                  }}
+                >
+                  <Sparkles size={18} />
+                  Buat Stiker
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── DONE STATE ── */}
+          {activeStep === 'done' && stickerUrl && (
+            <div className="flex flex-col items-center px-6 py-8 gap-6">
+
+              {/* Success badge */}
               <div
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)' }}
+                className="w-16 h-16 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, #00c47c, #00e58c)',
+                  boxShadow: '0 6px 24px rgba(0,196,124,0.4)',
+                }}
               >
-                <button
-                  onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.1).toFixed(2))))}
-                  className="p-1.5 rounded-lg transition-all active:scale-90"
-                  style={{ background: 'rgba(255,255,255,0.08)' }}
-                >
-                  <ZoomOut className="w-4 h-4 text-white" />
-                </button>
-                <div className="flex-1 relative h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full"
-                    style={{ width: `${((zoom - 0.5) / 2.5) * 100}%`, background: 'linear-gradient(90deg, #a855f7, #c8f500)' }}
-                  />
-                  <input
-                    type="range" min={0.5} max={3} step={0.05} value={zoom}
-                    onChange={e => { setZoom(parseFloat(e.target.value)); setStickerReady(false); }}
-                    className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
-                  />
-                </div>
-                <button
-                  onClick={() => setZoom(z => Math.min(3, parseFloat((z + 0.1).toFixed(2))))}
-                  className="p-1.5 rounded-lg transition-all active:scale-90"
-                  style={{ background: 'rgba(255,255,255,0.08)' }}
-                >
-                  <ZoomIn className="w-4 h-4 text-white" />
-                </button>
-                <button
-                  onClick={() => { setZoom(1); setOffsetX(0); setOffsetY(0); setStickerReady(false); }}
-                  className="p-1.5 rounded-lg transition-all active:scale-90"
-                  style={{ background: 'rgba(255,255,255,0.08)' }}
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-white" />
-                </button>
+                <Check size={28} color="white" strokeWidth={3} />
               </div>
 
-              {/* Shape */}
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                  Bentuk
+              <div className="text-center">
+                <h2 className="font-black text-gray-800 text-xl" style={{ fontFamily: "'Nunito', sans-serif" }}>
+                  Stiker Siap! 🎉
+                </h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  Simpan atau bagikan stiker kamu
                 </p>
-                <div className="flex gap-2">
-                  {(['square', 'rounded', 'circle'] as ShapeMode[]).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => { setShape(s); setStickerReady(false); }}
-                      className="flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-all active:scale-95"
-                      style={{
-                        borderRadius: s === 'circle' ? '9999px' : s === 'rounded' ? '14px' : '6px',
-                        background: shape === s
-                          ? 'linear-gradient(135deg, #c8f500, #a3e000)'
-                          : 'rgba(0,0,0,0.25)',
-                        color: shape === s ? '#1a0a4a' : 'rgba(255,255,255,0.6)',
-                        border: shape === s ? '1.5px solid #c8f500' : '1.5px solid rgba(255,255,255,0.1)',
-                        boxShadow: shape === s ? '0 0 12px rgba(200,245,0,0.3)' : 'none',
-                      }}
-                    >
-                      {s === 'square' ? 'Kotak' : s === 'rounded' ? 'Sudut' : 'Bulat'}
-                    </button>
-                  ))}
-                </div>
               </div>
 
-              {/* Filter */}
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-2" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                  Filter
-                </p>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {(['none', 'vivid', 'pop', 'neon'] as FilterMode[]).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => { setFilter(f); setStickerReady(false); }}
-                      className="flex-shrink-0 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-full transition-all active:scale-95"
-                      style={{
-                        background: filter === f
-                          ? 'linear-gradient(135deg, #c8f500, #a3e000)'
-                          : 'rgba(0,0,0,0.25)',
-                        color: filter === f ? '#1a0a4a' : 'rgba(255,255,255,0.6)',
-                        border: filter === f ? '1.5px solid #c8f500' : '1.5px solid rgba(255,255,255,0.1)',
-                        boxShadow: filter === f ? '0 0 12px rgba(200,245,0,0.3)' : 'none',
-                      }}
-                    >
-                      {f === 'none' ? 'Original' : f === 'vivid' ? 'Vivid' : f === 'pop' ? 'Pop' : '⚡ Neon'}
-                    </button>
-                  ))}
-                </div>
+              {/* Sticker preview */}
+              <div
+                className="p-3 rounded-3xl"
+                style={{
+                  background: 'white',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                }}
+              >
+                <img
+                  src={stickerUrl}
+                  alt="Stiker"
+                  className="w-48 h-48 object-cover"
+                  style={{
+                    borderRadius: shape === 'circle' ? '50%' : shape === 'rounded' ? '36px' : '8px',
+                  }}
+                />
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col gap-3 mt-1">
+              <div className="w-full flex flex-col gap-3">
                 <button
-                  onClick={generateSticker}
-                  className="w-full py-3.5 flex items-center justify-center gap-2 rounded-2xl font-black uppercase tracking-[0.12em] text-sm transition-all active:scale-95"
+                  onClick={handleShareWA}
+                  disabled={sharing}
+                  className="w-full py-4 flex items-center justify-center gap-2.5 rounded-2xl font-black text-white text-base transition-all active:scale-95"
                   style={{
-                    background: 'linear-gradient(135deg, #c8f500, #a3e000)',
-                    color: '#1a0a4a',
-                    boxShadow: '0 4px 20px rgba(200,245,0,0.35), 0 0 0 1px rgba(200,245,0,0.2)',
+                    background: sharing ? '#94a3b8' : 'linear-gradient(135deg, #25d366, #1ebe5b)',
+                    boxShadow: sharing ? 'none' : '0 6px 24px rgba(37,211,102,0.4)',
+                    fontFamily: "'Nunito', sans-serif",
                   }}
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Buat Stiker
+                  {sharing
+                    ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <Share2 size={18} />}
+                  {sharing ? 'Membagikan...' : 'Kirim ke WhatsApp'}
                 </button>
 
-                {stickerReady && (
-                  <>
-                    <button
-                      onClick={handleDownload}
-                      className="w-full py-3 flex items-center justify-center gap-2 rounded-2xl font-bold uppercase tracking-wider text-sm transition-all active:scale-95"
-                      style={{
-                        background: 'rgba(200,245,0,0.1)',
-                        color: '#c8f500',
-                        border: '1.5px solid rgba(200,245,0,0.35)',
-                        boxShadow: 'inset 0 1px 0 rgba(200,245,0,0.1)',
-                      }}
-                    >
-                      <Download className="w-4 h-4" />
-                      Simpan ke Galeri
-                    </button>
-
-                    <button
-                      onClick={handleShareWA}
-                      disabled={sharing}
-                      className="w-full py-3 flex items-center justify-center gap-2 rounded-2xl font-bold uppercase tracking-wider text-sm transition-all active:scale-95"
-                      style={{
-                        background: 'rgba(37,211,102,0.12)',
-                        color: '#25d366',
-                        border: '1.5px solid rgba(37,211,102,0.35)',
-                        opacity: sharing ? 0.7 : 1,
-                      }}
-                    >
-                      {sharing
-                        ? <div className="w-4 h-4 border-2 border-[#25d366] border-t-transparent rounded-full animate-spin" />
-                        : <Share2 className="w-4 h-4" />}
-                      {sharing ? 'Membagikan...' : 'Kirim ke WhatsApp'}
-                    </button>
-                  </>
-                )}
-
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-2.5 flex items-center justify-center gap-2 rounded-xl text-sm transition-all active:scale-95"
+                  onClick={handleDownload}
+                  className="w-full py-3.5 flex items-center justify-center gap-2.5 rounded-2xl font-bold text-sm transition-all active:scale-95"
                   style={{
-                    background: 'rgba(0,0,0,0.2)',
-                    color: 'rgba(255,255,255,0.45)',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'white',
+                    color: '#00c47c',
+                    border: '2px solid #00c47c',
+                    boxShadow: '0 2px 12px rgba(0,196,124,0.12)',
                   }}
                 >
-                  <Upload className="w-4 h-4" />
-                  Ganti Foto
+                  <Download size={16} />
+                  Simpan ke Galeri
+                </button>
+
+                <button
+                  onClick={() => { setStickerReady(false); setActiveStep('edit'); }}
+                  className="w-full py-3 flex items-center justify-center gap-2 rounded-2xl font-bold text-sm transition-all active:scale-95"
+                  style={{ background: '#f1f5f9', color: '#64748b' }}
+                >
+                  ✏️ Edit Lagi
                 </button>
               </div>
-            </>
+            </div>
           )}
         </div>
-
-        {/* Hidden file input */}
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
-
-        {/* Toast */}
-        {toastMsg && (
-          <div
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[110] px-5 py-3 rounded-2xl text-sm font-semibold text-white whitespace-nowrap"
-            style={{
-              background: 'rgba(30,10,70,0.92)',
-              border: '1.5px solid rgba(200,245,0,0.3)',
-              backdropFilter: 'blur(12px)',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
-              animation: 'sbFadeUp 0.3s ease forwards',
-            }}
-          >
-            {toastMsg}
-          </div>
-        )}
       </div>
 
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+
+      {/* Toast */}
+      {toastMsg && (
+        <div
+          className="fixed bottom-8 left-1/2 z-[110] px-5 py-3 rounded-2xl text-sm font-semibold text-white whitespace-nowrap"
+          style={{
+            transform: 'translateX(-50%)',
+            background: 'rgba(15,23,42,0.92)',
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+            animation: 'toastIn 0.3s ease forwards',
+          }}
+        >
+          {toastMsg}
+        </div>
+      )}
+
       <style>{`
-        @keyframes sbFadeUp {
-          from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap');
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(16px); }
           to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
+        input[type="range"]::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #00c47c; cursor: pointer; box-shadow: 0 2px 8px rgba(0,196,124,0.4); }
       `}</style>
     </>
   );
