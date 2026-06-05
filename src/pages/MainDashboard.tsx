@@ -1061,52 +1061,26 @@ export default function MainDashboard() {
     setYtStreamLoading(true);
     setYtStreamError('');
     setYtStreamResults([]);
-
-    // Try Invidious instances first
-    for (const instance of INVIDIOUS_INSTANCES) {
-      try {
-        const res = await fetchWithTimeout(`${instance}/api/v1/search?q=${encodeURIComponent(ytStreamQuery)}&type=video&fields=videoId,title,author,videoThumbnails,lengthSeconds`);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const results = (data as any[]).slice(0, 8).map((v: any) => ({
-          id: v.videoId,
+    try {
+      const res = await fetchWithTimeout(`https://api-faa.my.id/faa/youtube?q=${encodeURIComponent(ytStreamQuery)}`, 10000);
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      if (!data.status || !data.result?.length) throw new Error('Tidak ada hasil');
+      const results = (data.result as any[]).slice(0, 10).map((v: any) => {
+        const videoId = v.link?.split('watch?v=')[1] || '';
+        return {
+          id: videoId,
           title: v.title,
-          author: v.author,
-          thumb: v.videoThumbnails?.[3]?.url || v.videoThumbnails?.[0]?.url || '',
-          duration: `${Math.floor(v.lengthSeconds/60)}:${String(v.lengthSeconds%60).padStart(2,'0')}`,
-          source: 'invidious' as const,
-        }));
-        setYtStreamResults(results);
-        setYtStreamLoading(false);
-        return;
-      } catch { continue; }
+          author: v.channel,
+          thumb: v.imageUrl || '',
+          duration: v.duration || '',
+          source: 'faa' as const,
+        };
+      }).filter((v: any) => v.id);
+      setYtStreamResults(results);
+    } catch (e: any) {
+      setYtStreamError('Gagal mencari lagu. Coba lagi.');
     }
-
-    // Fallback: Piped API
-    for (const instance of PIPED_INSTANCES) {
-      try {
-        const res = await fetchWithTimeout(`${instance}/search?q=${encodeURIComponent(ytStreamQuery)}&filter=videos`);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const results = (data.items as any[]).slice(0, 8).map((v: any) => {
-          const videoId = v.url?.replace('/watch?v=', '') || '';
-          const sec = v.duration || 0;
-          return {
-            id: videoId,
-            title: v.title,
-            author: v.uploaderName,
-            thumb: v.thumbnail || '',
-            duration: `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`,
-            source: 'piped' as const,
-          };
-        }).filter((v: any) => v.id);
-        setYtStreamResults(results);
-        setYtStreamLoading(false);
-        return;
-      } catch { continue; }
-    }
-
-    setYtStreamError('Semua server tidak bisa dihubungi. Cek koneksi internet.');
     setYtStreamLoading(false);
   };
 
