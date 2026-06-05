@@ -395,15 +395,19 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
+import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.widget.FrameLayout;
-import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -415,10 +419,12 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class FloatingLyricsPlugin extends Plugin {
 
     private WindowManager windowManager;
-    private FrameLayout floatingView;
+    private FrameLayout rootView;
+    private LinearLayout card;
     private TextView lyricsText;
     private WindowManager.LayoutParams params;
     private boolean isShowing = false;
+    private String lastLine = "";
 
     @PluginMethod
     public void requestPermission(PluginCall call) {
@@ -435,18 +441,14 @@ public class FloatingLyricsPlugin extends Plugin {
                 return;
             }
         }
-        JSObject r = new JSObject();
-        r.put("granted", true);
-        call.resolve(r);
+        JSObject r = new JSObject(); r.put("granted", true); call.resolve(r);
     }
 
     @PluginMethod
     public void checkPermission(PluginCall call) {
         boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
             || Settings.canDrawOverlays(getContext());
-        JSObject r = new JSObject();
-        r.put("granted", granted);
-        call.resolve(r);
+        JSObject r = new JSObject(); r.put("granted", granted); call.resolve(r);
     }
 
     @PluginMethod
@@ -455,12 +457,11 @@ public class FloatingLyricsPlugin extends Plugin {
         getActivity().runOnUiThread(() -> {
             if (!isShowing) {
                 createFloatingView(line);
-            } else {
-                if (lyricsText != null) lyricsText.setText(line);
+            } else if (!line.equals(lastLine)) {
+                updateLyricWithFade(line);
             }
-            JSObject r = new JSObject();
-            r.put("ok", true);
-            call.resolve(r);
+            lastLine = line;
+            JSObject r = new JSObject(); r.put("ok", true); call.resolve(r);
         });
     }
 
@@ -468,108 +469,158 @@ public class FloatingLyricsPlugin extends Plugin {
     public void hideLyrics(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             destroyFloatingView();
-            JSObject r = new JSObject();
-            r.put("ok", true);
-            call.resolve(r);
+            JSObject r = new JSObject(); r.put("ok", true); call.resolve(r);
         });
     }
 
     @PluginMethod
     public void isVisible(PluginCall call) {
-        JSObject r = new JSObject();
-        r.put("visible", isShowing);
-        call.resolve(r);
+        JSObject r = new JSObject(); r.put("visible", isShowing); call.resolve(r);
+    }
+
+    private void updateLyricWithFade(String newLine) {
+        if (lyricsText == null) return;
+        AlphaAnimation fadeOut = new AlphaAnimation(1f, 0.2f);
+        fadeOut.setDuration(150);
+        fadeOut.setAnimationListener(new Animation.AnimationListener() {
+            public void onAnimationStart(Animation a) {}
+            public void onAnimationRepeat(Animation a) {}
+            public void onAnimationEnd(Animation a) {
+                lyricsText.setText(newLine);
+                AlphaAnimation fadeIn = new AlphaAnimation(0.2f, 1f);
+                fadeIn.setDuration(200);
+                lyricsText.startAnimation(fadeIn);
+            }
+        });
+        lyricsText.startAnimation(fadeOut);
     }
 
     private void createFloatingView(String initialText) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(getContext())) return;
 
         windowManager = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+        DisplayMetrics dm = getContext().getResources().getDisplayMetrics();
+        int screenW = dm.widthPixels;
+        int cardW = (int)(screenW * 0.88f);
+        int dp = (int) dm.density;
 
-        // Root container
-        floatingView = new FrameLayout(getContext());
-        floatingView.setBackgroundColor(Color.parseColor("#CC000000"));
-        floatingView.setPadding(24, 12, 24, 12);
+        // Root transparent hit area
+        rootView = new FrameLayout(getContext());
+
+        // Card with rounded background
+        card = new LinearLayout(getContext());
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(20 * dp, 14 * dp, 20 * dp, 14 * dp);
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(20 * dp);
+        bg.setColor(Color.parseColor("#E60d0d0d"));
+        bg.setStroke(1, Color.parseColor("#33c8f500"));
+        card.setBackground(bg);
+
+        // Drag handle dots at top
+        TextView handle = new TextView(getContext());
+        handle.setText("• • •");
+        handle.setTextColor(Color.parseColor("#44c8f500"));
+        handle.setTextSize(8f);
+        handle.setGravity(Gravity.CENTER);
+        handle.setPadding(0, 0, 0, 6 * dp);
+        card.addView(handle);
 
         // Lyrics text
         lyricsText = new TextView(getContext());
         lyricsText.setText(initialText);
         lyricsText.setTextColor(Color.parseColor("#c8f500"));
-        lyricsText.setTextSize(14f);
-        lyricsText.setTypeface(null, Typeface.BOLD);
+        lyricsText.setTextSize(15f);
+        lyricsText.setTypeface(Typeface.DEFAULT_BOLD);
         lyricsText.setGravity(Gravity.CENTER);
         lyricsText.setMaxLines(2);
         lyricsText.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        lyricsText.setLineSpacing(4 * dp, 1f);
+        card.addView(lyricsText, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
 
-        FrameLayout.LayoutParams textParams = new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        );
-        textParams.gravity = Gravity.CENTER;
-        textParams.setMargins(0, 0, 48, 0);
-        floatingView.addView(lyricsText, textParams);
-
-        // Close button
+        // Close button row
         TextView closeBtn = new TextView(getContext());
-        closeBtn.setText("✕");
-        closeBtn.setTextColor(Color.parseColor("#888888"));
-        closeBtn.setTextSize(12f);
-        closeBtn.setPadding(8, 4, 8, 4);
+        closeBtn.setText("✕  tutup");
+        closeBtn.setTextColor(Color.parseColor("#55ffffff"));
+        closeBtn.setTextSize(9f);
+        closeBtn.setGravity(Gravity.CENTER);
+        closeBtn.setPadding(0, 8 * dp, 0, 0);
         closeBtn.setOnClickListener(v -> destroyFloatingView());
+        card.addView(closeBtn);
 
-        FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        );
-        closeParams.gravity = Gravity.TOP | Gravity.END;
-        floatingView.addView(closeBtn, closeParams);
+        FrameLayout.LayoutParams cardParams = new FrameLayout.LayoutParams(cardW, FrameLayout.LayoutParams.WRAP_CONTENT);
+        cardParams.gravity = Gravity.CENTER;
+        rootView.addView(card, cardParams);
 
-        // Window params
+        // Fade in on appear
+        AlphaAnimation fadeIn = new AlphaAnimation(0f, 1f);
+        fadeIn.setDuration(300);
+        rootView.startAnimation(fadeIn);
+
+        // Window layout
         int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
             ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             : WindowManager.LayoutParams.TYPE_PHONE;
 
         params = new WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            screenW,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         );
-        params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
         params.x = 0;
-        params.y = 120;
+        params.y = 160 * dp;
 
-        // Drag support
-        floatingView.setOnTouchListener(new View.OnTouchListener() {
-            float initX, initY, touchX, touchY;
+        // Drag support on card
+        card.setOnTouchListener(new View.OnTouchListener() {
+            float initY, touchY;
+            boolean dragging = false;
             @Override
             public boolean onTouch(View v, MotionEvent e) {
                 switch (e.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        initX = params.x; initY = params.y;
-                        touchX = e.getRawX(); touchY = e.getRawY();
+                        initY = params.y; touchY = e.getRawY(); dragging = false;
                         return true;
                     case MotionEvent.ACTION_MOVE:
-                        params.x = (int)(initX + e.getRawX() - touchX);
-                        params.y = (int)(initY + e.getRawY() - touchY);
-                        windowManager.updateViewLayout(floatingView, params);
+                        float dy = e.getRawY() - touchY;
+                        if (Math.abs(dy) > 8) dragging = true;
+                        if (dragging) {
+                            params.y = (int)(initY - dy);
+                            windowManager.updateViewLayout(rootView, params);
+                        }
                         return true;
+                    case MotionEvent.ACTION_UP:
+                        return dragging;
                 }
                 return false;
             }
         });
 
-        windowManager.addView(floatingView, params);
+        windowManager.addView(rootView, params);
         isShowing = true;
     }
 
     private void destroyFloatingView() {
-        if (floatingView != null && windowManager != null) {
-            try { windowManager.removeView(floatingView); } catch (Exception ignored) {}
-            floatingView = null;
-            lyricsText = null;
-            isShowing = false;
+        if (rootView != null && windowManager != null) {
+            AlphaAnimation fadeOut = new AlphaAnimation(1f, 0f);
+            fadeOut.setDuration(200);
+            fadeOut.setAnimationListener(new Animation.AnimationListener() {
+                public void onAnimationStart(Animation a) {}
+                public void onAnimationRepeat(Animation a) {}
+                public void onAnimationEnd(Animation a) {
+                    try { windowManager.removeView(rootView); } catch (Exception ignored) {}
+                }
+            });
+            rootView.startAnimation(fadeOut);
+            rootView = null; lyricsText = null; isShowing = false;
         }
     }
 
