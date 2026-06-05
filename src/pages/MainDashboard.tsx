@@ -223,6 +223,15 @@ export default function MainDashboard() {
     return () => { handler?.remove(); };
   }, [showFullPlayer]);
 
+  // ── LYRICS ──
+  type LyricLine = { time: number; text: string };
+  const [syncedLyrics, setSyncedLyrics] = useState<LyricLine[]>([]);
+  const [plainLyrics, setPlainLyrics] = useState<string>('');
+  const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [activeLyricIdx, setActiveLyricIdx] = useState(0);
+  const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const lyricRefs = useRef<(HTMLParagraphElement | null)[]>([]);
+
   // ── FETCH LYRICS from LRCLIB (cloud songs only) ──
   useEffect(() => {
     const song = playerState.currentSong;
@@ -321,15 +330,6 @@ export default function MainDashboard() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const durationDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
-
-  // ── LYRICS ──
-  type LyricLine = { time: number; text: string };
-  const [syncedLyrics, setSyncedLyrics] = useState<LyricLine[]>([]);
-  const [plainLyrics, setPlainLyrics] = useState<string>('');
-  const [lyricsLoading, setLyricsLoading] = useState(false);
-  const [activeLyricIdx, setActiveLyricIdx] = useState(0);
-  const lyricsContainerRef = useRef<HTMLDivElement>(null);
-  const lyricRefs = useRef<(HTMLParagraphElement | null)[]>([]);
 
   // Close dropdowns on outside mousedown (bukan capture click, biar tidak konflik dgn item onClick)
   useEffect(() => {
