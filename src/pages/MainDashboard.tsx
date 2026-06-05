@@ -223,7 +223,60 @@ export default function MainDashboard() {
     return () => { handler?.remove(); };
   }, [showFullPlayer]);
 
-  // Update checker
+  // ── FETCH LYRICS from LRCLIB (cloud songs only) ──
+  useEffect(() => {
+    const song = playerState.currentSong;
+    setSyncedLyrics([]);
+    setPlainLyrics('');
+    setActiveLyricIdx(0);
+    if (!song || !song.isCloud) return;
+    const title = song.title?.trim();
+    const artist = song.artist?.trim();
+    if (!title || title === 'Unknown Title') return;
+    setLyricsLoading(true);
+    const params = new URLSearchParams({ track_name: title });
+    if (artist && artist !== 'Unknown Artist') params.set('artist_name', artist);
+    fetch(`https://lrclib.net/api/search?${params}`)
+      .then(r => r.json())
+      .then((results: any[]) => {
+        if (!results || results.length === 0) { setLyricsLoading(false); return; }
+        const hit = results.find((r: any) => r.syncedLyrics) || results[0];
+        if (hit?.syncedLyrics) {
+          const lines: LyricLine[] = hit.syncedLyrics
+            .split('\n')
+            .map((line: string) => {
+              const m = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
+              if (!m) return null;
+              const time = parseInt(m[1]) * 60 + parseFloat(m[2]);
+              return { time, text: m[3].trim() };
+            })
+            .filter(Boolean) as LyricLine[];
+          setSyncedLyrics(lines);
+        } else if (hit?.plainLyrics) {
+          setPlainLyrics(hit.plainLyrics);
+        }
+        setLyricsLoading(false);
+      })
+      .catch(() => setLyricsLoading(false));
+  }, [playerState.currentSong?.id]);
+
+  // ── TRACK ACTIVE LYRIC LINE ──
+  useEffect(() => {
+    if (syncedLyrics.length === 0) return;
+    const t = playerState.currentTime;
+    let idx = 0;
+    for (let i = 0; i < syncedLyrics.length; i++) {
+      if (syncedLyrics[i].time <= t) idx = i;
+      else break;
+    }
+    if (idx !== activeLyricIdx) {
+      setActiveLyricIdx(idx);
+      const el = lyricRefs.current[idx];
+      if (el && lyricsContainerRef.current) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [playerState.currentTime, syncedLyrics]);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
@@ -268,6 +321,15 @@ export default function MainDashboard() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const durationDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  // ── LYRICS ──
+  type LyricLine = { time: number; text: string };
+  const [syncedLyrics, setSyncedLyrics] = useState<LyricLine[]>([]);
+  const [plainLyrics, setPlainLyrics] = useState<string>('');
+  const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [activeLyricIdx, setActiveLyricIdx] = useState(0);
+  const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const lyricRefs = useRef<(HTMLParagraphElement | null)[]>([]);
 
   // Close dropdowns on outside mousedown (bukan capture click, biar tidak konflik dgn item onClick)
   useEffect(() => {
@@ -1819,6 +1881,46 @@ export default function MainDashboard() {
 
           {/* Album art + Circular Spectrum + song info */}
           <div className="flex-1 flex flex-col items-center justify-center px-8 gap-4 min-h-0">
+
+            {/* ── LYRICS SECTION (cloud only) ── */}
+            {playerState.currentSong.isCloud && (
+              <div
+                ref={lyricsContainerRef}
+                className="w-full max-h-[180px] overflow-y-auto text-center px-2 scrollbar-none"
+                style={{ maskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)' }}
+              >
+                {lyricsLoading ? (
+                  <p className="text-xs text-gray-600 animate-pulse py-4">Mencari lirik...</p>
+                ) : syncedLyrics.length > 0 ? (
+                  <div className="py-10 space-y-3">
+                    {syncedLyrics.map((line, i) => (
+                      <p
+                        key={i}
+                        ref={el => { lyricRefs.current[i] = el; }}
+                        className="transition-all duration-300 leading-snug"
+                        style={{
+                          fontSize: i === activeLyricIdx ? '15px' : '13px',
+                          fontWeight: i === activeLyricIdx ? 700 : 400,
+                          color: i === activeLyricIdx ? '#c8f500' : 'rgba(255,255,255,0.25)',
+                          transform: i === activeLyricIdx ? 'scale(1.04)' : 'scale(1)',
+                        }}
+                      >
+                        {line.text || '·'}
+                      </p>
+                    ))}
+                  </div>
+                ) : plainLyrics ? (
+                  <div className="py-4 space-y-2">
+                    {plainLyrics.split('\n').map((line, i) => (
+                      <p key={i} className="text-xs text-gray-500 leading-snug">{line || ' '}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-700 py-4">Lirik tidak tersedia</p>
+                )}
+              </div>
+            )}
+
             <CircularSpectrumPlayer
               cover={playerState.currentSong.cover ?? null}
               title={playerState.currentSong.title}
