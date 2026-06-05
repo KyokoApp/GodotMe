@@ -33,6 +33,7 @@ import {
   Youtube,
   ChevronDown,
   CloudDownload,
+  Download,
 } from 'lucide-react';
 import audioManager from '../lib/audio';
 import {
@@ -352,6 +353,13 @@ export default function MainDashboard() {
 
   // YouTube Download modal state
   const [isYtModalOpen, setIsYtModalOpen] = useState(false);
+
+  // YouTube Stream modal state
+  const [isYtStreamOpen, setIsYtStreamOpen] = useState(false);
+  const [ytStreamQuery, setYtStreamQuery] = useState('');
+  const [ytStreamResults, setYtStreamResults] = useState<{id:string;title:string;author:string;thumb:string;duration:string}[]>([]);
+  const [ytStreamLoading, setYtStreamLoading] = useState(false);
+  const [ytStreamError, setYtStreamError] = useState('');
 
   // SoundCloud Search modal state
   const [isScModalOpen, setIsScModalOpen] = useState(false);
@@ -1019,6 +1027,140 @@ export default function MainDashboard() {
   };
 
   // Refresh Cloud — cek lagu terbaru di cloud (tidak download otomatis)
+  // ── YOUTUBE STREAM ──
+  const INVIDIOUS_INSTANCES = [
+    'https://inv.nadeko.net',
+    'https://invidious.privacydev.net',
+    'https://yt.drgnz.club',
+  ];
+
+  const ytStreamSearch = async () => {
+    if (!ytStreamQuery.trim()) return;
+    setYtStreamLoading(true);
+    setYtStreamError('');
+    setYtStreamResults([]);
+    for (const instance of INVIDIOUS_INSTANCES) {
+      try {
+        const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(ytStreamQuery)}&type=video&fields=videoId,title,author,videoThumbnails,lengthSeconds`);
+        if (!res.ok) continue;
+        const data = await res.json();
+        const results = (data as any[]).slice(0, 8).map((v: any) => ({
+          id: v.videoId,
+          title: v.title,
+          author: v.author,
+          thumb: v.videoThumbnails?.[3]?.url || v.videoThumbnails?.[0]?.url || '',
+          duration: `${Math.floor(v.lengthSeconds/60)}:${String(v.lengthSeconds%60).padStart(2,'0')}`,
+        }));
+        setYtStreamResults(results);
+        setYtStreamLoading(false);
+        return;
+      } catch { continue; }
+    }
+    setYtStreamError('Tidak bisa connect ke server. Coba lagi.');
+    setYtStreamLoading(false);
+  };
+
+  const [ytDownloadingId, setYtDownloadingId] = useState<string | null>(null);
+
+  const ytStreamDownload = async (videoId: string, title: string, author: string, thumb: string) => {
+    setYtDownloadingId(videoId);
+    for (const instance of INVIDIOUS_INSTANCES) {
+      try {
+        const res = await fetch(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats`);
+        if (!res.ok) continue;
+        const data = await res.json();
+        const audioFormats: any[] = (data.adaptiveFormats || [])
+          .filter((f: any) => f.type?.startsWith('audio/') && f.url)
+          .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+        if (audioFormats.length === 0) continue;
+        const audioUrl = audioFormats[0].url;
+
+        toast(`⬇️ Mendownload "${title}"...`, 'info');
+
+        const { Capacitor } = await import('@capacitor/core');
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { saveSong } = await import('../lib/db');
+
+        if (Capacitor.isNativePlatform()) {
+          const MUSIC_FOLDER = 'Android/media/com.kyokobeat.musicplayer/Music';
+          try { await Filesystem.mkdir({ path: MUSIC_FOLDER, directory: Directory.ExternalStorage, recursive: true }); } catch (_) {}
+          const audioRes = await fetch(audioUrl);
+          const blob = await audioRes.blob();
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          const safeTitle = title.replace(/[^a-z0-9\s]/gi, '_').trim();
+          const fileName = `${safeTitle}.mp3`;
+          const filePath = `${MUSIC_FOLDER}/${fileName}`;
+          await Filesystem.writeFile({ path: filePath, data: base64, directory: Directory.ExternalStorage, recursive: true });
+          const localUrl = Capacitor.convertFileSrc(`/storage/emulated/0/${filePath}`);
+          await saveSong({
+            id: `yt-stream-dl-${videoId}`,
+            title, artist: author || 'YouTube',
+            album: 'YouTube Stream', duration: 0,
+            cover: thumb || null, fileHandle: null as any,
+            path: `/storage/emulated/0/${filePath}`,
+            fileSize: blob.size, addedAt: Date.now(),
+            isCloud: false, isDownloaded: false, audioUrl: localUrl,
+          });
+        } else {
+          await saveSong({
+            id: `yt-stream-dl-${videoId}`,
+            title, artist: author || 'YouTube',
+            album: 'YouTube Stream', duration: 0,
+            cover: thumb || null, fileHandle: null as any,
+            path: audioUrl, fileSize: 0, addedAt: Date.now(),
+            isCloud: false, isDownloaded: true, audioUrl,
+          });
+        }
+        await loadLocalDataAndSync();
+        toast(`✅ "${title}" tersimpan ke library!`, 'success');
+        setYtDownloadingId(null);
+        return;
+      } catch { continue; }
+    }
+    toast('Gagal download. Coba lagi.', 'error');
+    setYtDownloadingId(null);
+  };
+
+  const ytStreamPlay = async (videoId: string, title: string, author: string, thumb: string) => {
+    setYtStreamLoading(true);
+    for (const instance of INVIDIOUS_INSTANCES) {
+      try {
+        const res = await fetch(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats,formatStreams`);
+        if (!res.ok) continue;
+        const data = await res.json();
+        const audioFormats: any[] = (data.adaptiveFormats || [])
+          .filter((f: any) => f.type?.startsWith('audio/') && f.url)
+          .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+        if (audioFormats.length === 0) continue;
+        const audioUrl = audioFormats[0].url;
+        const streamSong: LocalSong = {
+          id: `yt_stream_${videoId}`,
+          title,
+          artist: author,
+          album: 'YouTube Stream',
+          cover: thumb,
+          uri: audioUrl,
+          path: audioUrl,
+          isCloud: false,
+          duration: 0,
+          size: 0,
+          folder: 'YouTube',
+        };
+        await handlePlaySong(streamSong);
+        setIsYtStreamOpen(false);
+        setYtStreamLoading(false);
+        return;
+      } catch { continue; }
+    }
+    toast('Gagal load audio. Coba lagu lain.', 'error');
+    setYtStreamLoading(false);
+  };
+
   const handleRefreshCloud = async () => {
     setSyncingCloud(true);
     try {
@@ -1662,12 +1804,12 @@ export default function MainDashboard() {
             </button>
           </div>
 
-          {/* Download buttons: Cari Lagu + YouTube — 2 kolom sejajar */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Download buttons: Cari Lagu + YouTube Download + YouTube Stream */}
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => setIsScModalOpen(true)}
               title="Cari Lagu Online"
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#c8f500] hover:bg-[#d4ff00] text-black text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(200,245,0,0.3)] hover:shadow-[0_0_18px_rgba(200,245,0,0.5)] active:scale-95"
+              className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-[#c8f500] hover:bg-[#d4ff00] text-black text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(200,245,0,0.3)] hover:shadow-[0_0_18px_rgba(200,245,0,0.5)] active:scale-95"
             >
               <CloudDownload className="w-3.5 h-3.5" />
               Cari Lagu
@@ -1675,10 +1817,18 @@ export default function MainDashboard() {
             <button
               onClick={() => setIsYtModalOpen(true)}
               title="Download dari YouTube"
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/15 border border-red-500/40 hover:border-red-500 hover:bg-red-500/25 text-red-400 text-xs font-bold transition-all cursor-pointer active:scale-95"
+              className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-red-500/15 border border-red-500/40 hover:border-red-500 hover:bg-red-500/25 text-red-400 text-xs font-bold transition-all cursor-pointer active:scale-95"
             >
               <Youtube className="w-3.5 h-3.5" />
-              YouTube
+              YT Download
+            </button>
+            <button
+              onClick={() => setIsYtStreamOpen(true)}
+              title="Stream dari YouTube"
+              className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-orange-500/15 border border-orange-500/40 hover:border-orange-500 hover:bg-orange-500/25 text-orange-400 text-xs font-bold transition-all cursor-pointer active:scale-95"
+            >
+              <Play className="w-3.5 h-3.5" />
+              YT Stream
             </button>
           </div>
 
@@ -1967,28 +2117,27 @@ export default function MainDashboard() {
                   className="w-7 h-7 rounded-full bg-white/5 border border-white/10 text-white text-sm font-bold flex items-center justify-center active:scale-90 cursor-pointer"
                 >+</button>
 
-                {/* Floating lyrics toggle — Capacitor only */}
-                {isCapacitorActive() && (
-                  <button
-                    onClick={async () => {
-                      if (!floatingLyricsEnabled) {
-                        const granted = await checkFloatingPermission();
-                        if (!granted) {
-                          await requestFloatingPermission();
-                          return;
-                        }
+                {/* Floating lyrics toggle */}
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!floatingLyricsEnabled) {
+                      const granted = await checkFloatingPermission();
+                      if (!granted) {
+                        await requestFloatingPermission();
+                        return;
                       }
-                      setFloatingLyricsEnabled(v => !v);
-                    }}
-                    className={`ml-2 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                      floatingLyricsEnabled
-                        ? 'bg-[#c8f500]/15 border-[#c8f500]/50 text-[#c8f500]'
-                        : 'bg-white/5 border-white/10 text-gray-500'
-                    }`}
-                  >
-                    {floatingLyricsEnabled ? '📌 Float ON' : '📌 Float'}
-                  </button>
-                )}
+                    }
+                    setFloatingLyricsEnabled(v => !v);
+                  }}
+                  className={`ml-2 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                    floatingLyricsEnabled
+                      ? 'bg-[#c8f500]/15 border-[#c8f500]/50 text-[#c8f500]'
+                      : 'bg-white/5 border-white/10 text-gray-500'
+                  }`}
+                >
+                  {floatingLyricsEnabled ? '📌 Float ON' : '📌 Float'}
+                </button>
               </div>
             )}
 
@@ -2134,6 +2283,96 @@ export default function MainDashboard() {
         }}
         toast={toast}
       />
+
+      {/* ── YOUTUBE STREAM MODAL ── */}
+      {isYtStreamOpen && (
+        <div className="fixed inset-0 z-[200] flex flex-col bg-[#0a0a0a]">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 pt-12 pb-4 border-b border-white/5">
+            <button onClick={() => setIsYtStreamOpen(false)} className="p-2 text-gray-400 cursor-pointer">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+            </button>
+            <div>
+              <h2 className="text-base font-bold text-white">YouTube Stream</h2>
+              <p className="text-[10px] text-gray-500">Putar langsung, tidak tersimpan</p>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="px-4 py-3 flex gap-2">
+            <input
+              value={ytStreamQuery}
+              onChange={e => setYtStreamQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && ytStreamSearch()}
+              placeholder="Cari judul, artis, album..."
+              className="flex-1 bg-[#111] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-orange-400/50"
+              autoFocus
+            />
+            <button
+              onClick={ytStreamSearch}
+              disabled={ytStreamLoading}
+              className="px-4 py-2.5 bg-orange-500/20 border border-orange-500/40 text-orange-400 text-xs font-bold rounded-lg cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              {ytStreamLoading ? '...' : 'Cari'}
+            </button>
+          </div>
+
+          {/* Error */}
+          {ytStreamError && (
+            <p className="px-4 text-xs text-red-400">{ytStreamError}</p>
+          )}
+
+          {/* Results */}
+          <div className="flex-1 overflow-y-auto px-4 pb-24">
+            {ytStreamResults.length === 0 && !ytStreamLoading && !ytStreamError && (
+              <div className="flex flex-col items-center justify-center h-48 gap-2">
+                <Youtube className="w-10 h-10 text-orange-500/30" />
+                <p className="text-xs text-gray-600">Cari lagu untuk diputar langsung</p>
+              </div>
+            )}
+            {ytStreamResults.map(v => (
+              <div
+                key={v.id}
+                className="w-full flex items-center gap-3 p-3 mb-2 rounded-xl bg-[#111] border border-white/5 hover:border-orange-400/20 transition-all"
+              >
+                {v.thumb ? (
+                  <img src={v.thumb} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-[#1a1a1a]" />
+                ) : (
+                  <div className="w-14 h-14 rounded-lg bg-[#1a1a1a] flex items-center justify-center flex-shrink-0">
+                    <Youtube className="w-5 h-5 text-orange-500/40" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate text-white">{v.title}</p>
+                  <p className="text-xs text-gray-500 truncate mt-0.5">{v.author}</p>
+                  <p className="text-[10px] text-orange-400/60 mt-1">{v.duration}</p>
+                </div>
+                {/* Play button */}
+                <button
+                  onClick={() => ytStreamPlay(v.id, v.title, v.author, v.thumb)}
+                  disabled={ytStreamLoading}
+                  className="p-2 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 active:scale-90 cursor-pointer disabled:opacity-40"
+                  title="Putar"
+                >
+                  <Play className="w-4 h-4" />
+                </button>
+                {/* Download button */}
+                <button
+                  onClick={() => ytStreamDownload(v.id, v.title, v.author, v.thumb)}
+                  disabled={ytDownloadingId === v.id}
+                  className="p-2 rounded-full bg-[#c8f500]/10 border border-[#c8f500]/30 text-[#c8f500] active:scale-90 cursor-pointer disabled:opacity-40"
+                  title="Download ke device"
+                >
+                  {ytDownloadingId === v.id
+                    ? <div className="w-4 h-4 border-2 border-[#c8f500]/40 border-t-[#c8f500] rounded-full animate-spin" />
+                    : <Download className="w-4 h-4" />
+                  }
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* In-App Update Dialog */}
       {showUpdateDialog && updateInfo && (
