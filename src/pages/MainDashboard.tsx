@@ -58,8 +58,7 @@ import {
 import { scanDirectoryRecursive, verifyPermission, syncFolderIncremental } from '../lib/scanner';
 import { isCapacitorActive, requestMobileStoragePermission, scanAllMobileStorage } from '../lib/mobileScanner';
 
-import { checkForUpdate } from '../lib/updater';
-import UpdateDialog from '../components/UpdateDialog';
+
 import { ensureMusicFolder, downloadCloudSong } from '../lib/cloudMusic';
 import SongCard from '../components/SongCard';
 import WaveformVisualizer from '../components/WaveformVisualizer';
@@ -309,8 +308,7 @@ export default function MainDashboard() {
   }, [playerState.currentTime, syncedLyrics, lyricsOffset]);
 
 
-  const [updateInfo, setUpdateInfo] = useState<any>(null);
-  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+
 
   // Scanning / Syncing states
   const [scanning, setScanning] = useState(false);
@@ -399,13 +397,6 @@ export default function MainDashboard() {
     loadLocalDataAndSync();
     // Load pre-seeded cloud songs
     loadCloudSongs();
-
-    // Cek update di Android
-    if (isCapacitorActive()) {
-      checkForUpdate().then((info) => {
-        if (info) setUpdateInfo(info);
-      });
-    }
 
     return () => subscription.unsubscribe();
   }, []);
@@ -1410,13 +1401,6 @@ export default function MainDashboard() {
               <div className="p-1.5 rounded-lg bg-[#111] border border-[#c8f500]/20">
                 <Disc className="w-4 h-4 text-[#c8f500] animate-spin-slow" />
               </div>
-              {updateInfo && (
-                <button onClick={() => setShowUpdateDialog(true)} className="absolute -top-1.5 -right-1.5">
-                  <div className="w-4 h-4 rounded-full bg-red-500 border border-[#0a0a0a] flex items-center justify-center">
-                    <span className="text-white font-black text-[7px]">!</span>
-                  </div>
-                </button>
-              )}
             </div>
             <div>
               <h1 className="text-2xl font-heading text-[#c8f500] tracking-widest leading-none">KYOKOBEAT</h1>
@@ -2396,14 +2380,6 @@ export default function MainDashboard() {
             ))}
           </div>
         </div>
-      )}
-
-      {/* In-App Update Dialog */}
-      {showUpdateDialog && updateInfo && (
-        <UpdateDialog
-          info={updateInfo}
-          onDismiss={() => setShowUpdateDialog(false)}
-        />
       )}
 
       {/* Delete All Modal - Choose Action */}
