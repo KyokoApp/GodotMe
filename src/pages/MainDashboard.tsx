@@ -417,9 +417,12 @@ export default function MainDashboard() {
       });
     });
 
-    // Handle track ended
+    // Handle track ended (next track) & prev track — wired to Media Session API buttons
     audioManager.onTrackEnded = () => {
       handleTrackEnded();
+    };
+    audioManager.onPrevTrack = () => {
+      playPrevTrack();
     };
 
     return () => {
@@ -771,6 +774,15 @@ export default function MainDashboard() {
       } catch (e) {
         console.warn('Could not verify directory handle permission:', e);
       }
+    }
+
+    // Stop YT stream preview if it's still playing (prevents double audio)
+    if (ytPreviewRef.current) {
+      ytPreviewRef.current.pause();
+      ytPreviewRef.current.src = '';
+      ytPreviewRef.current = null;
+      setYtPreviewPlaying(false);
+      setYtPreview(null);
     }
 
     try {
@@ -1145,6 +1157,8 @@ export default function MainDashboard() {
       return;
     }
     if (ytPreviewRef.current) { ytPreviewRef.current.pause(); ytPreviewRef.current.src = ''; }
+    // Pause main audioManager so YT preview doesn't overlap with playing song
+    if (audioManager.isPlaying()) { audioManager.togglePlay(); }
     const audio = new Audio(result.url);
     ytPreviewRef.current = audio;
     audio.onplay = () => setYtPreviewPlaying(true);
