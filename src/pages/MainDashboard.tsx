@@ -53,6 +53,7 @@ import {
 } from '../lib/db';
 import { scanDirectoryRecursive, verifyPermission, syncFolderIncremental } from '../lib/scanner';
 import { isCapacitorActive, requestMobileStoragePermission, scanAllMobileStorage } from '../lib/mobileScanner';
+import { checkFloatingPermission, requestFloatingPermission, showFloatingLyric, hideFloatingLyric } from '../lib/floatingLyrics';
 import { checkForUpdate } from '../lib/updater';
 import UpdateDialog from '../components/UpdateDialog';
 import { ensureMusicFolder, downloadCloudSong } from '../lib/cloudMusic';
@@ -229,8 +230,20 @@ export default function MainDashboard() {
   const [plainLyrics, setPlainLyrics] = useState<string>('');
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [activeLyricIdx, setActiveLyricIdx] = useState(0);
+  const [lyricsOffset, setLyricsOffset] = useState(0.5);
+  const [floatingLyricsEnabled, setFloatingLyricsEnabled] = useState(false);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const lyricRefs = useRef<(HTMLParagraphElement | null)[]>([]);
+
+  const OFFSET_KEY = (id: string) => `kyoko_lyric_offset_${id}`;
+
+  const adjustOffset = (delta: number) => {
+    const song = playerState.currentSong;
+    if (!song) return;
+    const next = Math.round((lyricsOffset + delta) * 10) / 10;
+    setLyricsOffset(next);
+    localStorage.setItem(OFFSET_KEY(song.id), String(next));
+  };
 
   // ── FETCH LYRICS from LRCLIB (cloud songs only) ──
   useEffect(() => {
@@ -239,6 +252,9 @@ export default function MainDashboard() {
     setPlainLyrics('');
     setActiveLyricIdx(0);
     if (!song || !song.isCloud) return;
+    // load saved offset for this song
+    const saved = localStorage.getItem(OFFSET_KEY(song.id));
+    setLyricsOffset(saved !== null ? parseFloat(saved) : 0.5);
     const title = song.title?.trim();
     const artist = song.artist?.trim();
     if (!title || title === 'Unknown Title') return;
@@ -272,7 +288,7 @@ export default function MainDashboard() {
   // ── TRACK ACTIVE LYRIC LINE ──
   useEffect(() => {
     if (syncedLyrics.length === 0) return;
-    const t = playerState.currentTime;
+    const t = playerState.currentTime + lyricsOffset;
     let idx = 0;
     for (let i = 0; i < syncedLyrics.length; i++) {
       if (syncedLyrics[i].time <= t) idx = i;
@@ -285,7 +301,22 @@ export default function MainDashboard() {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [playerState.currentTime, syncedLyrics]);
+  }, [playerState.currentTime, syncedLyrics, lyricsOffset]);
+
+  // ── PUSH ACTIVE LYRIC TO NATIVE FLOATING OVERLAY ──
+  useEffect(() => {
+    if (!floatingLyricsEnabled || !isCapacitorActive()) return;
+    if (syncedLyrics.length === 0) return;
+    const line = syncedLyrics[activeLyricIdx]?.text;
+    if (line) showFloatingLyric(line);
+  }, [activeLyricIdx, floatingLyricsEnabled]);
+
+  // hide floating when disabled or song stops
+  useEffect(() => {
+    if (!floatingLyricsEnabled || !playerState.currentSong) {
+      if (isCapacitorActive()) hideFloatingLyric();
+    }
+  }, [floatingLyricsEnabled, playerState.currentSong]);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
@@ -1917,6 +1948,46 @@ export default function MainDashboard() {
                   </div>
                 ) : (
                   <p className="text-xs text-gray-700 py-4">Lirik tidak tersedia</p>
+                )}
+              </div>
+            )}
+
+            {/* Offset adjuster — only when synced lyrics exist */}
+            {playerState.currentSong.isCloud && syncedLyrics.length > 0 && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => adjustOffset(-0.5)}
+                  className="w-7 h-7 rounded-full bg-white/5 border border-white/10 text-white text-sm font-bold flex items-center justify-center active:scale-90 cursor-pointer"
+                >−</button>
+                <span className="text-[10px] text-gray-500 w-20 text-center">
+                  {lyricsOffset >= 0 ? `+${lyricsOffset.toFixed(1)}` : lyricsOffset.toFixed(1)}s
+                </span>
+                <button
+                  onClick={() => adjustOffset(0.5)}
+                  className="w-7 h-7 rounded-full bg-white/5 border border-white/10 text-white text-sm font-bold flex items-center justify-center active:scale-90 cursor-pointer"
+                >+</button>
+
+                {/* Floating lyrics toggle — Capacitor only */}
+                {isCapacitorActive() && (
+                  <button
+                    onClick={async () => {
+                      if (!floatingLyricsEnabled) {
+                        const granted = await checkFloatingPermission();
+                        if (!granted) {
+                          await requestFloatingPermission();
+                          return;
+                        }
+                      }
+                      setFloatingLyricsEnabled(v => !v);
+                    }}
+                    className={`ml-2 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                      floatingLyricsEnabled
+                        ? 'bg-[#c8f500]/15 border-[#c8f500]/50 text-[#c8f500]'
+                        : 'bg-white/5 border-white/10 text-gray-500'
+                    }`}
+                  >
+                    {floatingLyricsEnabled ? '📌 Float ON' : '📌 Float'}
+                  </button>
                 )}
               </div>
             )}
