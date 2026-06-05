@@ -1144,7 +1144,6 @@ export default function MainDashboard() {
           artist: author,
           album: 'YouTube Stream',
           cover: thumb,
-          uri: audioUrl,
           path: audioUrl,
           isCloud: false,
           duration: 0,
