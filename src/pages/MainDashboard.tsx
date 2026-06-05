@@ -1043,6 +1043,19 @@ export default function MainDashboard() {
     'https://pipedapi.tokhmi.xyz',
   ];
 
+  const fetchWithTimeout = async (url: string, ms = 6000) => {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(id);
+      return res;
+    } catch (e) {
+      clearTimeout(id);
+      throw e;
+    }
+  };
+
   const ytStreamSearch = async () => {
     if (!ytStreamQuery.trim()) return;
     setYtStreamLoading(true);
@@ -1052,7 +1065,7 @@ export default function MainDashboard() {
     // Try Invidious instances first
     for (const instance of INVIDIOUS_INSTANCES) {
       try {
-        const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(ytStreamQuery)}&type=video&fields=videoId,title,author,videoThumbnails,lengthSeconds`, { signal: AbortSignal.timeout(5000) });
+        const res = await fetchWithTimeout(`${instance}/api/v1/search?q=${encodeURIComponent(ytStreamQuery)}&type=video&fields=videoId,title,author,videoThumbnails,lengthSeconds`);
         if (!res.ok) continue;
         const data = await res.json();
         const results = (data as any[]).slice(0, 8).map((v: any) => ({
@@ -1072,7 +1085,7 @@ export default function MainDashboard() {
     // Fallback: Piped API
     for (const instance of PIPED_INSTANCES) {
       try {
-        const res = await fetch(`${instance}/search?q=${encodeURIComponent(ytStreamQuery)}&filter=videos`, { signal: AbortSignal.timeout(5000) });
+        const res = await fetchWithTimeout(`${instance}/search?q=${encodeURIComponent(ytStreamQuery)}&filter=videos`);
         if (!res.ok) continue;
         const data = await res.json();
         const results = (data.items as any[]).slice(0, 8).map((v: any) => {
@@ -1143,7 +1156,7 @@ export default function MainDashboard() {
     // Try Invidious
     for (const instance of INVIDIOUS_INSTANCES) {
       try {
-        const res = await fetch(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats`, { signal: AbortSignal.timeout(8000) });
+        const res = await fetchWithTimeout(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats`, 8000);
         if (!res.ok) continue;
         const data = await res.json();
         const formats: any[] = (data.adaptiveFormats || [])
@@ -1155,7 +1168,7 @@ export default function MainDashboard() {
     // Try Piped
     for (const instance of PIPED_INSTANCES) {
       try {
-        const res = await fetch(`${instance}/streams/${videoId}`, { signal: AbortSignal.timeout(8000) });
+        const res = await fetchWithTimeout(`${instance}/streams/${videoId}`, 8000);
         if (!res.ok) continue;
         const data = await res.json();
         const streams: any[] = (data.audioStreams || [])
