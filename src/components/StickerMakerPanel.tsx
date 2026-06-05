@@ -220,71 +220,59 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
     return zip.generateAsync({ type: 'blob' });
   };
 
-  // Canvas dataUrl → WebP base64 di ukuran tertentu
-  const toWebpBase64 = (dataUrl: string, size: number): Promise<string> =>
+  // Blob → base64 string
+  const blobToBase64 = (blob: Blob): Promise<string> =>
     new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = size; c.height = size;
-        const ctx = c.getContext('2d')!;
-        const scale = Math.max(size / img.width, size / img.height);
-        const w = img.width * scale, h = img.height * scale;
-        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-        resolve(c.toDataURL('image/webp', 0.85).split(',')[1]);
-      };
-      img.src = dataUrl;
+      const r = new FileReader();
+      r.onload = () => resolve((r.result as string).split(',')[1]);
+      r.readAsDataURL(blob);
     });
 
-  // Export: Native ENABLE_STICKER_PACK → Web Share → Download fallback
+  // Export: Native ACTION_VIEW → Web Share → Download fallback
   const handleExportPack = async () => {
     if (pack.length === 0) return;
     if (pack.length < 3) {
       showToast(`⚠️ Butuh minimal 3 stiker (sekarang ${pack.length})`);
       return;
     }
-
     setSharing(true);
     showToast('⏳ Menyiapkan sticker pack...');
 
     try {
-      // ── PATH 1: Capacitor native — ENABLE_STICKER_PACK intent (0 tap) ──
+      // Step 1: Buat ZIP
+      showToast('📦 Membuat ZIP...');
+      let blob: Blob;
+      try {
+        blob = await buildWastickers();
+      } catch (zipErr: any) {
+        showToast('❌ ZIP gagal: ' + zipErr.message);
+        setSharing(false);
+        return;
+      }
+      showToast(`✅ ZIP OK (${(blob.size / 1024).toFixed(0)} KB)`);
+      await new Promise(r => setTimeout(r, 800)); // tampilkan sebentar
+
+      // ── PATH 1: Capacitor native ──
       if ((window as any).Capacitor?.isNativePlatform?.()) {
+        showToast('🔌 Mencoba native plugin...');
         try {
           const { WASticker } = await import('../plugins/WASticker');
-
-          // tray image 96x96
-          const trayData = await toWebpBase64(pack[0].url, 96);
-
-          // stiker 512x512 WebP satu-satu
-          const stickers = await Promise.all(
-            pack.map(async (s, i) => ({
-              fileName: `${i + 1}.webp`,
-              data: await toWebpBase64(s.url, 512),
-              emoji: '😊',
-            }))
-          );
-
-          await WASticker.openPack({
-            packId: `kyoko_${Date.now()}`,
-            packName,
-            publisher: 'KyokoBeat',
-            trayData,
-            stickers,
-          });
-
+          const data = await blobToBase64(blob);
+          await WASticker.openPack({ data, packName });
           showToast('✅ WhatsApp terbuka!');
           setSharing(false);
           return;
-        } catch (capErr: any) {
-          if ((capErr?.message ?? '').includes('AbortError')) { setSharing(false); return; }
-          console.warn('WASticker native error:', capErr);
-          // lanjut fallback
+        } catch (e: any) {
+          if ((e?.message ?? '').includes('AbortError')) { setSharing(false); return; }
+          showToast('⚠️ Native gagal: ' + (e?.message ?? 'unknown'));
+          await new Promise(r => setTimeout(r, 1200));
         }
+      } else {
+        showToast('ℹ️ Bukan native, skip plugin');
+        await new Promise(r => setTimeout(r, 800));
       }
 
-      // ── PATH 2: Web Share API (Android Chrome) ──
-      const blob = await buildWastickers();
+      // ── PATH 2: Web Share API ──
       const file = new File([blob], `${packName}.wastickers`, { type: 'application/octet-stream' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ title: packName, files: [file] });
@@ -304,9 +292,7 @@ const StickerMakerPanel: React.FC<StickerMakerPanelProps> = ({ isOpen, onClose }
 
     } catch (err: any) {
       if (err?.name !== 'AbortError') showToast('Gagal: ' + err.message);
-    } finally {
-      setSharing(false);
-    }
+    } finally { setSharing(false); }
   };
 
   const borderRadius = (s: ShapeMode) => s === 'circle' ? '50%' : s === 'rounded' ? '28px' : '8px';
