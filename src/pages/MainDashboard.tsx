@@ -35,7 +35,9 @@ import {
   CloudDownload,
   Download,
   Share2,
+  Settings,
 } from 'lucide-react';
+import SettingsPage from './SettingsPage';
 import audioManager from '../lib/audio';
 import {
   LocalSong,
@@ -338,6 +340,7 @@ export default function MainDashboard() {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [showCreatePlaylistRow, setShowCreatePlaylistRow] = useState(false);
   const [sharePlaylist, setSharePlaylist] = useState<LocalPlaylist | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const [downloadedCloudIds, setDownloadedCloudIds] = useState<Set<string>>(new Set());
 
@@ -1383,6 +1386,11 @@ export default function MainDashboard() {
     return `${m}:${s}`;
   };
 
+  // Show settings page
+  if (showSettings) {
+    return <SettingsPage onBack={() => setShowSettings(false)} />;
+  }
+
   return (
     <div
       className={`min-h-screen bg-[#0a0a0a] text-white flex flex-col font-body w-full max-w-full overflow-x-hidden ${playerState.currentSong ? 'pb-[72px]' : 'pb-8'}`}
@@ -1418,6 +1426,15 @@ export default function MainDashboard() {
 
           {/* Right: icon-only action buttons — compact 3 icons */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Settings */}
+            <button
+              onClick={() => setShowSettings(true)}
+              title="Pengaturan"
+              className="w-8 h-8 rounded-full bg-[#111] border border-gray-800 hover:border-[#c8f500]/40 text-gray-500 hover:text-[#c8f500] transition-colors cursor-pointer flex items-center justify-center"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+
             {/* Help */}
             <button
               onClick={() => setShowHelp(!showHelp)}
