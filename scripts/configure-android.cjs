@@ -283,107 +283,70 @@ fs.writeFileSync(cpPath, contentProviderCode, 'utf8');
 console.log('✓ Created StickerContentProvider.java');
 
 // ─────────────────────────────────────────────────────────
-// 5. WAStickerPlugin.java  ← Pakai ENABLE_STICKER_PACK intent
+// 5. WAStickerPlugin.java
+//    Tulis .wastickers ke cache → ACTION_VIEW tanpa MIME & package
+//    → Android route ke WA by extension → "Tambahkan ke stiker Anda"
 // ─────────────────────────────────────────────────────────
 const waStickerCode = `package com.kyokobeat.musicplayer;
 
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.net.Uri;
 import android.util.Base64;
-import android.util.Log;
-
-import com.getcapacitor.JSArray;
+import androidx.core.content.FileProvider;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.io.File;
 import java.io.FileOutputStream;
 
 /**
  * WAStickerPlugin
- * Simpan stiker ke cache → fire ENABLE_STICKER_PACK intent.
- * WhatsApp buka sheet "Tambahkan ke stiker Anda" secara otomatis.
+ * Tulis .wastickers (ZIP) ke cache lalu buka via ACTION_VIEW.
+ * Android route ke WA berdasarkan ekstensi .wastickers →
+ * WA tampilkan sheet "Tambahkan ke stiker Anda" otomatis.
  */
 @CapacitorPlugin(name = "WASticker")
 public class WAStickerPlugin extends Plugin {
 
-    private static final String TAG = "WAStickerPlugin";
-
     @PluginMethod
     public void openPack(PluginCall call) {
-        String packId     = call.getString("packId",    "kyoko_" + System.currentTimeMillis());
-        String packName   = call.getString("packName",  "Sticker Pack");
-        String publisher  = call.getString("publisher", "KyokoBeat");
-        String trayData   = call.getString("trayData");   // base64 WebP 96x96
-        JSArray stickers  = call.getArray("stickers");    // [{fileName, data, emoji}]
+        String base64Data = call.getString("data");
+        String packName   = call.getString("packName", "sticker_pack")
+                              .replaceAll("[^a-zA-Z0-9_\\\\-]", "_");
 
-        if (trayData == null || stickers == null) {
-            call.reject("Missing trayData or stickers"); return;
-        }
+        if (base64Data == null) { call.reject("No data"); return; }
 
         try {
-            // Simpan ke cache/wa_stickers/{packId}/
-            File packDir = new File(getContext().getCacheDir(), "wa_stickers/" + packId);
-            packDir.mkdirs();
+            // 1. Decode base64 ZIP → tulis ke cache sebagai .wastickers
+            byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
+            File file = new File(getContext().getCacheDir(), packName + ".wastickers");
+            try (FileOutputStream fos = new FileOutputStream(file)) { fos.write(bytes); }
 
-            // tray image (96x96)
-            writeFile(new File(packDir, "tray.webp"), Base64.decode(trayData, Base64.DEFAULT));
+            // 2. URI via FileProvider
+            Uri uri = FileProvider.getUriForFile(
+                getContext(),
+                getContext().getPackageName() + ".fileprovider",
+                file
+            );
 
-            // setiap stiker
-            for (int i = 0; i < stickers.length(); i++) {
-                JSONObject s = stickers.getJSONObject(i);
-                String fileName = s.getString("fileName");
-                String data     = s.getString("data");
-                writeFile(new File(packDir, fileName), Base64.decode(data, Base64.DEFAULT));
-            }
-
-            // metadata untuk ContentProvider
-            JSONObject meta = new JSONObject();
-            meta.put("name", packName);
-            meta.put("publisher", publisher);
-            writeFile(new File(packDir, "meta.json"), meta.toString().getBytes());
-
-            // Fire ENABLE_STICKER_PACK — WA tampilkan sheet "Tambahkan ke stiker Anda"
-            Intent intent = new Intent("com.whatsapp.intent.action.ENABLE_STICKER_PACK");
-            intent.putExtra("sticker_pack_id",        packId);
-            intent.putExtra("sticker_pack_name",      packName);
-            intent.putExtra("sticker_pack_publisher", publisher);
-            intent.putExtra("sticker_pack_localized_name", packName);
+            // 3. ACTION_VIEW TANPA setPackage dan TANPA MIME type
+            //    → Android gunakan ekstensi .wastickers untuk routing
+            //    → WhatsApp menerima dan tampilkan "Tambahkan ke stiker Anda"
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(uri);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-            boolean launched = false;
-            for (String pkg : new String[]{"com.whatsapp", "com.whatsapp.w4b"}) {
-                try {
-                    intent.setPackage(pkg);
-                    getActivity().startActivityForResult(intent, 200);
-                    launched = true;
-                    Log.d(TAG, "Opened WA: " + pkg);
-                    break;
-                } catch (ActivityNotFoundException ignored) {}
-            }
-
-            if (!launched) {
-                call.reject("WhatsApp tidak terinstall"); return;
-            }
+            getContext().startActivity(intent);
 
             JSObject result = new JSObject();
             result.put("success", true);
             call.resolve(result);
 
         } catch (Exception e) {
-            Log.e(TAG, "Error: " + e.getMessage(), e);
             call.reject("Failed: " + e.getMessage());
         }
-    }
-
-    private void writeFile(File file, byte[] data) throws Exception {
-        try (FileOutputStream fos = new FileOutputStream(file)) { fos.write(data); }
     }
 }
 `;
