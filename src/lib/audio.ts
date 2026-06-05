@@ -9,16 +9,18 @@ type AudioStateCallback = (state: {
   isMuted: boolean;
 }) => void;
 
-// ── Capacitor plugin bridge untuk MusicNotificationPlugin ──
-async function callMusicNotification(method: string, options: Record<string, unknown> = {}) {
+// Lazy-load @capacitor-community/media-session only on native
+let MediaSessionPlugin: any = null;
+const getMediaSessionPlugin = async () => {
+  if (MediaSessionPlugin) return MediaSessionPlugin;
   try {
-    const { registerPlugin } = await import('@capacitor/core');
-    const MusicNotification = registerPlugin<any>('MusicNotification');
-    return await MusicNotification[method](options);
-  } catch (e) {
-    // Plugin belum tersedia (web browser), ignore
+    const mod = await import('@capacitor-community/media-session');
+    MediaSessionPlugin = mod.MediaSession;
+    return MediaSessionPlugin;
+  } catch {
+    return null;
   }
-}
+};
 
 class AudioManager {
   private audio: HTMLAudioElement;
@@ -28,6 +30,7 @@ class AudioManager {
   private currentSong: LocalSong | null = null;
   private callbacks: Set<AudioStateCallback> = new Set();
   private lastCrossOrigin: boolean = false;
+  private positionTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this.audio = new Audio();
@@ -35,73 +38,168 @@ class AudioManager {
 
     this.audio.addEventListener('play', () => {
       this.notifyState();
-      this.syncMediaSession();
+      this.syncPlaybackState('playing');
+      this.startPositionTimer();
     });
     this.audio.addEventListener('pause', () => {
       this.notifyState();
-      this.syncMediaSession();
+      this.syncPlaybackState('paused');
+      this.stopPositionTimer();
     });
-    this.audio.addEventListener('timeupdate', () => {
-      this.notifyState();
-      this.syncMediaSessionPosition();
-    });
+    this.audio.addEventListener('timeupdate', () => this.notifyState());
     this.audio.addEventListener('durationchange', () => this.notifyState());
     this.audio.addEventListener('volumechange', () => this.notifyState());
     this.audio.addEventListener('ended', () => {
       this.notifyState();
+      this.syncPlaybackState('stopped');
+      this.stopPositionTimer();
       this.handleTrackEnded();
     });
-    this.audio.addEventListener('error', (e) => {
+    this.audio.addEventListener('error', () => {
       console.error('Audio element error:', this.audio.error);
     });
-
-    // Listen for native notification actions (play/pause/next/prev dari lockscreen)
-    this.setupNativeNotificationListeners();
   }
 
   public onTrackEnded: (() => void) | null = null;
   public onPrevTrack: (() => void) | null = null;
 
   private handleTrackEnded() {
-    if (this.onTrackEnded) {
-      this.onTrackEnded();
-    }
+    if (this.onTrackEnded) this.onTrackEnded();
   }
 
-  // Check if running in Capacitor native app (Android/iOS)
   private isNative(): boolean {
     return typeof window !== 'undefined' &&
       (window as any).Capacitor !== undefined &&
       (window as any).Capacitor.isNativePlatform?.() === true;
   }
 
-  // Setup listener untuk action dari native notification (next/prev/play/pause)
-  private setupNativeNotificationListeners() {
-    if (typeof window === 'undefined') return;
-    window.addEventListener('kyokobeat:notification:play', () => {
-      this.audio.play().catch(() => {});
-    });
-    window.addEventListener('kyokobeat:notification:pause', () => {
-      this.audio.pause();
-    });
-    window.addEventListener('kyokobeat:notification:next', () => {
-      if (this.onTrackEnded) this.onTrackEnded();
-    });
-    window.addEventListener('kyokobeat:notification:prev', () => {
-      if (this.onPrevTrack) this.onPrevTrack();
-    });
+  // ─── Position timer: update seekbar in notification every second ──────────
+  private startPositionTimer() {
+    this.stopPositionTimer();
+    this.positionTimer = setInterval(() => this.syncPositionState(), 1000);
   }
 
-  // Lazily initialize Web Audio API (web only, not native)
+  private stopPositionTimer() {
+    if (this.positionTimer) {
+      clearInterval(this.positionTimer);
+      this.positionTimer = null;
+    }
+  }
+
+  // ─── Media Session helpers ─────────────────────────────────────────────────
+
+  private async updateMediaSession(song: LocalSong) {
+    if (this.isNative()) {
+      // Native Android: use Capacitor plugin
+      const plugin = await getMediaSessionPlugin();
+      if (!plugin) return;
+
+      try {
+        await plugin.setMetadata({
+          artist: song.artist || 'Unknown Artist',
+          title: song.title || 'Unknown Title',
+          album: song.album || 'KyokoBeat',
+          artwork: song.cover ? [{ src: song.cover, sizes: '512x512', type: 'image/jpeg' }] : [],
+        });
+
+        // Register action handlers via plugin
+        await plugin.setActionHandler({ action: 'play' }, async () => {
+          await this.audio.play();
+          this.syncPlaybackState('playing');
+        });
+        await plugin.setActionHandler({ action: 'pause' }, () => {
+          this.audio.pause();
+          this.syncPlaybackState('paused');
+        });
+        await plugin.setActionHandler({ action: 'previoustrack' }, () => {
+          if (this.onPrevTrack) this.onPrevTrack();
+        });
+        await plugin.setActionHandler({ action: 'nexttrack' }, () => {
+          if (this.onTrackEnded) this.onTrackEnded();
+        });
+        await plugin.setActionHandler({ action: 'seekto' }, (details: any) => {
+          if (details?.seekTime !== undefined) {
+            this.audio.currentTime = details.seekTime;
+          }
+        });
+      } catch (e) {
+        console.warn('MediaSession plugin error:', e);
+      }
+    } else {
+      // Web browser: use standard Media Session API
+      if (!('mediaSession' in navigator)) return;
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: song.title || 'Unknown Title',
+        artist: song.artist || 'Unknown Artist',
+        album: song.album || 'KyokoBeat',
+        artwork: song.cover ? [{ src: song.cover, sizes: '512x512', type: 'image/jpeg' }] : [],
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => { this.audio.play().catch(() => {}); });
+      navigator.mediaSession.setActionHandler('pause', () => { this.audio.pause(); });
+      navigator.mediaSession.setActionHandler('previoustrack', () => { if (this.onPrevTrack) this.onPrevTrack(); });
+      navigator.mediaSession.setActionHandler('nexttrack', () => { if (this.onTrackEnded) this.onTrackEnded(); });
+      navigator.mediaSession.setActionHandler('seekto', (d) => {
+        if (d.seekTime !== undefined) this.audio.currentTime = d.seekTime;
+      });
+      navigator.mediaSession.setActionHandler('seekbackward', (d) => {
+        this.audio.currentTime = Math.max(0, this.audio.currentTime - (d.seekOffset ?? 10));
+      });
+      navigator.mediaSession.setActionHandler('seekforward', (d) => {
+        this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + (d.seekOffset ?? 10));
+      });
+    }
+  }
+
+  private async syncPlaybackState(state: 'playing' | 'paused' | 'stopped' | 'none') {
+    if (this.isNative()) {
+      const plugin = await getMediaSessionPlugin();
+      if (!plugin) return;
+      try {
+        await plugin.setPlaybackState({ playbackState: state });
+      } catch (e) { /* ignore */ }
+    } else {
+      if (!('mediaSession' in navigator)) return;
+      navigator.mediaSession.playbackState = state === 'playing' ? 'playing' : 'paused';
+    }
+  }
+
+  private async syncPositionState() {
+    if (!this.audio.duration || isNaN(this.audio.duration)) return;
+
+    if (this.isNative()) {
+      const plugin = await getMediaSessionPlugin();
+      if (!plugin) return;
+      try {
+        await plugin.setPositionState({
+          duration: this.audio.duration,
+          playbackRate: this.audio.playbackRate,
+          position: this.audio.currentTime,
+        });
+      } catch (e) { /* ignore */ }
+    } else {
+      if (!('mediaSession' in navigator)) return;
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: this.audio.duration,
+          playbackRate: this.audio.playbackRate,
+          position: this.audio.currentTime,
+        });
+      } catch (_) { /* not supported on all browsers */ }
+    }
+  }
+
+  // ─── Web Audio API ─────────────────────────────────────────────────────────
+
   private initAudioContext() {
     if (this.audioContext) return;
-    if (this.isNative()) return; // Skip Web Audio API on native — causes issues with Android WebView
+    if (this.isNative()) return;
 
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
-
       this.sourceNode = this.audioContext.createMediaElementSource(this.audio);
       this.sourceNode.connect(this.analyser);
       this.analyser.connect(this.audioContext.destination);
@@ -110,13 +208,10 @@ class AudioManager {
     }
   }
 
-  // Ensure AudioContext is running
   private async ensureAudioContextRunning() {
     if (!this.audioContext) return;
     try {
-      if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
-      }
+      if (this.audioContext.state === 'suspended') await this.audioContext.resume();
       if (this.audioContext.state === 'closed') {
         this.audioContext = null;
         this.analyser = null;
@@ -131,111 +226,12 @@ class AudioManager {
     }
   }
 
-  // ─── Media Session API (web browser) ──────────────────────────────────────
-
-  private updateMediaSession(song: LocalSong) {
-    if (!('mediaSession' in navigator)) return;
-
-    const artwork: MediaImage[] = [];
-    if (song.cover) {
-      artwork.push({ src: song.cover, sizes: '512x512', type: 'image/jpeg' });
-    }
-
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: song.title || 'Unknown Title',
-      artist: song.artist || 'Unknown Artist',
-      album: song.album || 'KyokoBeat',
-      artwork,
-    });
-
-    navigator.mediaSession.setActionHandler('play', () => {
-      this.audio.play().catch(() => {});
-      this.syncMediaSession();
-    });
-    navigator.mediaSession.setActionHandler('pause', () => {
-      this.audio.pause();
-      this.syncMediaSession();
-    });
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      if (this.onPrevTrack) this.onPrevTrack();
-    });
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      if (this.onTrackEnded) this.onTrackEnded();
-    });
-    navigator.mediaSession.setActionHandler('seekto', (details) => {
-      if (details.seekTime !== undefined) {
-        this.audio.currentTime = details.seekTime;
-        this.syncMediaSessionPosition();
-      }
-    });
-    navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-      this.audio.currentTime = Math.max(0, this.audio.currentTime - (details.seekOffset ?? 10));
-      this.syncMediaSessionPosition();
-    });
-    navigator.mediaSession.setActionHandler('seekforward', (details) => {
-      this.audio.currentTime = Math.min(
-        this.audio.duration || 0,
-        this.audio.currentTime + (details.seekOffset ?? 10)
-      );
-      this.syncMediaSessionPosition();
-    });
-
-    this.syncMediaSession();
-  }
-
-  private syncMediaSession() {
-    if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.playbackState = this.audio.paused ? 'paused' : 'playing';
-  }
-
-  private syncMediaSessionPosition() {
-    if (!('mediaSession' in navigator)) return;
-    if (!this.audio.duration || isNaN(this.audio.duration)) return;
-    try {
-      navigator.mediaSession.setPositionState({
-        duration: this.audio.duration,
-        playbackRate: this.audio.playbackRate,
-        position: this.audio.currentTime,
-      });
-    } catch (_) {}
-  }
-
-  // ─── Native Android Notification (via MusicNotificationPlugin) ────────────
-
-  private async updateNativeNotification(song: LocalSong) {
-    if (!this.isNative()) return;
-    await callMusicNotification('showNotification', {
-      title: song.title || 'Unknown Title',
-      artist: song.artist || 'Unknown Artist',
-      album: song.album || 'KyokoBeat',
-      cover: song.cover || '',
-      isPlaying: !this.audio.paused,
-      duration: Math.floor((this.audio.duration || song.duration || 0) * 1000),
-      position: Math.floor(this.audio.currentTime * 1000),
-    });
-  }
-
-  public async syncNativePlayState() {
-    if (!this.isNative() || !this.currentSong) return;
-    await callMusicNotification('updatePlaybackState', {
-      isPlaying: !this.audio.paused,
-      position: Math.floor(this.audio.currentTime * 1000),
-    });
-  }
-
-  public async dismissNativeNotification() {
-    if (!this.isNative()) return;
-    await callMusicNotification('hideNotification', {});
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
+  // ─── Public API ───────────────────────────────────────────────────────────
 
   public subscribe(callback: AudioStateCallback) {
     this.callbacks.add(callback);
     this.notifyState();
-    return () => {
-      this.callbacks.delete(callback);
-    };
+    return () => { this.callbacks.delete(callback); };
   }
 
   private notifyState() {
@@ -253,7 +249,6 @@ class AudioManager {
   public async playSong(song: LocalSong) {
     const native = this.isNative();
 
-    // Web Audio API only on browser, not native
     if (!native) {
       this.initAudioContext();
       await this.ensureAudioContextRunning();
@@ -262,7 +257,6 @@ class AudioManager {
     try {
       let src = '';
 
-      // On native Android/iOS: NEVER set crossOrigin for any URL
       if (native) {
         if (this.lastCrossOrigin) {
           this.audio.removeAttribute('crossorigin');
@@ -296,14 +290,12 @@ class AudioManager {
         this.audio.src = src;
         this.audio.load();
         await this.audio.play();
-
-        // ★ Tampilkan native notification di Android
-        await this.updateNativeNotification(song);
+        await this.updateMediaSession(song);
         this.notifyState();
         return;
       }
 
-      // === WEB BROWSER PATH (non-native) ===
+      // === WEB BROWSER PATH ===
       const needsCors = !!(song.isCloud || song.isDownloaded) && !!(song.audioUrl);
 
       if (song.isCloud && song.audioUrl) {
@@ -315,16 +307,10 @@ class AudioManager {
         this.audio.crossOrigin = 'anonymous';
         this.lastCrossOrigin = true;
       } else if (song.audioUrl) {
-        if (this.lastCrossOrigin) {
-          this.audio.removeAttribute('crossorigin');
-          this.lastCrossOrigin = false;
-        }
+        if (this.lastCrossOrigin) { this.audio.removeAttribute('crossorigin'); this.lastCrossOrigin = false; }
         src = song.audioUrl;
       } else {
-        if (this.lastCrossOrigin) {
-          this.audio.removeAttribute('crossorigin');
-          this.lastCrossOrigin = false;
-        }
+        if (this.lastCrossOrigin) { this.audio.removeAttribute('crossorigin'); this.lastCrossOrigin = false; }
         const file = await song.fileHandle.getFile();
         src = URL.createObjectURL(file);
       }
@@ -352,7 +338,7 @@ class AudioManager {
         }
       }
 
-      this.updateMediaSession(song);
+      await this.updateMediaSession(song);
       this.notifyState();
     } catch (error) {
       console.error('Failed to play song:', error);
@@ -373,12 +359,6 @@ class AudioManager {
     } else {
       this.audio.pause();
     }
-
-    // ★ Update state di native notification
-    if (this.isNative()) {
-      await this.syncNativePlayState();
-    }
-
     this.notifyState();
   }
 
@@ -402,7 +382,6 @@ class AudioManager {
 
   public getAnalyserData(): Uint8Array | null {
     if (!this.analyser || this.audio.paused) return null;
-
     try {
       const bufferLength = this.analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
@@ -413,13 +392,8 @@ class AudioManager {
     }
   }
 
-  public getCurrentSong() {
-    return this.currentSong;
-  }
-
-  public isPlaying() {
-    return !this.audio.paused && !this.audio.ended;
-  }
+  public getCurrentSong() { return this.currentSong; }
+  public isPlaying() { return !this.audio.paused && !this.audio.ended; }
 }
 
 export const audioManager = new AudioManager();
