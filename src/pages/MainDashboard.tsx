@@ -2310,7 +2310,7 @@ export default function MainDashboard() {
 
       {/* ── YOUTUBE STREAM MODAL ── */}
       {isYtStreamOpen && (
-        <div className="fixed inset-0 z-[200] flex flex-col bg-[#0a0a0a] relative">
+        <div className="fixed inset-0 z-[200] flex flex-col bg-[#0a0a0a]">
           {/* Header */}
           <div className="flex items-center gap-3 px-4 pt-12 pb-4 border-b border-white/5">
             <button onClick={() => setIsYtStreamOpen(false)} className="p-2 text-gray-400 cursor-pointer">
@@ -2407,7 +2407,7 @@ export default function MainDashboard() {
 
           {/* ── MINI PREVIEW PLAYER ── */}
           {ytPreview && (
-            <div className="absolute bottom-0 left-0 right-0 bg-[#111] border-t border-orange-400/20 px-4 py-3 flex items-center gap-3 z-10">
+            <div className="fixed bottom-0 left-0 right-0 z-[201] bg-[#111] border-t border-orange-400/20 px-4 py-3 flex items-center gap-3">
               {ytPreview.thumb && (
                 <img src={ytPreview.thumb} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
               )}
