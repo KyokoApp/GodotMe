@@ -34,6 +34,7 @@ import {
   ChevronDown,
   CloudDownload,
   Download,
+  Share2,
 } from 'lucide-react';
 import audioManager from '../lib/audio';
 import {
@@ -54,7 +55,7 @@ import {
 } from '../lib/db';
 import { scanDirectoryRecursive, verifyPermission, syncFolderIncremental } from '../lib/scanner';
 import { isCapacitorActive, requestMobileStoragePermission, scanAllMobileStorage } from '../lib/mobileScanner';
-import { checkFloatingPermission, requestFloatingPermission, showFloatingLyric, hideFloatingLyric } from '../lib/floatingLyrics';
+
 import { checkForUpdate } from '../lib/updater';
 import UpdateDialog from '../components/UpdateDialog';
 import { ensureMusicFolder, downloadCloudSong } from '../lib/cloudMusic';
@@ -67,6 +68,7 @@ import RenameModal from '../components/RenameModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import YtDownloadModal from '../components/YtDownloadModal';
 import SoundCloudSearchModal from '../components/SoundCloudSearchModal';
+import SharePlaylistModal from '../components/SharePlaylistModal';
 
 import { useToast } from '../components/Toast';
 import supabase from '../lib/supabase';
@@ -232,7 +234,7 @@ export default function MainDashboard() {
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [activeLyricIdx, setActiveLyricIdx] = useState(0);
   const [lyricsOffset, setLyricsOffset] = useState(0.5);
-  const [floatingLyricsEnabled, setFloatingLyricsEnabled] = useState(false);
+
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const lyricRefs = useRef<(HTMLParagraphElement | null)[]>([]);
 
@@ -304,20 +306,7 @@ export default function MainDashboard() {
     }
   }, [playerState.currentTime, syncedLyrics, lyricsOffset]);
 
-  // ── PUSH ACTIVE LYRIC TO NATIVE FLOATING OVERLAY ──
-  useEffect(() => {
-    if (!floatingLyricsEnabled || !isCapacitorActive()) return;
-    if (syncedLyrics.length === 0) return;
-    const line = syncedLyrics[activeLyricIdx]?.text;
-    if (line) showFloatingLyric(line);
-  }, [activeLyricIdx, floatingLyricsEnabled]);
 
-  // hide floating when disabled or song stops
-  useEffect(() => {
-    if (!floatingLyricsEnabled || !playerState.currentSong) {
-      if (isCapacitorActive()) hideFloatingLyric();
-    }
-  }, [floatingLyricsEnabled, playerState.currentSong]);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
@@ -348,6 +337,7 @@ export default function MainDashboard() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [showCreatePlaylistRow, setShowCreatePlaylistRow] = useState(false);
+  const [sharePlaylist, setSharePlaylist] = useState<LocalPlaylist | null>(null);
 
   const [downloadedCloudIds, setDownloadedCloudIds] = useState<Set<string>>(new Set());
 
@@ -1667,6 +1657,12 @@ export default function MainDashboard() {
                       <span className="text-[10px] text-gray-500">{pl.songIds.length} Lagu</span>
                     </div>
                     <button
+                      onClick={(e) => { e.stopPropagation(); setSharePlaylist(pl); }}
+                      className="opacity-0 group-hover/item:opacity-100 p-1 text-gray-500 hover:text-[#c8f500] transition-all"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
                       onClick={() => handleDeletePlaylist(pl.id, pl.name)}
                       className="opacity-0 group-hover/item:opacity-100 p-1 text-gray-500 hover:text-red-500 transition-all"
                     >
@@ -1855,12 +1851,24 @@ export default function MainDashboard() {
                     {playlists.find(p => p.id === selectedPlaylistId)?.songIds.length || 0} Lagu • Local Playlist
                   </p>
                 </div>
-                <button
-                  onClick={() => setSelectedPlaylistId(null)}
-                  className="px-3 py-1.5 bg-transparent border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                >
-                  Kembali ke Semua Playlist
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const pl = playlists.find(p => p.id === selectedPlaylistId);
+                      if (pl) setSharePlaylist(pl);
+                    }}
+                    className="px-3 py-1.5 bg-[#c8f500]/10 border border-[#c8f500]/30 hover:bg-[#c8f500]/20 text-[#c8f500] text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Share2 className="w-3 h-3" />
+                    Share
+                  </button>
+                  <button
+                    onClick={() => setSelectedPlaylistId(null)}
+                    className="px-3 py-1.5 bg-transparent border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                  >
+                    Kembali ke Semua Playlist
+                  </button>
+                </div>
               </div>
             )}
 
@@ -2127,27 +2135,7 @@ export default function MainDashboard() {
                   className="w-7 h-7 rounded-full bg-white/5 border border-white/10 text-white text-sm font-bold flex items-center justify-center active:scale-90 cursor-pointer"
                 >+</button>
 
-                {/* Floating lyrics toggle */}
-                <button
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    if (!floatingLyricsEnabled) {
-                      const granted = await checkFloatingPermission();
-                      if (!granted) {
-                        await requestFloatingPermission();
-                        return;
-                      }
-                    }
-                    setFloatingLyricsEnabled(v => !v);
-                  }}
-                  className={`ml-2 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                    floatingLyricsEnabled
-                      ? 'bg-[#c8f500]/15 border-[#c8f500]/50 text-[#c8f500]'
-                      : 'bg-white/5 border-white/10 text-gray-500'
-                  }`}
-                >
-                  {floatingLyricsEnabled ? '📌 Float ON' : '📌 Float'}
-                </button>
+
               </div>
             )}
 
@@ -2293,6 +2281,15 @@ export default function MainDashboard() {
         }}
         toast={toast}
       />
+
+      {/* Share Playlist Modal */}
+      {sharePlaylist && (
+        <SharePlaylistModal
+          playlist={sharePlaylist}
+          songs={allSongs}
+          onClose={() => setSharePlaylist(null)}
+        />
+      )}
 
       {/* ── YOUTUBE STREAM MODAL ── */}
       {isYtStreamOpen && (
