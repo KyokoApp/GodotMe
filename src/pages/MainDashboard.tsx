@@ -1088,13 +1088,17 @@ export default function MainDashboard() {
 
   const ytStreamDownload = async (videoId: string, title: string, author: string, thumb: string) => {
     setYtDownloadingId(videoId);
-    const audioUrl = await getAudioUrl(videoId);
-    if (!audioUrl) {
+    toast('⏳ Mengambil audio...', 'info');
+    const result = await getAudioUrl(videoId);
+    if (!result) {
       toast('Gagal download. Coba lagi.', 'error');
       setYtDownloadingId(null);
       return;
     }
-    toast(`⬇️ Mendownload "${title}"...`, 'info');
+    const audioUrl = result.url;
+    const finalTitle = result.title || title;
+    const finalThumb = result.thumb || thumb;
+    toast(`⬇️ Mendownload "${finalTitle}"...`, 'info');
     try {
       const { Capacitor } = await import('@capacitor/core');
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
@@ -1110,66 +1114,52 @@ export default function MainDashboard() {
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
-        const safeTitle = title.replace(/[^a-z0-9\s]/gi, '_').trim();
+        const safeTitle = finalTitle.replace(/[^a-z0-9\s]/gi, '_').trim();
         const filePath = `${MUSIC_FOLDER}/${safeTitle}.mp3`;
         await Filesystem.writeFile({ path: filePath, data: base64, directory: Directory.ExternalStorage, recursive: true });
         const localUrl = Capacitor.convertFileSrc(`/storage/emulated/0/${filePath}`);
-        await saveSong({ id: `yt-stream-dl-${videoId}`, title, artist: author || 'YouTube', album: 'YouTube Stream', duration: 0, cover: thumb || null, fileHandle: null as any, path: `/storage/emulated/0/${filePath}`, fileSize: blob.size, addedAt: Date.now(), isCloud: false, isDownloaded: false, audioUrl: localUrl });
+        await saveSong({ id: `yt-stream-dl-${videoId}`, title: finalTitle, artist: author || 'YouTube', album: 'YouTube Stream', duration: 0, cover: finalThumb || null, fileHandle: null as any, path: `/storage/emulated/0/${filePath}`, fileSize: blob.size, addedAt: Date.now(), isCloud: false, isDownloaded: false, audioUrl: localUrl });
       } else {
-        await saveSong({ id: `yt-stream-dl-${videoId}`, title, artist: author || 'YouTube', album: 'YouTube Stream', duration: 0, cover: thumb || null, fileHandle: null as any, path: audioUrl, fileSize: 0, addedAt: Date.now(), isCloud: false, isDownloaded: true, audioUrl });
+        await saveSong({ id: `yt-stream-dl-${videoId}`, title: finalTitle, artist: author || 'YouTube', album: 'YouTube Stream', duration: 0, cover: finalThumb || null, fileHandle: null as any, path: audioUrl, fileSize: 0, addedAt: Date.now(), isCloud: false, isDownloaded: true, audioUrl });
       }
       await loadLocalDataAndSync();
-      toast(`✅ "${title}" tersimpan ke library!`, 'success');
+      toast(`✅ "${finalTitle}" tersimpan ke library!`, 'success');
     } catch {
       toast('Gagal download. Coba lagi.', 'error');
     }
     setYtDownloadingId(null);
   };
 
-  const getAudioUrl = async (videoId: string): Promise<string | null> => {
-    // Try Invidious
-    for (const instance of INVIDIOUS_INSTANCES) {
-      try {
-        const res = await fetchWithTimeout(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats`, 8000);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const formats: any[] = (data.adaptiveFormats || [])
-          .filter((f: any) => f.type?.startsWith('audio/') && f.url)
-          .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
-        if (formats.length > 0) return formats[0].url;
-      } catch { continue; }
+  const getAudioUrl = async (videoId: string): Promise<{url: string; title: string; thumb: string} | null> => {
+    try {
+      const ytUrl = `https://youtube.com/watch?v=${videoId}`;
+      const res = await fetchWithTimeout(`/api/yt-download?url=${encodeURIComponent(ytUrl)}`, 15000);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.audioUrl) return null;
+      return { url: data.audioUrl, title: data.title || '', thumb: data.thumbnail || '' };
+    } catch {
+      return null;
     }
-    // Try Piped
-    for (const instance of PIPED_INSTANCES) {
-      try {
-        const res = await fetchWithTimeout(`${instance}/streams/${videoId}`, 8000);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const streams: any[] = (data.audioStreams || [])
-          .filter((s: any) => s.url)
-          .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
-        if (streams.length > 0) return streams[0].url;
-      } catch { continue; }
-    }
-    return null;
   };
 
   const ytStreamPlay = async (videoId: string, title: string, author: string, thumb: string) => {
     setYtStreamLoading(true);
-    const audioUrl = await getAudioUrl(videoId);
-    if (!audioUrl) {
+    toast('⏳ Memuat audio...', 'info');
+    const result = await getAudioUrl(videoId);
+    if (!result) {
       toast('Gagal load audio. Coba lagu lain.', 'error');
       setYtStreamLoading(false);
       return;
     }
     const streamSong: LocalSong = {
       id: `yt_stream_${videoId}`,
-      title,
+      title: result.title || title,
       artist: author,
       album: 'YouTube Stream',
-      cover: thumb || null,
-      path: audioUrl,
-      audioUrl,
+      cover: result.thumb || thumb || null,
+      path: result.url,
+      audioUrl: result.url,
       isCloud: false,
       duration: 0,
       fileSize: 0,
