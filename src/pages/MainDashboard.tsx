@@ -1657,32 +1657,26 @@ export default function MainDashboard() {
                 } else {
                   // If playlists tab is active but no playlist selected, show playlist list cards
                   return (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-1">
                       {playlists.map((pl) => (
                         <div
                           key={pl.id}
-                          className="p-5 rounded-xl bg-[#111] border border-[#c8f500]/5 hover:border-[#c8f500]/20 hover:shadow-[0_0_20px_rgba(200,245,0,0.05)] transition-all transform hover:-translate-y-1 relative group"
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#111] border border-white/5 hover:border-[#c8f500]/20 hover:bg-[#161616] transition-all group"
                         >
-                          <FolderHeart className="w-10 h-10 text-[#c8f500] mb-3" />
-                          <h3 className="text-lg font-bold truncate">{pl.name}</h3>
-                          <p className="text-xs text-gray-400 mt-1">{pl.songIds.length} Lagu</p>
-                          
-                          <div className="flex gap-2 mt-4">
-                            <button
-                              onClick={() => {
-                                setSelectedPlaylistId(pl.id);
-                              }}
-                              className="px-3 py-1.5 bg-[#c8f500] text-black text-xs font-bold rounded-lg cursor-pointer"
-                            >
-                              Buka Playlist
-                            </button>
-                            <button
-                              onClick={() => handleDeletePlaylist(pl.id, pl.name)}
-                              className="px-3 py-1.5 bg-[#1a1a1a] border border-red-500/20 text-red-400 hover:bg-red-500/10 text-xs font-bold rounded-lg cursor-pointer"
-                            >
-                              Hapus
-                            </button>
+                          <FolderHeart className="w-4 h-4 text-[#c8f500] flex-shrink-0" />
+                          <div
+                            className="flex-1 min-w-0 cursor-pointer"
+                            onClick={() => setSelectedPlaylistId(pl.id)}
+                          >
+                            <p className="text-sm font-semibold truncate">{pl.name}</p>
+                            <p className="text-[10px] text-gray-500">{pl.songIds.length} Lagu</p>
                           </div>
+                          <button
+                            onClick={() => handleDeletePlaylist(pl.id, pl.name)}
+                            className="opacity-0 group-hover:opacity-100 px-2 py-1 border border-red-500/20 text-red-400 hover:bg-red-500/10 text-[10px] font-bold rounded cursor-pointer transition-opacity"
+                          >
+                            Hapus
+                          </button>
                         </div>
                       ))}
                       {playlists.length === 0 && (
