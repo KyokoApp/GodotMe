@@ -9,6 +9,17 @@ type AudioStateCallback = (state: {
   isMuted: boolean;
 }) => void;
 
+// ── Capacitor plugin bridge untuk MusicNotificationPlugin ──
+async function callMusicNotification(method: string, options: Record<string, unknown> = {}) {
+  try {
+    const { registerPlugin } = await import('@capacitor/core');
+    const MusicNotification = registerPlugin<any>('MusicNotification');
+    return await MusicNotification[method](options);
+  } catch (e) {
+    // Plugin belum tersedia (web browser), ignore
+  }
+}
+
 class AudioManager {
   private audio: HTMLAudioElement;
   private audioContext: AudioContext | null = null;
@@ -24,11 +35,11 @@ class AudioManager {
 
     this.audio.addEventListener('play', () => {
       this.notifyState();
-      this.syncMediaSessionState();
+      this.syncMediaSession();
     });
     this.audio.addEventListener('pause', () => {
       this.notifyState();
-      this.syncMediaSessionState();
+      this.syncMediaSession();
     });
     this.audio.addEventListener('timeupdate', () => {
       this.notifyState();
@@ -43,6 +54,9 @@ class AudioManager {
     this.audio.addEventListener('error', (e) => {
       console.error('Audio element error:', this.audio.error);
     });
+
+    // Listen for native notification actions (play/pause/next/prev dari lockscreen)
+    this.setupNativeNotificationListeners();
   }
 
   public onTrackEnded: (() => void) | null = null;
@@ -59,6 +73,23 @@ class AudioManager {
     return typeof window !== 'undefined' &&
       (window as any).Capacitor !== undefined &&
       (window as any).Capacitor.isNativePlatform?.() === true;
+  }
+
+  // Setup listener untuk action dari native notification (next/prev/play/pause)
+  private setupNativeNotificationListeners() {
+    if (typeof window === 'undefined') return;
+    window.addEventListener('kyokobeat:notification:play', () => {
+      this.audio.play().catch(() => {});
+    });
+    window.addEventListener('kyokobeat:notification:pause', () => {
+      this.audio.pause();
+    });
+    window.addEventListener('kyokobeat:notification:next', () => {
+      if (this.onTrackEnded) this.onTrackEnded();
+    });
+    window.addEventListener('kyokobeat:notification:prev', () => {
+      if (this.onPrevTrack) this.onPrevTrack();
+    });
   }
 
   // Lazily initialize Web Audio API (web only, not native)
@@ -100,12 +131,11 @@ class AudioManager {
     }
   }
 
-  // ─── Media Session API ─────────────────────────────────────────────────────
+  // ─── Media Session API (web browser) ──────────────────────────────────────
 
   private updateMediaSession(song: LocalSong) {
     if (!('mediaSession' in navigator)) return;
 
-    // Build artwork array — cover bisa berupa base64 data URL atau URL biasa
     const artwork: MediaImage[] = [];
     if (song.cover) {
       artwork.push({ src: song.cover, sizes: '512x512', type: 'image/jpeg' });
@@ -118,14 +148,13 @@ class AudioManager {
       artwork,
     });
 
-    // Register action handlers
     navigator.mediaSession.setActionHandler('play', () => {
       this.audio.play().catch(() => {});
-      this.syncMediaSessionState();
+      this.syncMediaSession();
     });
     navigator.mediaSession.setActionHandler('pause', () => {
       this.audio.pause();
-      this.syncMediaSessionState();
+      this.syncMediaSession();
     });
     navigator.mediaSession.setActionHandler('previoustrack', () => {
       if (this.onPrevTrack) this.onPrevTrack();
@@ -151,10 +180,10 @@ class AudioManager {
       this.syncMediaSessionPosition();
     });
 
-    this.syncMediaSessionState();
+    this.syncMediaSession();
   }
 
-  private syncMediaSessionState() {
+  private syncMediaSession() {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.playbackState = this.audio.paused ? 'paused' : 'playing';
   }
@@ -168,9 +197,35 @@ class AudioManager {
         playbackRate: this.audio.playbackRate,
         position: this.audio.currentTime,
       });
-    } catch (_) {
-      // setPositionState might not be supported on all browsers
-    }
+    } catch (_) {}
+  }
+
+  // ─── Native Android Notification (via MusicNotificationPlugin) ────────────
+
+  private async updateNativeNotification(song: LocalSong) {
+    if (!this.isNative()) return;
+    await callMusicNotification('showNotification', {
+      title: song.title || 'Unknown Title',
+      artist: song.artist || 'Unknown Artist',
+      album: song.album || 'KyokoBeat',
+      cover: song.cover || '',
+      isPlaying: !this.audio.paused,
+      duration: Math.floor((this.audio.duration || song.duration || 0) * 1000),
+      position: Math.floor(this.audio.currentTime * 1000),
+    });
+  }
+
+  public async syncNativePlayState() {
+    if (!this.isNative() || !this.currentSong) return;
+    await callMusicNotification('updatePlaybackState', {
+      isPlaying: !this.audio.paused,
+      position: Math.floor(this.audio.currentTime * 1000),
+    });
+  }
+
+  public async dismissNativeNotification() {
+    if (!this.isNative()) return;
+    await callMusicNotification('hideNotification', {});
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -241,7 +296,9 @@ class AudioManager {
         this.audio.src = src;
         this.audio.load();
         await this.audio.play();
-        this.updateMediaSession(song);
+
+        // ★ Tampilkan native notification di Android
+        await this.updateNativeNotification(song);
         this.notifyState();
         return;
       }
@@ -316,6 +373,12 @@ class AudioManager {
     } else {
       this.audio.pause();
     }
+
+    // ★ Update state di native notification
+    if (this.isNative()) {
+      await this.syncNativePlayState();
+    }
+
     this.notifyState();
   }
 
