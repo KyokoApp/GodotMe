@@ -351,6 +351,10 @@ export default function MainDashboard() {
   const [ytStreamResults, setYtStreamResults] = useState<{id:string;title:string;author:string;thumb:string;duration:string}[]>([]);
   const [ytStreamLoading, setYtStreamLoading] = useState(false);
   const [ytStreamError, setYtStreamError] = useState('');
+  const [ytPreview, setYtPreview] = useState<{videoId:string;title:string;author:string;thumb:string;audioUrl:string} | null>(null);
+  const [ytPreviewLoadingId, setYtPreviewLoadingId] = useState<string | null>(null);
+  const [ytPreviewPlaying, setYtPreviewPlaying] = useState(false);
+  const ytPreviewRef = useRef<HTMLAudioElement | null>(null);
 
   // SoundCloud Search modal state
   const [isScModalOpen, setIsScModalOpen] = useState(false);
@@ -1127,32 +1131,44 @@ export default function MainDashboard() {
     }
   };
 
-  const ytStreamPlay = async (videoId: string, title: string, author: string, thumb: string) => {
-    setYtStreamLoading(true);
-    toast('⏳ Memuat audio...', 'info');
+  const ytPreviewPlay = async (videoId: string, title: string, author: string, thumb: string) => {
+    if (ytPreview?.videoId === videoId && ytPreviewRef.current) {
+      if (ytPreviewPlaying) { ytPreviewRef.current.pause(); }
+      else { ytPreviewRef.current.play(); }
+      return;
+    }
+    setYtPreviewLoadingId(videoId);
     const result = await getAudioUrl(videoId);
     if (!result) {
       toast('Gagal load audio. Coba lagu lain.', 'error');
-      setYtStreamLoading(false);
+      setYtPreviewLoadingId(null);
       return;
     }
-    const streamSong: LocalSong = {
-      id: `yt_stream_${videoId}`,
-      title: result.title || title,
-      artist: author,
-      album: 'YouTube Stream',
-      cover: result.thumb || thumb || null,
-      path: result.url,
-      audioUrl: result.url,
-      isCloud: false,
-      duration: 0,
-      fileSize: 0,
-      fileHandle: null as any,
-      addedAt: Date.now(),
+    if (ytPreviewRef.current) { ytPreviewRef.current.pause(); ytPreviewRef.current.src = ''; }
+    const audio = new Audio(result.url);
+    ytPreviewRef.current = audio;
+    audio.onplay = () => setYtPreviewPlaying(true);
+    audio.onpause = () => setYtPreviewPlaying(false);
+    audio.onended = () => setYtPreviewPlaying(false);
+    setYtPreview({ videoId, title: result.title || title, author, thumb: result.thumb || thumb, audioUrl: result.url });
+    setYtPreviewLoadingId(null);
+    audio.play().catch(() => {});
+  };
+
+  const ytSendToPlayer = async () => {
+    if (!ytPreview) return;
+    if (ytPreviewRef.current) { ytPreviewRef.current.pause(); ytPreviewRef.current.src = ''; }
+    setYtPreviewPlaying(false);
+    const song: LocalSong = {
+      id: `yt_stream_${ytPreview.videoId}`,
+      title: ytPreview.title, artist: ytPreview.author,
+      album: 'YouTube Stream', cover: ytPreview.thumb || null,
+      path: ytPreview.audioUrl, audioUrl: ytPreview.audioUrl,
+      isCloud: false, duration: 0, fileSize: 0,
+      fileHandle: null as any, addedAt: Date.now(),
     };
-    await handlePlaySong(streamSong);
+    await handlePlaySong(song);
     setIsYtStreamOpen(false);
-    setYtStreamLoading(false);
   };
 
   const handleRefreshCloud = async () => {
@@ -2294,7 +2310,7 @@ export default function MainDashboard() {
 
       {/* ── YOUTUBE STREAM MODAL ── */}
       {isYtStreamOpen && (
-        <div className="fixed inset-0 z-[200] flex flex-col bg-[#0a0a0a]">
+        <div className="fixed inset-0 z-[200] flex flex-col bg-[#0a0a0a] relative">
           {/* Header */}
           <div className="flex items-center gap-3 px-4 pt-12 pb-4 border-b border-white/5">
             <button onClick={() => setIsYtStreamOpen(false)} className="p-2 text-gray-400 cursor-pointer">
@@ -2341,7 +2357,11 @@ export default function MainDashboard() {
             {ytStreamResults.map(v => (
               <div
                 key={v.id}
-                className="w-full flex items-center gap-3 p-3 mb-2 rounded-xl bg-[#111] border border-white/5 hover:border-orange-400/20 transition-all"
+                className={`w-full flex items-center gap-3 p-3 mb-2 rounded-xl border transition-all ${
+                  ytPreview?.videoId === v.id
+                    ? 'bg-orange-500/10 border-orange-400/40'
+                    : 'bg-[#111] border-white/5 hover:border-orange-400/20'
+                }`}
               >
                 {v.thumb ? (
                   <img src={v.thumb} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-[#1a1a1a]" />
@@ -2355,20 +2375,25 @@ export default function MainDashboard() {
                   <p className="text-xs text-gray-500 truncate mt-0.5">{v.author}</p>
                   <p className="text-[10px] text-orange-400/60 mt-1">{v.duration}</p>
                 </div>
-                {/* Play button */}
+                {/* Preview play/pause */}
                 <button
-                  onClick={() => ytStreamPlay(v.id, v.title, v.author, v.thumb)}
-                  disabled={ytStreamLoading}
-                  className="p-2 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 active:scale-90 cursor-pointer disabled:opacity-40"
-                  title="Putar"
+                  onClick={() => ytPreviewPlay(v.id, v.title, v.author, v.thumb)}
+                  disabled={ytPreviewLoadingId === v.id}
+                  className="p-2 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 active:scale-90 cursor-pointer disabled:opacity-40 flex-shrink-0"
+                  title="Preview"
                 >
-                  <Play className="w-4 h-4" />
+                  {ytPreviewLoadingId === v.id
+                    ? <div className="w-4 h-4 border-2 border-orange-400/40 border-t-orange-400 rounded-full animate-spin" />
+                    : ytPreview?.videoId === v.id && ytPreviewPlaying
+                      ? <span className="text-xs font-bold">⏸</span>
+                      : <Play className="w-4 h-4" />
+                  }
                 </button>
-                {/* Download button */}
+                {/* Download */}
                 <button
                   onClick={() => ytStreamDownload(v.id, v.title, v.author, v.thumb)}
                   disabled={ytDownloadingId === v.id}
-                  className="p-2 rounded-full bg-[#c8f500]/10 border border-[#c8f500]/30 text-[#c8f500] active:scale-90 cursor-pointer disabled:opacity-40"
+                  className="p-2 rounded-full bg-[#c8f500]/10 border border-[#c8f500]/30 text-[#c8f500] active:scale-90 cursor-pointer disabled:opacity-40 flex-shrink-0"
                   title="Download ke device"
                 >
                   {ytDownloadingId === v.id
@@ -2379,6 +2404,35 @@ export default function MainDashboard() {
               </div>
             ))}
           </div>
+
+          {/* ── MINI PREVIEW PLAYER ── */}
+          {ytPreview && (
+            <div className="absolute bottom-0 left-0 right-0 bg-[#111] border-t border-orange-400/20 px-4 py-3 flex items-center gap-3 z-10">
+              {ytPreview.thumb && (
+                <img src={ytPreview.thumb} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold truncate text-white">{ytPreview.title}</p>
+                <p className="text-[10px] text-gray-500 truncate">{ytPreview.author}</p>
+              </div>
+              <button
+                onClick={() => {
+                  if (!ytPreviewRef.current) return;
+                  if (ytPreviewPlaying) ytPreviewRef.current.pause();
+                  else ytPreviewRef.current.play();
+                }}
+                className="p-2 rounded-full bg-orange-500/20 text-orange-400 cursor-pointer active:scale-90 flex-shrink-0"
+              >
+                {ytPreviewPlaying ? <span className="text-sm font-bold px-0.5">⏸</span> : <Play className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={ytSendToPlayer}
+                className="px-3 py-1.5 rounded-full bg-[#c8f500]/15 border border-[#c8f500]/40 text-[#c8f500] text-[10px] font-bold cursor-pointer active:scale-90 flex-shrink-0"
+              >
+                Putar di App
+              </button>
+            </div>
+          )}
         </div>
       )}
 
