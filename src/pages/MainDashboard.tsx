@@ -1143,12 +1143,14 @@ export default function MainDashboard() {
           title,
           artist: author,
           album: 'YouTube Stream',
-          cover: thumb,
+          cover: thumb || null,
           path: audioUrl,
+          audioUrl,
           isCloud: false,
           duration: 0,
-          size: 0,
-          folder: 'YouTube',
+          fileSize: 0,
+          fileHandle: null as any,
+          addedAt: Date.now(),
         };
         await handlePlaySong(streamSong);
         setIsYtStreamOpen(false);
