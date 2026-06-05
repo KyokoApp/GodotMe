@@ -1029,9 +1029,18 @@ export default function MainDashboard() {
   // Refresh Cloud — cek lagu terbaru di cloud (tidak download otomatis)
   // ── YOUTUBE STREAM ──
   const INVIDIOUS_INSTANCES = [
+    'https://invidious.io.lol',
+    'https://yt.artemislena.eu',
+    'https://invidious.tiekoetter.com',
+    'https://inv.riverside.rocks',
     'https://inv.nadeko.net',
     'https://invidious.privacydev.net',
-    'https://yt.drgnz.club',
+  ];
+
+  const PIPED_INSTANCES = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.adminforge.de',
+    'https://pipedapi.tokhmi.xyz',
   ];
 
   const ytStreamSearch = async () => {
@@ -1039,9 +1048,11 @@ export default function MainDashboard() {
     setYtStreamLoading(true);
     setYtStreamError('');
     setYtStreamResults([]);
+
+    // Try Invidious instances first
     for (const instance of INVIDIOUS_INSTANCES) {
       try {
-        const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(ytStreamQuery)}&type=video&fields=videoId,title,author,videoThumbnails,lengthSeconds`);
+        const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(ytStreamQuery)}&type=video&fields=videoId,title,author,videoThumbnails,lengthSeconds`, { signal: AbortSignal.timeout(5000) });
         if (!res.ok) continue;
         const data = await res.json();
         const results = (data as any[]).slice(0, 8).map((v: any) => ({
@@ -1050,13 +1061,39 @@ export default function MainDashboard() {
           author: v.author,
           thumb: v.videoThumbnails?.[3]?.url || v.videoThumbnails?.[0]?.url || '',
           duration: `${Math.floor(v.lengthSeconds/60)}:${String(v.lengthSeconds%60).padStart(2,'0')}`,
+          source: 'invidious' as const,
         }));
         setYtStreamResults(results);
         setYtStreamLoading(false);
         return;
       } catch { continue; }
     }
-    setYtStreamError('Tidak bisa connect ke server. Coba lagi.');
+
+    // Fallback: Piped API
+    for (const instance of PIPED_INSTANCES) {
+      try {
+        const res = await fetch(`${instance}/search?q=${encodeURIComponent(ytStreamQuery)}&filter=videos`, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const results = (data.items as any[]).slice(0, 8).map((v: any) => {
+          const videoId = v.url?.replace('/watch?v=', '') || '';
+          const sec = v.duration || 0;
+          return {
+            id: videoId,
+            title: v.title,
+            author: v.uploaderName,
+            thumb: v.thumbnail || '',
+            duration: `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`,
+            source: 'piped' as const,
+          };
+        }).filter((v: any) => v.id);
+        setYtStreamResults(results);
+        setYtStreamLoading(false);
+        return;
+      } catch { continue; }
+    }
+
+    setYtStreamError('Semua server tidak bisa dihubungi. Cek koneksi internet.');
     setYtStreamLoading(false);
   };
 
@@ -1064,101 +1101,96 @@ export default function MainDashboard() {
 
   const ytStreamDownload = async (videoId: string, title: string, author: string, thumb: string) => {
     setYtDownloadingId(videoId);
+    const audioUrl = await getAudioUrl(videoId);
+    if (!audioUrl) {
+      toast('Gagal download. Coba lagi.', 'error');
+      setYtDownloadingId(null);
+      return;
+    }
+    toast(`⬇️ Mendownload "${title}"...`, 'info');
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const { saveSong } = await import('../lib/db');
+      if (Capacitor.isNativePlatform()) {
+        const MUSIC_FOLDER = 'Android/media/com.kyokobeat.musicplayer/Music';
+        try { await Filesystem.mkdir({ path: MUSIC_FOLDER, directory: Directory.ExternalStorage, recursive: true }); } catch (_) {}
+        const audioRes = await fetch(audioUrl);
+        const blob = await audioRes.blob();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const safeTitle = title.replace(/[^a-z0-9\s]/gi, '_').trim();
+        const filePath = `${MUSIC_FOLDER}/${safeTitle}.mp3`;
+        await Filesystem.writeFile({ path: filePath, data: base64, directory: Directory.ExternalStorage, recursive: true });
+        const localUrl = Capacitor.convertFileSrc(`/storage/emulated/0/${filePath}`);
+        await saveSong({ id: `yt-stream-dl-${videoId}`, title, artist: author || 'YouTube', album: 'YouTube Stream', duration: 0, cover: thumb || null, fileHandle: null as any, path: `/storage/emulated/0/${filePath}`, fileSize: blob.size, addedAt: Date.now(), isCloud: false, isDownloaded: false, audioUrl: localUrl });
+      } else {
+        await saveSong({ id: `yt-stream-dl-${videoId}`, title, artist: author || 'YouTube', album: 'YouTube Stream', duration: 0, cover: thumb || null, fileHandle: null as any, path: audioUrl, fileSize: 0, addedAt: Date.now(), isCloud: false, isDownloaded: true, audioUrl });
+      }
+      await loadLocalDataAndSync();
+      toast(`✅ "${title}" tersimpan ke library!`, 'success');
+    } catch {
+      toast('Gagal download. Coba lagi.', 'error');
+    }
+    setYtDownloadingId(null);
+  };
+
+  const getAudioUrl = async (videoId: string): Promise<string | null> => {
+    // Try Invidious
     for (const instance of INVIDIOUS_INSTANCES) {
       try {
-        const res = await fetch(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats`);
+        const res = await fetch(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats`, { signal: AbortSignal.timeout(8000) });
         if (!res.ok) continue;
         const data = await res.json();
-        const audioFormats: any[] = (data.adaptiveFormats || [])
+        const formats: any[] = (data.adaptiveFormats || [])
           .filter((f: any) => f.type?.startsWith('audio/') && f.url)
           .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
-        if (audioFormats.length === 0) continue;
-        const audioUrl = audioFormats[0].url;
-
-        toast(`⬇️ Mendownload "${title}"...`, 'info');
-
-        const { Capacitor } = await import('@capacitor/core');
-        const { Filesystem, Directory } = await import('@capacitor/filesystem');
-        const { saveSong } = await import('../lib/db');
-
-        if (Capacitor.isNativePlatform()) {
-          const MUSIC_FOLDER = 'Android/media/com.kyokobeat.musicplayer/Music';
-          try { await Filesystem.mkdir({ path: MUSIC_FOLDER, directory: Directory.ExternalStorage, recursive: true }); } catch (_) {}
-          const audioRes = await fetch(audioUrl);
-          const blob = await audioRes.blob();
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-          const safeTitle = title.replace(/[^a-z0-9\s]/gi, '_').trim();
-          const fileName = `${safeTitle}.mp3`;
-          const filePath = `${MUSIC_FOLDER}/${fileName}`;
-          await Filesystem.writeFile({ path: filePath, data: base64, directory: Directory.ExternalStorage, recursive: true });
-          const localUrl = Capacitor.convertFileSrc(`/storage/emulated/0/${filePath}`);
-          await saveSong({
-            id: `yt-stream-dl-${videoId}`,
-            title, artist: author || 'YouTube',
-            album: 'YouTube Stream', duration: 0,
-            cover: thumb || null, fileHandle: null as any,
-            path: `/storage/emulated/0/${filePath}`,
-            fileSize: blob.size, addedAt: Date.now(),
-            isCloud: false, isDownloaded: false, audioUrl: localUrl,
-          });
-        } else {
-          await saveSong({
-            id: `yt-stream-dl-${videoId}`,
-            title, artist: author || 'YouTube',
-            album: 'YouTube Stream', duration: 0,
-            cover: thumb || null, fileHandle: null as any,
-            path: audioUrl, fileSize: 0, addedAt: Date.now(),
-            isCloud: false, isDownloaded: true, audioUrl,
-          });
-        }
-        await loadLocalDataAndSync();
-        toast(`✅ "${title}" tersimpan ke library!`, 'success');
-        setYtDownloadingId(null);
-        return;
+        if (formats.length > 0) return formats[0].url;
       } catch { continue; }
     }
-    toast('Gagal download. Coba lagi.', 'error');
-    setYtDownloadingId(null);
+    // Try Piped
+    for (const instance of PIPED_INSTANCES) {
+      try {
+        const res = await fetch(`${instance}/streams/${videoId}`, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const streams: any[] = (data.audioStreams || [])
+          .filter((s: any) => s.url)
+          .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+        if (streams.length > 0) return streams[0].url;
+      } catch { continue; }
+    }
+    return null;
   };
 
   const ytStreamPlay = async (videoId: string, title: string, author: string, thumb: string) => {
     setYtStreamLoading(true);
-    for (const instance of INVIDIOUS_INSTANCES) {
-      try {
-        const res = await fetch(`${instance}/api/v1/videos/${videoId}?fields=adaptiveFormats,formatStreams`);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const audioFormats: any[] = (data.adaptiveFormats || [])
-          .filter((f: any) => f.type?.startsWith('audio/') && f.url)
-          .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
-        if (audioFormats.length === 0) continue;
-        const audioUrl = audioFormats[0].url;
-        const streamSong: LocalSong = {
-          id: `yt_stream_${videoId}`,
-          title,
-          artist: author,
-          album: 'YouTube Stream',
-          cover: thumb || null,
-          path: audioUrl,
-          audioUrl,
-          isCloud: false,
-          duration: 0,
-          fileSize: 0,
-          fileHandle: null as any,
-          addedAt: Date.now(),
-        };
-        await handlePlaySong(streamSong);
-        setIsYtStreamOpen(false);
-        setYtStreamLoading(false);
-        return;
-      } catch { continue; }
+    const audioUrl = await getAudioUrl(videoId);
+    if (!audioUrl) {
+      toast('Gagal load audio. Coba lagu lain.', 'error');
+      setYtStreamLoading(false);
+      return;
     }
-    toast('Gagal load audio. Coba lagu lain.', 'error');
+    const streamSong: LocalSong = {
+      id: `yt_stream_${videoId}`,
+      title,
+      artist: author,
+      album: 'YouTube Stream',
+      cover: thumb || null,
+      path: audioUrl,
+      audioUrl,
+      isCloud: false,
+      duration: 0,
+      fileSize: 0,
+      fileHandle: null as any,
+      addedAt: Date.now(),
+    };
+    await handlePlaySong(streamSong);
+    setIsYtStreamOpen(false);
     setYtStreamLoading(false);
   };
 
