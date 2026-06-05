@@ -127,7 +127,7 @@ export default function SongCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <h4
-              onClick={onPlay}
+              onClick={(e) => { e.stopPropagation(); onPlay(); }}
               className={`text-sm font-semibold font-body truncate cursor-pointer hover:text-[#c8f500] transition-colors ${
                 isCurrent ? 'text-[#c8f500]' : 'text-white'
               }`}
