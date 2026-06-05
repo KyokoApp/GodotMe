@@ -636,7 +636,348 @@ fs.writeFileSync(flPath, floatingLyricsCode, 'utf8');
 console.log('✓ Created FloatingLyricsPlugin.java');
 
 // ─────────────────────────────────────────────────────────
-// 7. MainActivity.java — daftarkan semua plugin
+// 7. MusicNotificationPlugin.java
+//    Native Android media notification + MediaSession
+//    Works di Capacitor WebView (tidak perlu npm plugin external)
+// ─────────────────────────────────────────────────────────
+
+// Pertama, inject FOREGROUND_SERVICE permission ke manifest
+if (fs.existsSync(manifestPath)) {
+  let manifest = fs.readFileSync(manifestPath, 'utf8');
+  if (!manifest.includes('FOREGROUND_SERVICE')) {
+    manifest = manifest.replace(
+      '<application',
+      `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <application`
+    );
+    // Daftarkan MusicService di manifest
+    manifest = manifest.replace(
+      '</application>',
+      `        <!-- KyokoBeat Music Notification Service -->
+        <service
+            android:name=".MusicNotificationService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
+    </application>`
+    );
+    fs.writeFileSync(manifestPath, manifest, 'utf8');
+    console.log('✓ Injected FOREGROUND_SERVICE permissions + MusicNotificationService ke manifest');
+  }
+}
+
+const musicNotificationPluginCode = `package com.kyokobeat.musicplayer;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
+import android.os.Build;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.media.app.NotificationCompat.MediaStyle;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import android.util.Base64;
+import java.io.ByteArrayInputStream;
+
+@CapacitorPlugin(name = "MusicNotification")
+public class MusicNotificationPlugin extends Plugin {
+
+    private static final String CHANNEL_ID = "kyokobeat_music";
+    private static final int NOTIF_ID = 7788;
+    private static final String ACTION_PLAY   = "kyokobeat.ACTION_PLAY";
+    private static final String ACTION_PAUSE  = "kyokobeat.ACTION_PAUSE";
+    private static final String ACTION_NEXT   = "kyokobeat.ACTION_NEXT";
+    private static final String ACTION_PREV   = "kyokobeat.ACTION_PREV";
+    private static final String ACTION_STOP   = "kyokobeat.ACTION_STOP";
+
+    private MediaSessionCompat mediaSession;
+    private NotificationManager notifManager;
+    private boolean receiverRegistered = false;
+
+    private String currentTitle  = "KyokoBeat";
+    private String currentArtist = "";
+    private String currentAlbum  = "";
+    private String currentCover  = "";
+    private boolean isPlaying    = false;
+    private long duration        = 0;
+    private long position        = 0;
+
+    // ── BroadcastReceiver: terima action dari tombol notifikasi ──
+    private final BroadcastReceiver actionReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context ctx, Intent intent) {
+            String action = intent.getAction();
+            if (action == null) return;
+            String jsEvent;
+            switch (action) {
+                case ACTION_PLAY:   jsEvent = "kyokobeat:notification:play";  isPlaying = true;  updateNotification(); break;
+                case ACTION_PAUSE:  jsEvent = "kyokobeat:notification:pause"; isPlaying = false; updateNotification(); break;
+                case ACTION_NEXT:   jsEvent = "kyokobeat:notification:next";  break;
+                case ACTION_PREV:   jsEvent = "kyokobeat:notification:prev";  break;
+                case ACTION_STOP:   jsEvent = "kyokobeat:notification:pause"; hideNotif(); return;
+                default: return;
+            }
+            // Dispatch ke WebView sebagai CustomEvent
+            String js = "window.dispatchEvent(new Event('" + jsEvent + "'))";
+            try { getBridge().getWebView().post(() -> getBridge().getWebView().evaluateJavascript(js, null)); }
+            catch (Exception ignored) {}
+        }
+    };
+
+    @Override
+    protected void handleOnStart() {
+        super.handleOnStart();
+        setupMediaSession();
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        hideNotif();
+        if (mediaSession != null) mediaSession.release();
+        if (receiverRegistered) {
+            try { getContext().unregisterReceiver(actionReceiver); } catch (Exception ignored) {}
+            receiverRegistered = false;
+        }
+        super.handleOnDestroy();
+    }
+
+    private void setupMediaSession() {
+        if (mediaSession != null) return;
+
+        notifManager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+
+        // NotificationChannel (Android O+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel ch = new NotificationChannel(
+                CHANNEL_ID, "KyokoBeat Music", NotificationManager.IMPORTANCE_LOW);
+            ch.setDescription("Music playback controls");
+            ch.setShowBadge(false);
+            ch.setSound(null, null);
+            ch.enableLights(false);
+            ch.enableVibration(false);
+            notifManager.createNotificationChannel(ch);
+        }
+
+        // MediaSession
+        mediaSession = new MediaSessionCompat(getContext(), "KyokoBeat");
+        mediaSession.setFlags(
+            MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS |
+            MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+        );
+        mediaSession.setCallback(new MediaSessionCompat.Callback() {
+            @Override public void onPlay()   { dispatchToWebView(ACTION_PLAY); }
+            @Override public void onPause()  { dispatchToWebView(ACTION_PAUSE); }
+            @Override public void onSkipToNext()     { dispatchToWebView(ACTION_NEXT); }
+            @Override public void onSkipToPrevious() { dispatchToWebView(ACTION_PREV); }
+        });
+        mediaSession.setActive(true);
+
+        // Register broadcast receiver
+        if (!receiverRegistered) {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(ACTION_PLAY);
+            filter.addAction(ACTION_PAUSE);
+            filter.addAction(ACTION_NEXT);
+            filter.addAction(ACTION_PREV);
+            filter.addAction(ACTION_STOP);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getContext().registerReceiver(actionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                getContext().registerReceiver(actionReceiver, filter);
+            }
+            receiverRegistered = true;
+        }
+    }
+
+    private void dispatchToWebView(String action) {
+        String jsEvent;
+        switch (action) {
+            case ACTION_PLAY:  jsEvent = "kyokobeat:notification:play";  isPlaying = true;  break;
+            case ACTION_PAUSE: jsEvent = "kyokobeat:notification:pause"; isPlaying = false; break;
+            case ACTION_NEXT:  jsEvent = "kyokobeat:notification:next";  break;
+            case ACTION_PREV:  jsEvent = "kyokobeat:notification:prev";  break;
+            default: return;
+        }
+        updateNotification();
+        String js = "window.dispatchEvent(new Event('" + jsEvent + "'))";
+        try { getBridge().getWebView().post(() -> getBridge().getWebView().evaluateJavascript(js, null)); }
+        catch (Exception ignored) {}
+    }
+
+    // ── Plugin Methods ───────────────────────────────────────
+
+    @PluginMethod
+    public void showNotification(PluginCall call) {
+        setupMediaSession();
+
+        currentTitle  = call.getString("title",  "KyokoBeat");
+        currentArtist = call.getString("artist", "");
+        currentAlbum  = call.getString("album",  "");
+        currentCover  = call.getString("cover",  "");
+        isPlaying     = Boolean.TRUE.equals(call.getBoolean("isPlaying", true));
+        duration      = call.getLong("duration", 0L);
+        position      = call.getLong("position", 0L);
+
+        updateMediaSessionMetadata();
+        updateNotification();
+
+        JSObject r = new JSObject(); r.put("ok", true); call.resolve(r);
+    }
+
+    @PluginMethod
+    public void updatePlaybackState(PluginCall call) {
+        isPlaying = Boolean.TRUE.equals(call.getBoolean("isPlaying", isPlaying));
+        position  = call.getLong("position", position);
+        updateMediaSessionPlaybackState();
+        updateNotification();
+        JSObject r = new JSObject(); r.put("ok", true); call.resolve(r);
+    }
+
+    @PluginMethod
+    public void hideNotification(PluginCall call) {
+        hideNotif();
+        JSObject r = new JSObject(); r.put("ok", true); call.resolve(r);
+    }
+
+    // ── Internal helpers ─────────────────────────────────────
+
+    private void updateMediaSessionMetadata() {
+        if (mediaSession == null) return;
+        MediaMetadataCompat.Builder builder = new MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE,  currentTitle)
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentArtist)
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM,  currentAlbum)
+            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration);
+
+        Bitmap art = decodeCover(currentCover);
+        if (art != null) builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, art);
+
+        mediaSession.setMetadata(builder.build());
+        updateMediaSessionPlaybackState();
+    }
+
+    private void updateMediaSessionPlaybackState() {
+        if (mediaSession == null) return;
+        int state = isPlaying ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED;
+        PlaybackStateCompat.Builder pb = new PlaybackStateCompat.Builder()
+            .setActions(
+                PlaybackStateCompat.ACTION_PLAY |
+                PlaybackStateCompat.ACTION_PAUSE |
+                PlaybackStateCompat.ACTION_PLAY_PAUSE |
+                PlaybackStateCompat.ACTION_SKIP_TO_NEXT |
+                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS |
+                PlaybackStateCompat.ACTION_SEEK_TO
+            )
+            .setState(state, position, 1.0f);
+        mediaSession.setPlaybackState(pb.build());
+    }
+
+    private void updateNotification() {
+        if (mediaSession == null || notifManager == null) return;
+
+        // PendingIntent flags
+        int piFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+            ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            : PendingIntent.FLAG_UPDATE_CURRENT;
+
+        PendingIntent piPlay  = PendingIntent.getBroadcast(getContext(), 1, new Intent(ACTION_PLAY),  piFlags);
+        PendingIntent piPause = PendingIntent.getBroadcast(getContext(), 2, new Intent(ACTION_PAUSE), piFlags);
+        PendingIntent piNext  = PendingIntent.getBroadcast(getContext(), 3, new Intent(ACTION_NEXT),  piFlags);
+        PendingIntent piPrev  = PendingIntent.getBroadcast(getContext(), 4, new Intent(ACTION_PREV),  piFlags);
+
+        // Launch app on tap
+        Intent launchIntent = getContext().getPackageManager()
+            .getLaunchIntentForPackage(getContext().getPackageName());
+        PendingIntent contentIntent = launchIntent != null
+            ? PendingIntent.getActivity(getContext(), 0, launchIntent, piFlags)
+            : null;
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext(), CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle(currentTitle)
+            .setContentText(currentArtist)
+            .setSubText(currentAlbum)
+            .setOngoing(isPlaying)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            // Tombol Previous
+            .addAction(new NotificationCompat.Action(
+                android.R.drawable.ic_media_previous, "Previous", piPrev))
+            // Tombol Play/Pause
+            .addAction(new NotificationCompat.Action(
+                isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
+                isPlaying ? "Pause" : "Play",
+                isPlaying ? piPause : piPlay))
+            // Tombol Next
+            .addAction(new NotificationCompat.Action(
+                android.R.drawable.ic_media_next, "Next", piNext))
+            // MediaStyle: 3 tombol compact view
+            .setStyle(new MediaStyle()
+                .setMediaSession(mediaSession.getSessionToken())
+                .setShowActionsInCompactView(0, 1, 2));
+
+        if (contentIntent != null) builder.setContentIntent(contentIntent);
+
+        // Cover art
+        Bitmap art = decodeCover(currentCover);
+        if (art != null) builder.setLargeIcon(art);
+
+        notifManager.notify(NOTIF_ID, builder.build());
+    }
+
+    private void hideNotif() {
+        if (notifManager != null) notifManager.cancel(NOTIF_ID);
+        if (mediaSession != null) {
+            mediaSession.setActive(false);
+        }
+    }
+
+    /**
+     * Decode cover: support base64 data URL (data:image/...;base64,XXX)
+     * atau content:// URI dari MediaStore
+     */
+    private Bitmap decodeCover(String cover) {
+        if (cover == null || cover.isEmpty()) return null;
+        try {
+            if (cover.startsWith("data:")) {
+                int comma = cover.indexOf(',');
+                if (comma < 0) return null;
+                byte[] bytes = Base64.decode(cover.substring(comma + 1), Base64.DEFAULT);
+                return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+            } else if (cover.startsWith("content://")) {
+                android.net.Uri uri = android.net.Uri.parse(cover);
+                try (java.io.InputStream is = getContext().getContentResolver().openInputStream(uri)) {
+                    return BitmapFactory.decodeStream(is);
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+}
+`;
+const musicNotifPath = path.join(mainActivityDir, 'MusicNotificationPlugin.java');
+fs.writeFileSync(musicNotifPath, musicNotificationPluginCode, 'utf8');
+console.log('✓ Created MusicNotificationPlugin.java');
+
+// ─────────────────────────────────────────────────────────
+// 8. MainActivity.java — daftarkan semua plugin
 // ─────────────────────────────────────────────────────────
 const mainActivityCode = `package com.kyokobeat.musicplayer;
 
@@ -649,6 +990,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(KyokoBeatNativePlugin.class);
         registerPlugin(WAStickerPlugin.class);
         registerPlugin(FloatingLyricsPlugin.class);
+        registerPlugin(MusicNotificationPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
