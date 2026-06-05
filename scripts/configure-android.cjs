@@ -18,6 +18,7 @@ if (fs.existsSync(manifestPath)) {
   if (!manifest.includes('READ_MEDIA_AUDIO')) {
     const perms = `
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />`;
     manifest = manifest.replace('<application', `${perms}\n    <application`);
@@ -284,13 +285,16 @@ console.log('✓ Created StickerContentProvider.java');
 
 // ─────────────────────────────────────────────────────────
 // 5. WAStickerPlugin.java
-//    Tulis .wastickers ke cache → ACTION_VIEW tanpa MIME & package
-//    → Android route ke WA by extension → "Tambahkan ke stiker Anda"
+//    Android 10+: tulis ke Downloads via MediaStore → URI dikenali WA
+//    Android 9- : FileProvider fallback
 // ─────────────────────────────────────────────────────────
 const waStickerCode = `package com.kyokobeat.musicplayer;
 
+import android.content.ContentValues;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
+import android.provider.MediaStore;
 import android.util.Base64;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.JSObject;
@@ -300,12 +304,12 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 /**
  * WAStickerPlugin
- * Tulis .wastickers (ZIP) ke cache lalu buka via ACTION_VIEW.
- * Android route ke WA berdasarkan ekstensi .wastickers →
- * WA tampilkan sheet "Tambahkan ke stiker Anda" otomatis.
+ * Tulis .wastickers ke Downloads (MediaStore) agar WA muncul
+ * di "Buka Dengan" dan menampilkan "Tambahkan ke stiker Anda".
  */
 @CapacitorPlugin(name = "WASticker")
 public class WAStickerPlugin extends Plugin {
@@ -319,23 +323,44 @@ public class WAStickerPlugin extends Plugin {
         if (base64Data == null) { call.reject("No data"); return; }
 
         try {
-            // 1. Decode base64 ZIP → tulis ke cache sebagai .wastickers
             byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
-            File file = new File(getContext().getCacheDir(), packName + ".wastickers");
-            try (FileOutputStream fos = new FileOutputStream(file)) { fos.write(bytes); }
+            Uri fileUri;
 
-            // 2. URI via FileProvider
-            Uri uri = FileProvider.getUriForFile(
-                getContext(),
-                getContext().getPackageName() + ".fileprovider",
-                file
-            );
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10+ — tulis ke Downloads via MediaStore
+                // URI yang dihasilkan = content://media/external/downloads/...
+                // WA register sebagai handler untuk URI jenis ini ✓
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Downloads.DISPLAY_NAME, packName + ".wastickers");
+                values.put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream");
+                values.put(MediaStore.Downloads.IS_PENDING, 1);
 
-            // 3. ACTION_VIEW TANPA setPackage dan TANPA MIME type
-            //    → Android gunakan ekstensi .wastickers untuk routing
-            //    → WhatsApp menerima dan tampilkan "Tambahkan ke stiker Anda"
+                Uri col = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+                fileUri = getContext().getContentResolver().insert(col, values);
+                if (fileUri == null) throw new Exception("MediaStore insert gagal");
+
+                try (OutputStream os = getContext().getContentResolver().openOutputStream(fileUri)) {
+                    if (os == null) throw new Exception("Cannot open stream");
+                    os.write(bytes);
+                }
+
+                values.clear();
+                values.put(MediaStore.Downloads.IS_PENDING, 0);
+                getContext().getContentResolver().update(fileUri, values, null, null);
+
+            } else {
+                // Android 9 ke bawah — FileProvider fallback
+                File file = new File(getContext().getCacheDir(), packName + ".wastickers");
+                try (FileOutputStream fos = new FileOutputStream(file)) { fos.write(bytes); }
+                fileUri = FileProvider.getUriForFile(
+                    getContext(),
+                    getContext().getPackageName() + ".fileprovider",
+                    file
+                );
+            }
+
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setData(uri);
+            intent.setData(fileUri);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             getContext().startActivity(intent);
