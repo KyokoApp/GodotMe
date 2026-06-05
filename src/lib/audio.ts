@@ -21,10 +21,19 @@ class AudioManager {
   constructor() {
     this.audio = new Audio();
     this.audio.preload = 'auto';
-    
-    this.audio.addEventListener('play', () => this.notifyState());
-    this.audio.addEventListener('pause', () => this.notifyState());
-    this.audio.addEventListener('timeupdate', () => this.notifyState());
+
+    this.audio.addEventListener('play', () => {
+      this.notifyState();
+      this.syncMediaSessionState();
+    });
+    this.audio.addEventListener('pause', () => {
+      this.notifyState();
+      this.syncMediaSessionState();
+    });
+    this.audio.addEventListener('timeupdate', () => {
+      this.notifyState();
+      this.syncMediaSessionPosition();
+    });
     this.audio.addEventListener('durationchange', () => this.notifyState());
     this.audio.addEventListener('volumechange', () => this.notifyState());
     this.audio.addEventListener('ended', () => {
@@ -37,6 +46,7 @@ class AudioManager {
   }
 
   public onTrackEnded: (() => void) | null = null;
+  public onPrevTrack: (() => void) | null = null;
 
   private handleTrackEnded() {
     if (this.onTrackEnded) {
@@ -90,6 +100,81 @@ class AudioManager {
     }
   }
 
+  // ─── Media Session API ─────────────────────────────────────────────────────
+
+  private updateMediaSession(song: LocalSong) {
+    if (!('mediaSession' in navigator)) return;
+
+    // Build artwork array — cover bisa berupa base64 data URL atau URL biasa
+    const artwork: MediaImage[] = [];
+    if (song.cover) {
+      artwork.push({ src: song.cover, sizes: '512x512', type: 'image/jpeg' });
+    }
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title || 'Unknown Title',
+      artist: song.artist || 'Unknown Artist',
+      album: song.album || 'KyokoBeat',
+      artwork,
+    });
+
+    // Register action handlers
+    navigator.mediaSession.setActionHandler('play', () => {
+      this.audio.play().catch(() => {});
+      this.syncMediaSessionState();
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      this.audio.pause();
+      this.syncMediaSessionState();
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      if (this.onPrevTrack) this.onPrevTrack();
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      if (this.onTrackEnded) this.onTrackEnded();
+    });
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime !== undefined) {
+        this.audio.currentTime = details.seekTime;
+        this.syncMediaSessionPosition();
+      }
+    });
+    navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+      this.audio.currentTime = Math.max(0, this.audio.currentTime - (details.seekOffset ?? 10));
+      this.syncMediaSessionPosition();
+    });
+    navigator.mediaSession.setActionHandler('seekforward', (details) => {
+      this.audio.currentTime = Math.min(
+        this.audio.duration || 0,
+        this.audio.currentTime + (details.seekOffset ?? 10)
+      );
+      this.syncMediaSessionPosition();
+    });
+
+    this.syncMediaSessionState();
+  }
+
+  private syncMediaSessionState() {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = this.audio.paused ? 'paused' : 'playing';
+  }
+
+  private syncMediaSessionPosition() {
+    if (!('mediaSession' in navigator)) return;
+    if (!this.audio.duration || isNaN(this.audio.duration)) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: this.audio.duration,
+        playbackRate: this.audio.playbackRate,
+        position: this.audio.currentTime,
+      });
+    } catch (_) {
+      // setPositionState might not be supported on all browsers
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+
   public subscribe(callback: AudioStateCallback) {
     this.callbacks.add(callback);
     this.notifyState();
@@ -123,24 +208,18 @@ class AudioManager {
       let src = '';
 
       // On native Android/iOS: NEVER set crossOrigin for any URL
-      // crossOrigin='anonymous' on Android WebView causes "no supported source was found"
       if (native) {
-        // Always remove crossOrigin on native
         if (this.lastCrossOrigin) {
           this.audio.removeAttribute('crossorigin');
           this.lastCrossOrigin = false;
         }
 
         if (song.isCloud && song.audioUrl) {
-          // Cloud streaming on native: play URL directly, no CORS
           src = song.audioUrl;
         } else if (song.isDownloaded && song.audioUrl) {
-          // Downloaded cloud song: use local audioUrl
           src = song.audioUrl;
         } else if (song.audioUrl) {
-          // Local native file
           src = song.audioUrl;
-          // Convert raw storage paths to Capacitor-accessible URL
           if (src.startsWith('/storage/') || src.startsWith('/data/')) {
             try {
               const { Capacitor } = await import('@capacitor/core');
@@ -150,12 +229,10 @@ class AudioManager {
             }
           }
         } else {
-          // FileHandle fallback (shouldn't happen on native)
           const file = await song.fileHandle.getFile();
           src = URL.createObjectURL(file);
         }
 
-        // Revoke old blob URL
         if (this.audio.src && this.audio.src.startsWith('blob:')) {
           URL.revokeObjectURL(this.audio.src);
         }
@@ -164,6 +241,7 @@ class AudioManager {
         this.audio.src = src;
         this.audio.load();
         await this.audio.play();
+        this.updateMediaSession(song);
         this.notifyState();
         return;
       }
@@ -194,7 +272,6 @@ class AudioManager {
         src = URL.createObjectURL(file);
       }
 
-      // Revoke old object URL
       if (this.audio.src && this.audio.src.startsWith('blob:')) {
         URL.revokeObjectURL(this.audio.src);
       }
@@ -218,6 +295,7 @@ class AudioManager {
         }
       }
 
+      this.updateMediaSession(song);
       this.notifyState();
     } catch (error) {
       console.error('Failed to play song:', error);
@@ -227,7 +305,7 @@ class AudioManager {
 
   public async togglePlay() {
     if (!this.currentSong) return;
-    
+
     if (!this.isNative()) {
       this.initAudioContext();
       await this.ensureAudioContextRunning();
@@ -261,7 +339,7 @@ class AudioManager {
 
   public getAnalyserData(): Uint8Array | null {
     if (!this.analyser || this.audio.paused) return null;
-    
+
     try {
       const bufferLength = this.analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
