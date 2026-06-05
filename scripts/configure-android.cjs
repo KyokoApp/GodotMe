@@ -25,6 +25,12 @@ if (fs.existsSync(manifestPath)) {
     console.log('✓ Injected storage permissions');
   }
 
+  // Floating overlay permission
+  if (!manifest.includes('SYSTEM_ALERT_WINDOW')) {
+    manifest = manifest.replace('<application', `<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />\n    <application`);
+    console.log('✓ Added SYSTEM_ALERT_WINDOW permission');
+  }
+
   if (!manifest.includes('android:requestLegacyExternalStorage')) {
     manifest = manifest.replace('<application', '<application android:requestLegacyExternalStorage="true"');
     console.log('✓ Added requestLegacyExternalStorage');
@@ -380,7 +386,206 @@ fs.writeFileSync(waPath, waStickerCode, 'utf8');
 console.log('✓ Created WAStickerPlugin.java');
 
 // ─────────────────────────────────────────────────────────
-// 6. MainActivity.java — daftarkan semua plugin
+// 6. FloatingLyricsPlugin.java
+// ─────────────────────────────────────────────────────────
+const floatingLyricsCode = `package com.kyokobeat.musicplayer;
+
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.PixelFormat;
+import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.TextView;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+
+@CapacitorPlugin(name = "FloatingLyrics")
+public class FloatingLyricsPlugin extends Plugin {
+
+    private WindowManager windowManager;
+    private FrameLayout floatingView;
+    private TextView lyricsText;
+    private WindowManager.LayoutParams params;
+    private boolean isShowing = false;
+
+    @PluginMethod
+    public void requestPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(getContext())) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getContext().getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+                JSObject r = new JSObject();
+                r.put("granted", false);
+                r.put("prompted", true);
+                call.resolve(r);
+                return;
+            }
+        }
+        JSObject r = new JSObject();
+        r.put("granted", true);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void checkPermission(PluginCall call) {
+        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+            || Settings.canDrawOverlays(getContext());
+        JSObject r = new JSObject();
+        r.put("granted", granted);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void showLyrics(PluginCall call) {
+        String line = call.getString("line", "");
+        getActivity().runOnUiThread(() -> {
+            if (!isShowing) {
+                createFloatingView(line);
+            } else {
+                if (lyricsText != null) lyricsText.setText(line);
+            }
+            JSObject r = new JSObject();
+            r.put("ok", true);
+            call.resolve(r);
+        });
+    }
+
+    @PluginMethod
+    public void hideLyrics(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            destroyFloatingView();
+            JSObject r = new JSObject();
+            r.put("ok", true);
+            call.resolve(r);
+        });
+    }
+
+    @PluginMethod
+    public void isVisible(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("visible", isShowing);
+        call.resolve(r);
+    }
+
+    private void createFloatingView(String initialText) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(getContext())) return;
+
+        windowManager = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+
+        // Root container
+        floatingView = new FrameLayout(getContext());
+        floatingView.setBackgroundColor(Color.parseColor("#CC000000"));
+        floatingView.setPadding(24, 12, 24, 12);
+
+        // Lyrics text
+        lyricsText = new TextView(getContext());
+        lyricsText.setText(initialText);
+        lyricsText.setTextColor(Color.parseColor("#c8f500"));
+        lyricsText.setTextSize(14f);
+        lyricsText.setTypeface(null, Typeface.BOLD);
+        lyricsText.setGravity(Gravity.CENTER);
+        lyricsText.setMaxLines(2);
+        lyricsText.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+        FrameLayout.LayoutParams textParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        );
+        textParams.gravity = Gravity.CENTER;
+        textParams.setMargins(0, 0, 48, 0);
+        floatingView.addView(lyricsText, textParams);
+
+        // Close button
+        TextView closeBtn = new TextView(getContext());
+        closeBtn.setText("✕");
+        closeBtn.setTextColor(Color.parseColor("#888888"));
+        closeBtn.setTextSize(12f);
+        closeBtn.setPadding(8, 4, 8, 4);
+        closeBtn.setOnClickListener(v -> destroyFloatingView());
+
+        FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        );
+        closeParams.gravity = Gravity.TOP | Gravity.END;
+        floatingView.addView(closeBtn, closeParams);
+
+        // Window params
+        int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+            ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            : WindowManager.LayoutParams.TYPE_PHONE;
+
+        params = new WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        );
+        params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        params.x = 0;
+        params.y = 120;
+
+        // Drag support
+        floatingView.setOnTouchListener(new View.OnTouchListener() {
+            float initX, initY, touchX, touchY;
+            @Override
+            public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        initX = params.x; initY = params.y;
+                        touchX = e.getRawX(); touchY = e.getRawY();
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        params.x = (int)(initX + e.getRawX() - touchX);
+                        params.y = (int)(initY + e.getRawY() - touchY);
+                        windowManager.updateViewLayout(floatingView, params);
+                        return true;
+                }
+                return false;
+            }
+        });
+
+        windowManager.addView(floatingView, params);
+        isShowing = true;
+    }
+
+    private void destroyFloatingView() {
+        if (floatingView != null && windowManager != null) {
+            try { windowManager.removeView(floatingView); } catch (Exception ignored) {}
+            floatingView = null;
+            lyricsText = null;
+            isShowing = false;
+        }
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        destroyFloatingView();
+        super.handleOnDestroy();
+    }
+}
+`;
+const flPath = path.join(mainActivityDir, 'FloatingLyricsPlugin.java');
+fs.writeFileSync(flPath, floatingLyricsCode, 'utf8');
+console.log('✓ Created FloatingLyricsPlugin.java');
+
+// ─────────────────────────────────────────────────────────
+// 7. MainActivity.java — daftarkan semua plugin
 // ─────────────────────────────────────────────────────────
 const mainActivityCode = `package com.kyokobeat.musicplayer;
 
@@ -392,6 +597,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(KyokoBeatNativePlugin.class);
         registerPlugin(WAStickerPlugin.class);
+        registerPlugin(FloatingLyricsPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
