@@ -9,12 +9,12 @@ type AudioStateCallback = (state: {
   isMuted: boolean;
 }) => void;
 
-// Lazy-load @capacitor-community/media-session only on native
+// Lazy-load @jofr/capacitor-media-session only on native
 let MediaSessionPlugin: any = null;
 const getMediaSessionPlugin = async () => {
   if (MediaSessionPlugin) return MediaSessionPlugin;
   try {
-    const mod = await import('@capacitor-community/media-session');
+    const mod = await import('@jofr/capacitor-media-session');
     MediaSessionPlugin = mod.MediaSession;
     return MediaSessionPlugin;
   } catch {
