@@ -1306,11 +1306,11 @@ export default function MainDashboard() {
   const getAudioUrl = async (videoId: string): Promise<{url: string; title: string; thumb: string} | null> => {
     try {
       const ytUrl = `https://youtube.com/watch?v=${videoId}`;
-      const res = await fetchWithTimeout(`/api/yt-download?url=${encodeURIComponent(ytUrl)}`, 15000);
+      const res = await fetchWithTimeout(`https://api-faa.my.id/faa/ytmp3?url=${encodeURIComponent(ytUrl)}`, 15000);
       if (!res.ok) return null;
       const data = await res.json();
-      if (!data.audioUrl) return null;
-      return { url: data.audioUrl, title: data.title || '', thumb: data.thumbnail || '' };
+      if (!data.status || !data.result?.mp3) return null;
+      return { url: data.result.mp3, title: data.result.title || '', thumb: data.result.thumbnail || '' };
     } catch {
       return null;
     }
