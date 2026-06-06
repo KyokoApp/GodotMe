@@ -648,17 +648,7 @@ if (fs.existsSync(manifestPath)) {
     console.log('✓ Added FOREGROUND_SERVICE permissions');
   }
 
-  // Declare jofr MediaSessionService for background audio playback
-  if (!manifest.includes('MediaSessionService')) {
-    const serviceDecl = `
-        <!-- jofr/capacitor-media-session: foreground service for background audio -->
-        <service
-            android:name="io.github.jofr.capacitor.mediasessionplugin.MediaSessionService"
-            android:foregroundServiceType="mediaPlayback"
-            android:exported="false" />`;
-    manifest = manifest.replace('</application>', `${serviceDecl}\n    </application>`);
-    console.log('✓ Registered MediaSessionService');
-  }
+  // jofr plugin declares MediaSessionService automatically — no manual declaration needed
 
   fs.writeFileSync(manifestPath, manifest, 'utf8');
 }
