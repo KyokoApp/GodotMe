@@ -53,7 +53,7 @@ class AudioManager {
     this.audio.addEventListener('volumechange', () => this.notifyState());
     this.audio.addEventListener('ended', () => {
       this.notifyState();
-      this.setPlaybackState('none');
+      this.setPlaybackState('paused'); // keep notification visible while transitioning to next track
       this.stopPositionTimer();
       if (this.onTrackEnded) this.onTrackEnded();
     });
