@@ -1179,41 +1179,22 @@ export default function MainDashboard() {
     setYtStreamLoading(true);
     setYtStreamError('');
     setYtStreamResults([]);
-    const q = encodeURIComponent(ytStreamQuery);
     try {
-      // Try api-faa first
-      let results: any[] = [];
-      try {
-        const res = await fetchWithTimeout(`https://api-faa.my.id/faa/youtube?q=${q}`, 10000);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status && data.result?.length) {
-            results = (data.result as any[]).slice(0, 10).map((v: any) => {
-              const videoId = v.link?.split('watch?v=')[1]?.split('&')[0] || '';
-              return { id: videoId, title: v.title, author: v.channel, thumb: v.imageUrl || '', duration: v.duration || '', source: 'faa' as const };
-            }).filter((v: any) => v.id);
-          }
-        }
-      } catch (_) {}
-
-      // Fallback: invidious search
-      if (results.length === 0) {
-        const invRes = await fetchWithTimeout(`https://inv.nadeko.net/api/v1/search?q=${q}&type=video&fields=videoId,title,author,videoThumbnails,lengthSeconds`, 10000);
-        if (invRes.ok) {
-          const data = await invRes.json();
-          if (Array.isArray(data)) {
-            results = data.slice(0, 10).map((v: any) => ({
-              id: v.videoId,
-              title: v.title,
-              author: v.author,
-              thumb: (v.videoThumbnails || []).find((t: any) => t.quality === 'medium')?.url || '',
-              duration: v.lengthSeconds ? `${Math.floor(v.lengthSeconds/60)}:${String(v.lengthSeconds%60).padStart(2,'0')}` : '',
-            })).filter((v: any) => v.id);
-          }
-        }
-      }
-
-      if (results.length === 0) throw new Error('Tidak ada hasil');
+      const res = await fetchWithTimeout(`https://api-faa.my.id/faa/youtube?q=${encodeURIComponent(ytStreamQuery)}`, 10000);
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      if (!data.status || !data.result?.length) throw new Error('Tidak ada hasil');
+      const results = (data.result as any[]).slice(0, 10).map((v: any) => {
+        const videoId = v.link?.split('watch?v=')[1] || '';
+        return {
+          id: videoId,
+          title: v.title,
+          author: v.channel,
+          thumb: v.imageUrl || '',
+          duration: v.duration || '',
+          source: 'faa' as const,
+        };
+      }).filter((v: any) => v.id);
       setYtStreamResults(results);
     } catch (e: any) {
       setYtStreamError('Gagal mencari lagu. Coba lagi.');
@@ -1323,57 +1304,16 @@ export default function MainDashboard() {
   };
 
   const getAudioUrl = async (videoId: string): Promise<{url: string; title: string; thumb: string} | null> => {
-    const ytUrl = `https://youtube.com/watch?v=${videoId}`;
-    // Try multiple free APIs in order
-    const apis = [
-      // API 1: cobalt-tools style proxy (if self-hosted)
-      async () => {
-        const res = await fetchWithTimeout(`/api/yt-download?url=${encodeURIComponent(ytUrl)}`, 12000);
-        if (!res.ok) return null;
-        const d = await res.json();
-        if (!d.audioUrl) return null;
-        return { url: d.audioUrl, title: d.title || '', thumb: d.thumbnail || '' };
-      },
-      // API 2: yt-dlp wrapper (api-faa)
-      async () => {
-        const res = await fetchWithTimeout(`https://api-faa.my.id/faa/ytdl?url=${encodeURIComponent(ytUrl)}&type=audio`, 12000);
-        if (!res.ok) return null;
-        const d = await res.json();
-        const url = d.url || d.audioUrl || d.result?.url;
-        if (!url) return null;
-        return { url, title: d.title || '', thumb: d.thumbnail || d.thumb || '' };
-      },
-      // API 3: invidious instance (audio-only stream)
-      async () => {
-        const invRes = await fetchWithTimeout(`https://inv.nadeko.net/api/v1/videos/${videoId}?fields=adaptiveFormats,title,videoThumbnails`, 10000);
-        if (!invRes.ok) return null;
-        const d = await invRes.json();
-        const formats: any[] = d.adaptiveFormats || [];
-        // Pick best opus/webm audio-only format
-        const audio = formats.filter((f: any) => f.type?.includes('audio')).sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-        if (!audio?.url) return null;
-        const thumb = (d.videoThumbnails || []).find((t: any) => t.quality === 'medium')?.url || '';
-        return { url: audio.url, title: d.title || '', thumb };
-      },
-      // API 4: another invidious instance fallback
-      async () => {
-        const invRes = await fetchWithTimeout(`https://invidious.fdn.fr/api/v1/videos/${videoId}?fields=adaptiveFormats,title,videoThumbnails`, 10000);
-        if (!invRes.ok) return null;
-        const d = await invRes.json();
-        const formats: any[] = d.adaptiveFormats || [];
-        const audio = formats.filter((f: any) => f.type?.includes('audio')).sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-        if (!audio?.url) return null;
-        const thumb = (d.videoThumbnails || []).find((t: any) => t.quality === 'medium')?.url || '';
-        return { url: audio.url, title: d.title || '', thumb };
-      },
-    ];
-    for (const api of apis) {
-      try {
-        const result = await api();
-        if (result?.url) return result;
-      } catch (_) { continue; }
+    try {
+      const ytUrl = `https://youtube.com/watch?v=${videoId}`;
+      const res = await fetchWithTimeout(`/api/yt-download?url=${encodeURIComponent(ytUrl)}`, 15000);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.audioUrl) return null;
+      return { url: data.audioUrl, title: data.title || '', thumb: data.thumbnail || '' };
+    } catch {
+      return null;
     }
-    return null;
   };
 
   const ytPreviewPlay = async (videoId: string, title: string, author: string, thumb: string) => {
