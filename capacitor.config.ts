@@ -6,6 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
+    url: 'https://kyokobeat.vercel.app',
     cleartext: true
   },
   android: {
