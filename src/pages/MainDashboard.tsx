@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Search,
   FolderSync,
@@ -219,6 +219,31 @@ export default function MainDashboard() {
   const [playerVisible, setPlayerVisible] = useState(true);
   const [showFullPlayer, setShowFullPlayer] = useState(false);
 
+  // ── Refs to prevent stale closures in audioManager callbacks ──────────────
+  const shuffleRef = useRef(false);
+  const repeatRef = useRef<'none' | 'one' | 'all'>('none');
+  const allSongsRef = useRef<LocalSong[]>([]);
+  const activeTabRef = useRef<'library' | 'playlists' | 'favorites'>('library');
+  const selectedPlaylistIdRef = useRef<string | null>(null);
+  const playlistsRef = useRef<LocalPlaylist[]>([]);
+  const favoritesRef = useRef<string[]>([]);
+  const searchQueryRef = useRef('');
+  const sortByRef = useRef<'title' | 'artist' | 'album'>('title');
+  const sortOrderRef = useRef<'asc' | 'desc'>('asc');
+  const playerStateRef = useRef<{ currentSong: LocalSong | null }>({ currentSong: null });
+
+  // ── Keep refs in sync with state (so audioManager callbacks always read fresh values) ──
+  useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
+  useEffect(() => { repeatRef.current = repeat; }, [repeat]);
+  useEffect(() => { allSongsRef.current = allSongs; }, [allSongs]);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  useEffect(() => { selectedPlaylistIdRef.current = selectedPlaylistId; }, [selectedPlaylistId]);
+  useEffect(() => { playlistsRef.current = playlists; }, [playlists]);
+  useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
+  useEffect(() => { searchQueryRef.current = searchQuery; }, [searchQuery]);
+  useEffect(() => { sortByRef.current = sortBy; }, [sortBy]);
+  useEffect(() => { sortOrderRef.current = sortOrder; }, [sortOrder]);
+
   // Hardware back button handler (Android)
   useEffect(() => {
     let handler: any = null;
@@ -430,17 +455,18 @@ export default function MainDashboard() {
     });
 
     // Handle track ended (next track) & prev track — wired to Media Session API buttons
+    // Use refs so these callbacks NEVER become stale; no need to re-register on every state change
     audioManager.onTrackEnded = () => {
-      handleTrackEnded();
+      handleTrackEndedRef.current();
     };
     audioManager.onPrevTrack = () => {
-      playPrevTrack();
+      playPrevTrackRef.current();
     };
 
     return () => {
       unsubscribe();
     };
-  }, [playerState.currentSong, shuffle, repeat, allSongs, activeTab, selectedPlaylistId]);
+  }, []); // ← run ONCE only; callbacks read fresh values via refs
 
   // Check directory permission status
   const checkDirectoryPermission = async () => {
@@ -688,6 +714,8 @@ export default function MainDashboard() {
     setAllSongs([...cloudSongs, ...localSongs]);
   }, [localSongs, cloudSongs]);
 
+  const songIdOf = (song: LocalSong) => song.id;
+
   // Get active queue for playing next/prev
   const getActiveQueue = (): LocalSong[] => {
     let list: LocalSong[] = [];
@@ -704,18 +732,115 @@ export default function MainDashboard() {
     return list.length > 0 ? list : allSongs;
   };
 
-  const songIdOf = (song: LocalSong) => song.id;
+  // Get active queue — reads from refs so it's always fresh even inside stale closures
+  const getActiveQueueFromRefs = (): LocalSong[] => {
+    const tab = activeTabRef.current;
+    const songs = allSongsRef.current;
+    let list: LocalSong[] = [];
+    if (tab === 'library') {
+      // Re-implement filter logic using refs to avoid stale closure
+      const sq = searchQueryRef.current.toLowerCase().trim();
+      let filtered = [...songs];
+      if (sq) {
+        filtered = filtered.filter(s =>
+          s.title.toLowerCase().includes(sq) ||
+          s.artist.toLowerCase().includes(sq) ||
+          s.album.toLowerCase().includes(sq)
+        );
+      }
+      const sb = sortByRef.current;
+      const so = sortOrderRef.current;
+      filtered.sort((a, b) => {
+        const valA = (a[sb] || '').toString().toLowerCase();
+        const valB = (b[sb] || '').toString().toLowerCase();
+        return so === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      });
+      list = filtered;
+    } else if (tab === 'favorites') {
+      list = songs.filter(s => favoritesRef.current.includes(songIdOf(s)));
+    } else if (tab === 'playlists' && selectedPlaylistIdRef.current) {
+      const pl = playlistsRef.current.find(p => p.id === selectedPlaylistIdRef.current);
+      if (pl) {
+        list = songs.filter(s => pl.songIds.includes(songIdOf(s)));
+      }
+    }
+    return list.length > 0 ? list : songs;
+  };
 
-  // Handle track ended
-  const handleTrackEnded = () => {
-    if (repeat === 'one') {
+  // Get active queue for playing next/prev (also kept for UI buttons — reads live state)
+  const getActiveQueue = (): LocalSong[] => {
+    let list: LocalSong[] = [];
+    if (activeTab === 'library') {
+      list = getFilteredSongs();
+    } else if (activeTab === 'favorites') {
+      list = allSongs.filter(s => favorites.includes(songIdOf(s)));
+    } else if (activeTab === 'playlists' && selectedPlaylistId) {
+      const pl = playlists.find(p => p.id === selectedPlaylistId);
+      if (pl) {
+        list = allSongs.filter(s => pl.songIds.includes(songIdOf(s)));
+      }
+    }
+    return list.length > 0 ? list : allSongs;
+  };
+
+  // Handle track ended — uses refs so always fresh, safe for audioManager callback
+  const handleTrackEndedStable = useCallback(() => {
+    if (repeatRef.current === 'one') {
       audioManager.seek(0);
-      audioManager.togglePlay(); // resume
+      audioManager.togglePlay();
       return;
     }
+    const queue = getActiveQueueFromRefs();
+    if (queue.length === 0) return;
+    const currentSong = playerStateRef.current.currentSong;
+    let nextIndex = 0;
+    if (shuffleRef.current) {
+      nextIndex = Math.floor(Math.random() * queue.length);
+    } else if (currentSong) {
+      const currentIndex = queue.findIndex(s => songIdOf(s) === songIdOf(currentSong));
+      if (currentIndex !== -1) {
+        nextIndex = currentIndex + 1;
+        if (nextIndex >= queue.length) {
+          nextIndex = repeatRef.current === 'all' ? 0 : -1;
+        }
+      }
+    }
+    if (nextIndex !== -1 && queue[nextIndex]) {
+      handlePlaySongRef.current(queue[nextIndex]);
+    }
+  }, []); // stable — never changes
 
-    playNextTrack();
-  };
+  const playPrevTrackStable = useCallback(() => {
+    const queue = getActiveQueueFromRefs();
+    if (queue.length === 0) return;
+    const currentSong = playerStateRef.current.currentSong;
+    let prevIndex = 0;
+    if (shuffleRef.current) {
+      prevIndex = Math.floor(Math.random() * queue.length);
+    } else if (currentSong) {
+      const currentIndex = queue.findIndex(s => songIdOf(s) === songIdOf(currentSong));
+      if (currentIndex !== -1) {
+        prevIndex = currentIndex - 1;
+        if (prevIndex < 0) {
+          prevIndex = repeatRef.current === 'all' ? queue.length - 1 : 0;
+        }
+      }
+    }
+    if (queue[prevIndex]) {
+      handlePlaySongRef.current(queue[prevIndex]);
+    }
+  }, []); // stable — never changes
+
+  // Stable ref wrappers — updated every render so callbacks always call latest
+  const handleTrackEndedRef = useRef<() => void>(handleTrackEndedStable);
+  const playPrevTrackRef = useRef<() => void>(playPrevTrackStable);
+  const handlePlaySongRef = useRef<(song: LocalSong) => Promise<void>>(async (_song: LocalSong) => {});
+
+  useEffect(() => { handleTrackEndedRef.current = handleTrackEndedStable; });
+  useEffect(() => { playPrevTrackRef.current = playPrevTrackStable; });
+
+  // Handle track ended (kept for backwards-compat with inline UI buttons)
+  const handleTrackEnded = () => handleTrackEndedRef.current();
 
   const playNextTrack = () => {
     const queue = getActiveQueue();
@@ -741,29 +866,7 @@ export default function MainDashboard() {
     }
   };
 
-  const playPrevTrack = () => {
-    const queue = getActiveQueue();
-    if (queue.length === 0) return;
-
-    const currentSong = playerState.currentSong;
-    let prevIndex = 0;
-
-    if (shuffle) {
-      prevIndex = Math.floor(Math.random() * queue.length);
-    } else if (currentSong) {
-      const currentIndex = queue.findIndex(s => songIdOf(s) === songIdOf(currentSong));
-      if (currentIndex !== -1) {
-        prevIndex = currentIndex - 1;
-        if (prevIndex < 0) {
-          prevIndex = repeat === 'all' ? queue.length - 1 : 0;
-        }
-      }
-    }
-
-    if (queue[prevIndex]) {
-      handlePlaySong(queue[prevIndex]);
-    }
-  };
+  const playPrevTrack = () => playPrevTrackRef.current();
 
   // Play song wrapper with automatic permission request
   const handlePlaySong = async (song: LocalSong) => {
@@ -818,6 +921,12 @@ export default function MainDashboard() {
       }
     }
   };
+
+  // Keep handlePlaySongRef up-to-date (used by stable callbacks)
+  useEffect(() => { handlePlaySongRef.current = handlePlaySong; });
+
+  // Keep playerStateRef up-to-date so stable callbacks can read currentSong
+  useEffect(() => { playerStateRef.current = { currentSong: playerState.currentSong }; }, [playerState.currentSong]);
 
   // Scan folder manual trigger (performs full scan)
   const handleRescan = async () => {
