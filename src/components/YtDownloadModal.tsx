@@ -37,13 +37,18 @@ export default function YtDownloadModal({ isOpen, onClose, onDownloadComplete, t
     setSongInfo(null);
 
     try {
-      // Step 1: Fetch audio URL dari backend proxy
-      const res = await fetch(`/api/yt-download?url=${encodeURIComponent(trimmed)}`);
+      // Step 1: Fetch audio URL dari api-faa
+      const res = await fetch(`https://api-faa.my.id/faa/ytmp3?url=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
 
-      if (!res.ok || !data.audioUrl) {
+      if (!res.ok || !data.status || !data.result?.mp3) {
         throw new Error(data.error || 'Gagal mendapatkan audio dari YouTube');
       }
+
+      // Normalize response ke format yang dipakai di bawah
+      data.audioUrl = data.result.mp3;
+      data.title = data.result.title;
+      data.thumbnail = data.result.thumbnail;
 
       setSongInfo({ title: data.title, thumbnail: data.thumbnail });
       setStatus('downloading');
