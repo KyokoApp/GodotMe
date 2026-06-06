@@ -392,6 +392,10 @@ export default function MainDashboard() {
   const [ytPreviewLoadingId, setYtPreviewLoadingId] = useState<string | null>(null);
   const [ytPreviewPlaying, setYtPreviewPlaying] = useState(false);
   const ytPreviewRef = useRef<HTMLAudioElement | null>(null);
+  // Download progress: key = videoId, value = 0-100 | 'done' | 'error' | 'fetching'
+  const [ytDownloadProgress, setYtDownloadProgress] = useState<Record<string, number | 'done' | 'error' | 'fetching'>>({});
+  // Track which videoIds have already been downloaded to library
+  const [ytDownloadedIds, setYtDownloadedIds] = useState<Set<string>>(new Set());
 
   // SoundCloud Search modal state
   const [isScModalOpen, setIsScModalOpen] = useState(false);
@@ -1175,22 +1179,41 @@ export default function MainDashboard() {
     setYtStreamLoading(true);
     setYtStreamError('');
     setYtStreamResults([]);
+    const q = encodeURIComponent(ytStreamQuery);
     try {
-      const res = await fetchWithTimeout(`https://api-faa.my.id/faa/youtube?q=${encodeURIComponent(ytStreamQuery)}`, 10000);
-      if (!res.ok) throw new Error('API error');
-      const data = await res.json();
-      if (!data.status || !data.result?.length) throw new Error('Tidak ada hasil');
-      const results = (data.result as any[]).slice(0, 10).map((v: any) => {
-        const videoId = v.link?.split('watch?v=')[1] || '';
-        return {
-          id: videoId,
-          title: v.title,
-          author: v.channel,
-          thumb: v.imageUrl || '',
-          duration: v.duration || '',
-          source: 'faa' as const,
-        };
-      }).filter((v: any) => v.id);
+      // Try api-faa first
+      let results: any[] = [];
+      try {
+        const res = await fetchWithTimeout(`https://api-faa.my.id/faa/youtube?q=${q}`, 10000);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status && data.result?.length) {
+            results = (data.result as any[]).slice(0, 10).map((v: any) => {
+              const videoId = v.link?.split('watch?v=')[1]?.split('&')[0] || '';
+              return { id: videoId, title: v.title, author: v.channel, thumb: v.imageUrl || '', duration: v.duration || '', source: 'faa' as const };
+            }).filter((v: any) => v.id);
+          }
+        }
+      } catch (_) {}
+
+      // Fallback: invidious search
+      if (results.length === 0) {
+        const invRes = await fetchWithTimeout(`https://inv.nadeko.net/api/v1/search?q=${q}&type=video&fields=videoId,title,author,videoThumbnails,lengthSeconds`, 10000);
+        if (invRes.ok) {
+          const data = await invRes.json();
+          if (Array.isArray(data)) {
+            results = data.slice(0, 10).map((v: any) => ({
+              id: v.videoId,
+              title: v.title,
+              author: v.author,
+              thumb: (v.videoThumbnails || []).find((t: any) => t.quality === 'medium')?.url || '',
+              duration: v.lengthSeconds ? `${Math.floor(v.lengthSeconds/60)}:${String(v.lengthSeconds%60).padStart(2,'0')}` : '',
+            })).filter((v: any) => v.id);
+          }
+        }
+      }
+
+      if (results.length === 0) throw new Error('Tidak ada hasil');
       setYtStreamResults(results);
     } catch (e: any) {
       setYtStreamError('Gagal mencari lagu. Coba lagi.');
@@ -1201,60 +1224,156 @@ export default function MainDashboard() {
   const [ytDownloadingId, setYtDownloadingId] = useState<string | null>(null);
 
   const ytStreamDownload = async (videoId: string, title: string, author: string, thumb: string) => {
+    // Prevent duplicate downloads
+    if (ytDownloadProgress[videoId] === 'done' || ytDownloadedIds.has(videoId)) return;
+    if (typeof ytDownloadProgress[videoId] === 'number') return; // already in progress
+
+    setYtDownloadProgress(p => ({ ...p, [videoId]: 'fetching' }));
     setYtDownloadingId(videoId);
-    toast('⏳ Mengambil audio...', 'info');
+
     const result = await getAudioUrl(videoId);
     if (!result) {
-      toast('Gagal download. Coba lagi.', 'error');
+      toast('Gagal ambil audio. Coba lagi.', 'error');
+      setYtDownloadProgress(p => ({ ...p, [videoId]: 'error' }));
       setYtDownloadingId(null);
       return;
     }
+
     const audioUrl = result.url;
     const finalTitle = result.title || title;
     const finalThumb = result.thumb || thumb;
-    toast(`⬇️ Mendownload "${finalTitle}"...`, 'info');
+
     try {
       const { Capacitor } = await import('@capacitor/core');
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
       const { saveSong } = await import('../lib/db');
+
       if (Capacitor.isNativePlatform()) {
+        // ── Native Android: download with progress tracking ──────────────────
         const MUSIC_FOLDER = 'Android/media/com.kyokobeat.musicplayer/Music';
         try { await Filesystem.mkdir({ path: MUSIC_FOLDER, directory: Directory.ExternalStorage, recursive: true }); } catch (_) {}
-        const audioRes = await fetch(audioUrl);
-        const blob = await audioRes.blob();
+
+        // Fetch with XHR to get real progress
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', audioUrl, true);
+          xhr.responseType = 'blob';
+          xhr.onprogress = (e) => {
+            if (e.lengthComputable && e.total > 0) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              setYtDownloadProgress(p => ({ ...p, [videoId]: pct }));
+            } else {
+              // Indeterminate progress — pulse between 10-90
+              setYtDownloadProgress(p => {
+                const cur = typeof p[videoId] === 'number' ? (p[videoId] as number) : 10;
+                return { ...p, [videoId]: Math.min(90, (cur as number) + 5) };
+              });
+            }
+          };
+          xhr.onload = () => xhr.status < 400 ? resolve(xhr.response) : reject(new Error('HTTP ' + xhr.status));
+          xhr.onerror = () => reject(new Error('Network error'));
+          xhr.send();
+        });
+
+        setYtDownloadProgress(p => ({ ...p, [videoId]: 95 }));
+
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
+
         const safeTitle = finalTitle.replace(/[^a-z0-9\s]/gi, '_').trim();
         const filePath = `${MUSIC_FOLDER}/${safeTitle}.mp3`;
         await Filesystem.writeFile({ path: filePath, data: base64, directory: Directory.ExternalStorage, recursive: true });
+
         const localUrl = Capacitor.convertFileSrc(`/storage/emulated/0/${filePath}`);
-        await saveSong({ id: `yt-stream-dl-${videoId}`, title: finalTitle, artist: author || 'YouTube', album: 'YouTube Stream', duration: 0, cover: finalThumb || null, fileHandle: null as any, path: `/storage/emulated/0/${filePath}`, fileSize: blob.size, addedAt: Date.now(), isCloud: false, isDownloaded: false, audioUrl: localUrl });
+        await saveSong({
+          id: `yt-stream-dl-${videoId}`,
+          title: finalTitle, artist: author || 'YouTube',
+          album: 'YouTube Stream', duration: 0,
+          cover: finalThumb || null, fileHandle: null as any,
+          path: `/storage/emulated/0/${filePath}`,
+          fileSize: blob.size, addedAt: Date.now(),
+          isCloud: false, isDownloaded: false, audioUrl: localUrl,
+        });
       } else {
-        await saveSong({ id: `yt-stream-dl-${videoId}`, title: finalTitle, artist: author || 'YouTube', album: 'YouTube Stream', duration: 0, cover: finalThumb || null, fileHandle: null as any, path: audioUrl, fileSize: 0, addedAt: Date.now(), isCloud: false, isDownloaded: true, audioUrl });
+        // ── Web fallback ──────────────────────────────────────────────────────
+        setYtDownloadProgress(p => ({ ...p, [videoId]: 50 }));
+        await saveSong({
+          id: `yt-stream-dl-${videoId}`,
+          title: finalTitle, artist: author || 'YouTube',
+          album: 'YouTube Stream', duration: 0,
+          cover: finalThumb || null, fileHandle: null as any,
+          path: audioUrl, fileSize: 0, addedAt: Date.now(),
+          isCloud: false, isDownloaded: true, audioUrl,
+        });
       }
+
       await loadLocalDataAndSync();
+      setYtDownloadProgress(p => ({ ...p, [videoId]: 'done' }));
+      setYtDownloadedIds(prev => new Set([...prev, videoId]));
       toast(`✅ "${finalTitle}" tersimpan ke library!`, 'success');
     } catch {
+      setYtDownloadProgress(p => ({ ...p, [videoId]: 'error' }));
       toast('Gagal download. Coba lagi.', 'error');
     }
     setYtDownloadingId(null);
   };
 
   const getAudioUrl = async (videoId: string): Promise<{url: string; title: string; thumb: string} | null> => {
-    try {
-      const ytUrl = `https://youtube.com/watch?v=${videoId}`;
-      const res = await fetchWithTimeout(`/api/yt-download?url=${encodeURIComponent(ytUrl)}`, 15000);
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (!data.audioUrl) return null;
-      return { url: data.audioUrl, title: data.title || '', thumb: data.thumbnail || '' };
-    } catch {
-      return null;
+    const ytUrl = `https://youtube.com/watch?v=${videoId}`;
+    // Try multiple free APIs in order
+    const apis = [
+      // API 1: cobalt-tools style proxy (if self-hosted)
+      async () => {
+        const res = await fetchWithTimeout(`/api/yt-download?url=${encodeURIComponent(ytUrl)}`, 12000);
+        if (!res.ok) return null;
+        const d = await res.json();
+        if (!d.audioUrl) return null;
+        return { url: d.audioUrl, title: d.title || '', thumb: d.thumbnail || '' };
+      },
+      // API 2: yt-dlp wrapper (api-faa)
+      async () => {
+        const res = await fetchWithTimeout(`https://api-faa.my.id/faa/ytdl?url=${encodeURIComponent(ytUrl)}&type=audio`, 12000);
+        if (!res.ok) return null;
+        const d = await res.json();
+        const url = d.url || d.audioUrl || d.result?.url;
+        if (!url) return null;
+        return { url, title: d.title || '', thumb: d.thumbnail || d.thumb || '' };
+      },
+      // API 3: invidious instance (audio-only stream)
+      async () => {
+        const invRes = await fetchWithTimeout(`https://inv.nadeko.net/api/v1/videos/${videoId}?fields=adaptiveFormats,title,videoThumbnails`, 10000);
+        if (!invRes.ok) return null;
+        const d = await invRes.json();
+        const formats: any[] = d.adaptiveFormats || [];
+        // Pick best opus/webm audio-only format
+        const audio = formats.filter((f: any) => f.type?.includes('audio')).sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+        if (!audio?.url) return null;
+        const thumb = (d.videoThumbnails || []).find((t: any) => t.quality === 'medium')?.url || '';
+        return { url: audio.url, title: d.title || '', thumb };
+      },
+      // API 4: another invidious instance fallback
+      async () => {
+        const invRes = await fetchWithTimeout(`https://invidious.fdn.fr/api/v1/videos/${videoId}?fields=adaptiveFormats,title,videoThumbnails`, 10000);
+        if (!invRes.ok) return null;
+        const d = await invRes.json();
+        const formats: any[] = d.adaptiveFormats || [];
+        const audio = formats.filter((f: any) => f.type?.includes('audio')).sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+        if (!audio?.url) return null;
+        const thumb = (d.videoThumbnails || []).find((t: any) => t.quality === 'medium')?.url || '';
+        return { url: audio.url, title: d.title || '', thumb };
+      },
+    ];
+    for (const api of apis) {
+      try {
+        const result = await api();
+        if (result?.url) return result;
+      } catch (_) { continue; }
     }
+    return null;
   };
 
   const ytPreviewPlay = async (videoId: string, title: string, author: string, thumb: string) => {
@@ -2517,18 +2636,55 @@ export default function MainDashboard() {
                       : <Play className="w-4 h-4" />
                   }
                 </button>
-                {/* Download */}
-                <button
-                  onClick={() => ytStreamDownload(v.id, v.title, v.author, v.thumb)}
-                  disabled={ytDownloadingId === v.id}
-                  className="p-2 rounded-full bg-[#c8f500]/10 border border-[#c8f500]/30 text-[#c8f500] active:scale-90 cursor-pointer disabled:opacity-40 flex-shrink-0"
-                  title="Download ke device"
-                >
-                  {ytDownloadingId === v.id
-                    ? <div className="w-4 h-4 border-2 border-[#c8f500]/40 border-t-[#c8f500] rounded-full animate-spin" />
-                    : <Download className="w-4 h-4" />
-                  }
-                </button>
+                {/* Download button with progress */}
+                {(() => {
+                  const prog = ytDownloadProgress[v.id];
+                  const isDone = prog === 'done' || ytDownloadedIds.has(v.id);
+                  const isErr = prog === 'error';
+                  const isFetching = prog === 'fetching';
+                  const isPct = typeof prog === 'number';
+                  const pct = isPct ? (prog as number) : 0;
+
+                  return (
+                    <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => !isDone && ytStreamDownload(v.id, v.title, v.author, v.thumb)}
+                        disabled={isFetching || isPct}
+                        className={`p-2 rounded-full border active:scale-90 cursor-pointer disabled:cursor-not-allowed flex-shrink-0 transition-all ${
+                          isDone
+                            ? 'bg-green-500/20 border-green-500/40 text-green-400'
+                            : isErr
+                              ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                              : 'bg-[#c8f500]/10 border-[#c8f500]/30 text-[#c8f500]'
+                        }`}
+                        title={isDone ? 'Sudah di library' : isErr ? 'Gagal, tap ulang' : 'Download ke device'}
+                      >
+                        {isFetching
+                          ? <div className="w-4 h-4 border-2 border-[#c8f500]/40 border-t-[#c8f500] rounded-full animate-spin" />
+                          : isPct
+                            ? <div className="w-4 h-4 border-2 border-[#c8f500]/40 border-t-[#c8f500] rounded-full animate-spin" />
+                            : isDone
+                              ? <CheckCircle className="w-4 h-4" />
+                              : isErr
+                                ? <span className="text-xs font-bold">↺</span>
+                                : <Download className="w-4 h-4" />
+                        }
+                      </button>
+                      {/* Progress bar */}
+                      {isPct && (
+                        <div className="w-10 h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#c8f500] rounded-full transition-all duration-200"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      )}
+                      {isPct && (
+                        <span className="text-[8px] text-[#c8f500]/70">{pct}%</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>
