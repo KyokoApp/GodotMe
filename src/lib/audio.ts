@@ -9,18 +9,19 @@ type AudioStateCallback = (state: {
   isMuted: boolean;
 }) => void;
 
-// Lazy-load @jofr/capacitor-media-session only on native
-let MediaSessionPlugin: any = null;
-const getMediaSessionPlugin = async () => {
-  if (MediaSessionPlugin) return MediaSessionPlugin;
+// ─── @jofr/capacitor-media-session lazy loader ────────────────────────────
+// API mirip Web Media Session tapi harus pakai plugin di native Android
+let _mediaPlugin: any = null;
+async function getPlugin() {
+  if (_mediaPlugin) return _mediaPlugin;
   try {
     const mod = await import('@jofr/capacitor-media-session');
-    MediaSessionPlugin = mod.MediaSession;
-    return MediaSessionPlugin;
+    _mediaPlugin = mod.MediaSession;
+    return _mediaPlugin;
   } catch {
     return null;
   }
-};
+}
 
 class AudioManager {
   private audio: HTMLAudioElement;
@@ -29,8 +30,9 @@ class AudioManager {
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private currentSong: LocalSong | null = null;
   private callbacks: Set<AudioStateCallback> = new Set();
-  private lastCrossOrigin: boolean = false;
+  private lastCrossOrigin = false;
   private positionTimer: ReturnType<typeof setInterval> | null = null;
+  private handlersRegistered = false;
 
   constructor() {
     this.audio = new Audio();
@@ -38,12 +40,12 @@ class AudioManager {
 
     this.audio.addEventListener('play', () => {
       this.notifyState();
-      this.syncPlaybackState('playing');
+      this.setPlaybackState('playing');
       this.startPositionTimer();
     });
     this.audio.addEventListener('pause', () => {
       this.notifyState();
-      this.syncPlaybackState('paused');
+      this.setPlaybackState('paused');
       this.stopPositionTimer();
     });
     this.audio.addEventListener('timeupdate', () => this.notifyState());
@@ -51,65 +53,49 @@ class AudioManager {
     this.audio.addEventListener('volumechange', () => this.notifyState());
     this.audio.addEventListener('ended', () => {
       this.notifyState();
-      this.syncPlaybackState('stopped');
+      this.setPlaybackState('none');
       this.stopPositionTimer();
-      this.handleTrackEnded();
-    });
-    this.audio.addEventListener('error', () => {
-      console.error('Audio element error:', this.audio.error);
+      if (this.onTrackEnded) this.onTrackEnded();
     });
   }
 
   public onTrackEnded: (() => void) | null = null;
   public onPrevTrack: (() => void) | null = null;
 
-  private handleTrackEnded() {
-    if (this.onTrackEnded) this.onTrackEnded();
-  }
-
+  // ─── native check ──────────────────────────────────────────────────────────
   private isNative(): boolean {
     return typeof window !== 'undefined' &&
-      (window as any).Capacitor !== undefined &&
-      (window as any).Capacitor.isNativePlatform?.() === true;
+      !!(window as any).Capacitor?.isNativePlatform?.();
   }
 
-  // ─── Position timer: update seekbar in notification every second ──────────
+  // ─── position sync timer ───────────────────────────────────────────────────
   private startPositionTimer() {
     this.stopPositionTimer();
-    this.positionTimer = setInterval(() => this.syncPositionState(), 1000);
+    this.positionTimer = setInterval(() => this.syncPosition(), 1000);
   }
 
   private stopPositionTimer() {
-    if (this.positionTimer) {
-      clearInterval(this.positionTimer);
-      this.positionTimer = null;
-    }
+    if (this.positionTimer) { clearInterval(this.positionTimer); this.positionTimer = null; }
   }
 
-  // ─── Media Session helpers ─────────────────────────────────────────────────
+  // ─── Media Session ─────────────────────────────────────────────────────────
 
-  private async updateMediaSession(song: LocalSong) {
+  // Register action handlers ONCE — important, jofr plugin caches these
+  private async registerHandlers() {
+    if (this.handlersRegistered) return;
+    this.handlersRegistered = true;
+
     if (this.isNative()) {
-      // Native Android: use Capacitor plugin
-      const plugin = await getMediaSessionPlugin();
+      const plugin = await getPlugin();
       if (!plugin) return;
-
       try {
-        await plugin.setMetadata({
-          artist: song.artist || 'Unknown Artist',
-          title: song.title || 'Unknown Title',
-          album: song.album || 'KyokoBeat',
-          artwork: song.cover ? [{ src: song.cover, sizes: '512x512', type: 'image/jpeg' }] : [],
-        });
-
-        // Register action handlers via plugin
         await plugin.setActionHandler({ action: 'play' }, async () => {
-          await this.audio.play();
-          this.syncPlaybackState('playing');
+          await this.audio.play().catch(() => {});
+          this.setPlaybackState('playing');
         });
         await plugin.setActionHandler({ action: 'pause' }, () => {
           this.audio.pause();
-          this.syncPlaybackState('paused');
+          this.setPlaybackState('paused');
         });
         await plugin.setActionHandler({ action: 'previoustrack' }, () => {
           if (this.onPrevTrack) this.onPrevTrack();
@@ -120,82 +106,91 @@ class AudioManager {
         await plugin.setActionHandler({ action: 'seekto' }, (details: any) => {
           if (details?.seekTime !== undefined) {
             this.audio.currentTime = details.seekTime;
+            this.syncPosition();
           }
         });
+        await plugin.setActionHandler({ action: 'seekbackward' }, (details: any) => {
+          this.audio.currentTime = Math.max(0, this.audio.currentTime - (details?.seekOffset ?? 10));
+          this.syncPosition();
+        });
+        await plugin.setActionHandler({ action: 'seekforward' }, (details: any) => {
+          this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + (details?.seekOffset ?? 10));
+          this.syncPosition();
+        });
       } catch (e) {
-        console.warn('MediaSession plugin error:', e);
+        console.warn('[MediaSession] registerHandlers error:', e);
       }
     } else {
-      // Web browser: use standard Media Session API
       if (!('mediaSession' in navigator)) return;
-
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: song.title || 'Unknown Title',
-        artist: song.artist || 'Unknown Artist',
-        album: song.album || 'KyokoBeat',
-        artwork: song.cover ? [{ src: song.cover, sizes: '512x512', type: 'image/jpeg' }] : [],
-      });
-
       navigator.mediaSession.setActionHandler('play', () => { this.audio.play().catch(() => {}); });
       navigator.mediaSession.setActionHandler('pause', () => { this.audio.pause(); });
       navigator.mediaSession.setActionHandler('previoustrack', () => { if (this.onPrevTrack) this.onPrevTrack(); });
       navigator.mediaSession.setActionHandler('nexttrack', () => { if (this.onTrackEnded) this.onTrackEnded(); });
-      navigator.mediaSession.setActionHandler('seekto', (d) => {
-        if (d.seekTime !== undefined) this.audio.currentTime = d.seekTime;
-      });
-      navigator.mediaSession.setActionHandler('seekbackward', (d) => {
-        this.audio.currentTime = Math.max(0, this.audio.currentTime - (d.seekOffset ?? 10));
-      });
-      navigator.mediaSession.setActionHandler('seekforward', (d) => {
-        this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + (d.seekOffset ?? 10));
-      });
+      navigator.mediaSession.setActionHandler('seekto', (d) => { if (d.seekTime !== undefined) this.audio.currentTime = d.seekTime; });
+      navigator.mediaSession.setActionHandler('seekbackward', (d) => { this.audio.currentTime = Math.max(0, this.audio.currentTime - (d.seekOffset ?? 10)); });
+      navigator.mediaSession.setActionHandler('seekforward', (d) => { this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + (d.seekOffset ?? 10)); });
     }
   }
 
-  private async syncPlaybackState(state: 'playing' | 'paused' | 'stopped' | 'none') {
+  private async updateMetadata(song: LocalSong) {
+    const meta = {
+      title: song.title || 'Unknown Title',
+      artist: song.artist || 'Unknown Artist',
+      album: song.album || 'KyokoBeat',
+      artwork: song.cover ? [{ src: song.cover, sizes: '512x512', type: 'image/jpeg' }] : [],
+    };
+
     if (this.isNative()) {
-      const plugin = await getMediaSessionPlugin();
+      const plugin = await getPlugin();
       if (!plugin) return;
       try {
+        await plugin.setMetadata(meta);
+      } catch (e) {
+        console.warn('[MediaSession] setMetadata error:', e);
+      }
+    } else {
+      if (!('mediaSession' in navigator)) return;
+      navigator.mediaSession.metadata = new MediaMetadata(meta);
+    }
+  }
+
+  private async setPlaybackState(state: 'playing' | 'paused' | 'none') {
+    if (this.isNative()) {
+      const plugin = await getPlugin();
+      if (!plugin) return;
+      try {
+        // CRITICAL: must call setPlaybackState('playing') for notification to appear
         await plugin.setPlaybackState({ playbackState: state });
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        console.warn('[MediaSession] setPlaybackState error:', e);
+      }
     } else {
       if (!('mediaSession' in navigator)) return;
       navigator.mediaSession.playbackState = state === 'playing' ? 'playing' : 'paused';
     }
   }
 
-  private async syncPositionState() {
+  private async syncPosition() {
     if (!this.audio.duration || isNaN(this.audio.duration)) return;
+    const posState = {
+      duration: this.audio.duration,
+      playbackRate: this.audio.playbackRate,
+      position: this.audio.currentTime,
+    };
 
     if (this.isNative()) {
-      const plugin = await getMediaSessionPlugin();
+      const plugin = await getPlugin();
       if (!plugin) return;
-      try {
-        await plugin.setPositionState({
-          duration: this.audio.duration,
-          playbackRate: this.audio.playbackRate,
-          position: this.audio.currentTime,
-        });
-      } catch (e) { /* ignore */ }
+      try { await plugin.setPositionState(posState); } catch (_) {}
     } else {
       if (!('mediaSession' in navigator)) return;
-      try {
-        navigator.mediaSession.setPositionState({
-          duration: this.audio.duration,
-          playbackRate: this.audio.playbackRate,
-          position: this.audio.currentTime,
-        });
-      } catch (_) { /* not supported on all browsers */ }
+      try { navigator.mediaSession.setPositionState(posState); } catch (_) {}
     }
   }
 
-  // ─── Web Audio API ─────────────────────────────────────────────────────────
-
+  // ─── Web Audio API (web/browser only) ────────────────────────────────────
   private initAudioContext() {
-    if (this.audioContext) return;
-    if (this.isNative()) return;
-
+    if (this.audioContext || this.isNative()) return;
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.analyser = this.audioContext.createAnalyser();
@@ -203,27 +198,14 @@ class AudioManager {
       this.sourceNode = this.audioContext.createMediaElementSource(this.audio);
       this.sourceNode.connect(this.analyser);
       this.analyser.connect(this.audioContext.destination);
-    } catch (e) {
-      console.warn('Web Audio API not fully supported:', e);
-    }
+    } catch (e) { console.warn('Web Audio API error:', e); }
   }
 
   private async ensureAudioContextRunning() {
     if (!this.audioContext) return;
     try {
       if (this.audioContext.state === 'suspended') await this.audioContext.resume();
-      if (this.audioContext.state === 'closed') {
-        this.audioContext = null;
-        this.analyser = null;
-        this.sourceNode = null;
-        this.initAudioContext();
-        if (this.audioContext && (this.audioContext as AudioContext).state === 'suspended') {
-          await (this.audioContext as AudioContext).resume();
-        }
-      }
-    } catch (e) {
-      console.warn('Could not resume AudioContext:', e);
-    }
+    } catch (e) { console.warn('AudioContext resume error:', e); }
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────
@@ -254,55 +236,46 @@ class AudioManager {
       await this.ensureAudioContextRunning();
     }
 
+    // Register handlers once before first play
+    await this.registerHandlers();
+
     try {
       let src = '';
 
       if (native) {
-        if (this.lastCrossOrigin) {
-          this.audio.removeAttribute('crossorigin');
-          this.lastCrossOrigin = false;
-        }
+        if (this.lastCrossOrigin) { this.audio.removeAttribute('crossorigin'); this.lastCrossOrigin = false; }
 
-        if (song.isCloud && song.audioUrl) {
-          src = song.audioUrl;
-        } else if (song.isDownloaded && song.audioUrl) {
-          src = song.audioUrl;
-        } else if (song.audioUrl) {
+        if (song.audioUrl) {
           src = song.audioUrl;
           if (src.startsWith('/storage/') || src.startsWith('/data/')) {
             try {
               const { Capacitor } = await import('@capacitor/core');
               src = Capacitor.convertFileSrc(song.audioUrl);
-            } catch (e) {
-              console.warn('Could not convert file src:', e);
-            }
+            } catch (e) { console.warn('convertFileSrc error:', e); }
           }
         } else {
           const file = await song.fileHandle.getFile();
           src = URL.createObjectURL(file);
         }
 
-        if (this.audio.src && this.audio.src.startsWith('blob:')) {
-          URL.revokeObjectURL(this.audio.src);
-        }
+        if (this.audio.src?.startsWith('blob:')) URL.revokeObjectURL(this.audio.src);
 
         this.currentSong = song;
         this.audio.src = src;
         this.audio.load();
         await this.audio.play();
-        await this.updateMediaSession(song);
+
+        // Update metadata THEN set state to 'playing' — ORDER MATTERS for notification
+        await this.updateMetadata(song);
+        await this.setPlaybackState('playing');
         this.notifyState();
         return;
       }
 
-      // === WEB BROWSER PATH ===
-      const needsCors = !!(song.isCloud || song.isDownloaded) && !!(song.audioUrl);
+      // === WEB PATH ===
+      const needsCors = !!(song.isCloud || song.isDownloaded) && !!song.audioUrl;
 
-      if (song.isCloud && song.audioUrl) {
-        src = song.audioUrl;
-        this.audio.crossOrigin = 'anonymous';
-        this.lastCrossOrigin = true;
-      } else if (song.isDownloaded && song.audioUrl) {
+      if ((song.isCloud || song.isDownloaded) && song.audioUrl) {
         src = song.audioUrl;
         this.audio.crossOrigin = 'anonymous';
         this.lastCrossOrigin = true;
@@ -315,9 +288,7 @@ class AudioManager {
         src = URL.createObjectURL(file);
       }
 
-      if (this.audio.src && this.audio.src.startsWith('blob:')) {
-        URL.revokeObjectURL(this.audio.src);
-      }
+      if (this.audio.src?.startsWith('blob:')) URL.revokeObjectURL(this.audio.src);
 
       this.currentSong = song;
       this.audio.src = src;
@@ -327,7 +298,6 @@ class AudioManager {
         await this.audio.play();
       } catch (playError: any) {
         if (needsCors) {
-          console.warn('Play with CORS failed, retrying without CORS...', playError);
           this.audio.removeAttribute('crossorigin');
           this.lastCrossOrigin = false;
           this.audio.src = src;
@@ -338,7 +308,8 @@ class AudioManager {
         }
       }
 
-      await this.updateMediaSession(song);
+      await this.updateMetadata(song);
+      await this.setPlaybackState('playing');
       this.notifyState();
     } catch (error) {
       console.error('Failed to play song:', error);
@@ -348,12 +319,10 @@ class AudioManager {
 
   public async togglePlay() {
     if (!this.currentSong) return;
-
     if (!this.isNative()) {
       this.initAudioContext();
       await this.ensureAudioContextRunning();
     }
-
     if (this.audio.paused) {
       await this.audio.play();
     } else {
@@ -365,6 +334,7 @@ class AudioManager {
   public seek(time: number) {
     if (!this.currentSong) return;
     this.audio.currentTime = time;
+    this.syncPosition();
     this.notifyState();
   }
 
@@ -383,13 +353,10 @@ class AudioManager {
   public getAnalyserData(): Uint8Array | null {
     if (!this.analyser || this.audio.paused) return null;
     try {
-      const bufferLength = this.analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
+      const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
       this.analyser.getByteFrequencyData(dataArray);
       return dataArray;
-    } catch (e) {
-      return null;
-    }
+    } catch { return null; }
   }
 
   public getCurrentSong() { return this.currentSong; }
