@@ -6,14 +6,11 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    url: 'https://kyokobeat.vercel.app',
     cleartext: true
   },
   android: {
     allowMixedContent: true,
-    // Background hitam agar tidak ada flash putih saat app loading di HP apapun
     backgroundColor: '#0a0a0a',
-    // Paksa WebView pakai hardware acceleration penuh
     webContentsDebuggingEnabled: false,
   },
   plugins: {
