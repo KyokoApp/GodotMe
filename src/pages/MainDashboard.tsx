@@ -186,6 +186,18 @@ export default function MainDashboard() {
   // Tab & Filter states
   const [activeTab, setActiveTab] = useState<'library' | 'playlists' | 'favorites'>('library');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('offline');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'album'>('title');
@@ -614,12 +626,16 @@ export default function MainDashboard() {
     }
   };
 
-  // Load cloud songs from Vercel API — always show all cloud songs even if downloaded
+  // Load cloud songs directly from Supabase (no longer depends on Vercel API)
   const loadCloudSongs = async () => {
     try {
-      const res = await fetch('/api/cloud-songs');
-      if (res.ok) {
-        const data = await res.json();
+      const { data, error } = await supabase
+        .from('cloud_songs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (!data) return;
 
         // Build set of valid cloud IDs from API
         const validCloudDlIds = new Set<string>(data.map((s: any) => `cloud-dl-${s.id}`));
@@ -662,7 +678,6 @@ export default function MainDashboard() {
           audioUrl: song.audio_url,
         }));
         setCloudSongs(formattedCloudSongs);
-      }
     } catch (e) {
       console.warn('Failed to load cloud songs:', e);
     }
@@ -752,6 +767,12 @@ export default function MainDashboard() {
 
   // Play song wrapper with automatic permission request
   const handlePlaySong = async (song: LocalSong) => {
+    // Cek koneksi untuk lagu cloud yang belum didownload
+    if (song.isCloud && !song.isDownloaded && !navigator.onLine) {
+      toast('Lagu cloud tidak tersedia offline. Periksa koneksi internet kamu.', 'error');
+      return;
+    }
+
     if (!song.isCloud) {
       try {
         if (isCapacitorActive()) {
@@ -2006,7 +2027,7 @@ export default function MainDashboard() {
                           handlePlaySong(song);
                         }
                       }}
-                      className="cursor-pointer"
+                      className={`cursor-pointer${song.isCloud && !song.isDownloaded && !isOnline ? ' opacity-40 pointer-events-none' : ''}`}
                     >
                       <SongCard
                         song={song}
