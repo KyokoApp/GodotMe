@@ -43,9 +43,6 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
-      - name: Install Capacitor Media Session plugin
-        run: npm install @capacitor-community/media-session --legacy-peer-deps
-
       - name: Capacitor sync
         run: npx cap sync android
 
