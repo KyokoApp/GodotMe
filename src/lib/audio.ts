@@ -247,16 +247,28 @@ class AudioManager {
 
         if (song.audioUrl) {
           src = song.audioUrl;
-          if (src.startsWith('/storage/') || src.startsWith('/data/')) {
+          // If it's a raw device path (not yet converted), convert it
+          if (src.startsWith('/storage/') || src.startsWith('/data/') || src.startsWith('/sdcard/')) {
             try {
               const { Capacitor } = await import('@capacitor/core');
               src = Capacitor.convertFileSrc(song.audioUrl);
             } catch (e) { console.warn('convertFileSrc error:', e); }
           }
-        } else {
-          const file = await song.fileHandle.getFile();
-          src = URL.createObjectURL(file);
+        } else if (song.path) {
+          // Fallback: convert path directly
+          try {
+            const { Capacitor } = await import('@capacitor/core');
+            src = Capacitor.convertFileSrc(song.path);
+          } catch (e) { console.warn('convertFileSrc path error:', e); }
+        } else if (song.fileHandle) {
+          // Only use fileHandle if it's actually available (not null)
+          try {
+            const file = await song.fileHandle.getFile();
+            src = URL.createObjectURL(file);
+          } catch (e) { console.warn('fileHandle.getFile error:', e); }
         }
+
+        if (!src) throw new Error('Tidak ada sumber audio yang valid untuk lagu ini');
 
         if (this.audio.src?.startsWith('blob:')) URL.revokeObjectURL(this.audio.src);
 
@@ -282,10 +294,12 @@ class AudioManager {
       } else if (song.audioUrl) {
         if (this.lastCrossOrigin) { this.audio.removeAttribute('crossorigin'); this.lastCrossOrigin = false; }
         src = song.audioUrl;
-      } else {
+      } else if (song.fileHandle) {
         if (this.lastCrossOrigin) { this.audio.removeAttribute('crossorigin'); this.lastCrossOrigin = false; }
         const file = await song.fileHandle.getFile();
         src = URL.createObjectURL(file);
+      } else {
+        throw new Error('Tidak ada sumber audio yang valid');
       }
 
       if (this.audio.src?.startsWith('blob:')) URL.revokeObjectURL(this.audio.src);
