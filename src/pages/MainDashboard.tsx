@@ -716,22 +716,6 @@ export default function MainDashboard() {
 
   const songIdOf = (song: LocalSong) => song.id;
 
-  // Get active queue for playing next/prev
-  const getActiveQueue = (): LocalSong[] => {
-    let list: LocalSong[] = [];
-    if (activeTab === 'library') {
-      list = getFilteredSongs();
-    } else if (activeTab === 'favorites') {
-      list = allSongs.filter(s => favorites.includes(songIdOf(s)));
-    } else if (activeTab === 'playlists' && selectedPlaylistId) {
-      const pl = playlists.find(p => p.id === selectedPlaylistId);
-      if (pl) {
-        list = allSongs.filter(s => pl.songIds.includes(songIdOf(s)));
-      }
-    }
-    return list.length > 0 ? list : allSongs;
-  };
-
   // Get active queue — reads from refs so it's always fresh even inside stale closures
   const getActiveQueueFromRefs = (): LocalSong[] => {
     const tab = activeTabRef.current;
