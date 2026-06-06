@@ -20,6 +20,11 @@ const config: CapacitorConfig = {
       launchAutoHide: true,
       launchShowDuration: 0,
     },
+    // @jofr/capacitor-media-session — enables Android media notification with
+    // play/pause/next/prev controls on the lock screen & notification shade
+    MediaSession: {
+      // No extra config needed; the plugin picks up Android foreground service automatically
+    },
   },
 };
 
