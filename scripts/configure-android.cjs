@@ -645,9 +645,22 @@ if (fs.existsSync(manifestPath)) {
       '<application',
       `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <application`
     );
-    fs.writeFileSync(manifestPath, manifest, 'utf8');
     console.log('✓ Added FOREGROUND_SERVICE permissions');
   }
+
+  // Declare jofr MediaSessionService for background audio playback
+  if (!manifest.includes('MediaSessionService')) {
+    const serviceDecl = `
+        <!-- jofr/capacitor-media-session: foreground service for background audio -->
+        <service
+            android:name="io.github.jofr.capacitor.mediasessionplugin.MediaSessionService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />`;
+    manifest = manifest.replace('</application>', `${serviceDecl}\n    </application>`);
+    console.log('✓ Registered MediaSessionService');
+  }
+
+  fs.writeFileSync(manifestPath, manifest, 'utf8');
 }
 
 // Tambah androidx.media dependency ke build.gradle kalau belum ada
