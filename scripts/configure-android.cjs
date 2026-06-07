@@ -643,9 +643,9 @@ if (fs.existsSync(manifestPath)) {
   if (!manifest.includes('FOREGROUND_SERVICE')) {
     manifest = manifest.replace(
       '<application',
-      `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <application`
+      `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <application`
     );
-    console.log('✓ Added FOREGROUND_SERVICE permissions');
+    console.log('✓ Added FOREGROUND_SERVICE + WAKE_LOCK permissions');
   }
 
   // jofr plugin declares MediaSessionService automatically — no manual declaration needed
@@ -682,6 +682,30 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(WAStickerPlugin.class);
         registerPlugin(FloatingLyricsPlugin.class);
         super.onCreate(savedInstanceState);
+    }
+
+    /**
+     * Capacitor BridgeActivity.onPause() memanggil webView.onPause() yang
+     * men-suspend JavaScript & mematikan audio WebView di background.
+     * Kita re-resume WebView setelah super selesai agar audio tetap jalan.
+     */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().onResume();
+        }
+    }
+
+    /**
+     * onStop() juga memanggil bridge.onStop() yang bisa suppress WebView lebih lanjut.
+     */
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().onResume();
+        }
     }
 }
 `;
