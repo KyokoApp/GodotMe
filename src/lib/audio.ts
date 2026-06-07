@@ -9,8 +9,7 @@ type AudioStateCallback = (state: {
   isMuted: boolean;
 }) => void;
 
-// ─── @jofr/capacitor-media-session lazy loader ────────────────────────────
-// API mirip Web Media Session tapi harus pakai plugin di native Android
+// ─── @jofr/capacitor-media-session lazy loader (web fallback) ─────────────
 let _mediaPlugin: any = null;
 async function getPlugin() {
   if (_mediaPlugin) return _mediaPlugin;
@@ -23,6 +22,17 @@ async function getPlugin() {
   }
 }
 
+// ─── Native audio service (Android foreground service) ────────────────────
+let _nativePlugin: any = null;
+async function getNativePlugin() {
+  if (_nativePlugin) return _nativePlugin;
+  try {
+    const { registerPlugin } = await import('@capacitor/core');
+    _nativePlugin = registerPlugin('KyokoBeatNative');
+    return _nativePlugin;
+  } catch { return null; }
+}
+
 class AudioManager {
   private audio: HTMLAudioElement;
   private audioContext: AudioContext | null = null;
@@ -33,6 +43,7 @@ class AudioManager {
   private lastCrossOrigin = false;
   private positionTimer: ReturnType<typeof setInterval> | null = null;
   private handlersRegistered = false;
+  private nativeServiceListenerAdded = false;
 
   constructor() {
     this.audio = new Audio();
@@ -41,11 +52,13 @@ class AudioManager {
     this.audio.addEventListener('play', () => {
       this.notifyState();
       this.setPlaybackState('playing');
+      this.updateNativeService(true);
       this.startPositionTimer();
     });
     this.audio.addEventListener('pause', () => {
       this.notifyState();
       this.setPlaybackState('paused');
+      this.updateNativeService(false);
       this.stopPositionTimer();
     });
     this.audio.addEventListener('timeupdate', () => this.notifyState());
@@ -76,6 +89,46 @@ class AudioManager {
 
   private stopPositionTimer() {
     if (this.positionTimer) { clearInterval(this.positionTimer); this.positionTimer = null; }
+  }
+
+  // ─── Native Foreground Service (Android) ──────────────────────────────────
+
+  private async startNativeService(song: LocalSong, isPlaying: boolean) {
+    if (!this.isNative()) return;
+    const plugin = await getNativePlugin();
+    if (!plugin) return;
+
+    // Pasang listener sekali saja
+    if (!this.nativeServiceListenerAdded) {
+      this.nativeServiceListenerAdded = true;
+      plugin.addListener('audioControl', (event: { action: string }) => {
+        switch (event.action) {
+          case 'play':  this.audio.play().catch(() => {}); break;
+          case 'pause': this.audio.pause(); break;
+          case 'next':  if (this.onTrackEnded) this.onTrackEnded(); break;
+          case 'prev':  if (this.onPrevTrack)  this.onPrevTrack();  break;
+          case 'stop':  this.audio.pause(); break;
+        }
+      });
+    }
+
+    await plugin.startAudioService({
+      title:   song.title   || 'Unknown Title',
+      artist:  song.artist  || 'Unknown Artist',
+      playing: isPlaying,
+    }).catch(() => {});
+  }
+
+  private async stopNativeService() {
+    if (!this.isNative()) return;
+    const plugin = await getNativePlugin();
+    if (!plugin) return;
+    await plugin.stopAudioService().catch(() => {});
+  }
+
+  private async updateNativeService(isPlaying: boolean) {
+    if (!this.isNative() || !this.currentSong) return;
+    await this.startNativeService(this.currentSong, isPlaying);
   }
 
   // ─── Media Session ─────────────────────────────────────────────────────────
@@ -277,7 +330,9 @@ class AudioManager {
         this.audio.load();
         await this.audio.play();
 
-        // Update metadata THEN set state to 'playing' — ORDER MATTERS for notification
+        // Mulai native foreground service (WakeLock + notifikasi + lockscreen controls)
+        await this.startNativeService(song, true);
+        // Juga update jofr metadata sebagai backup (untuk perangkat yg support)
         await this.updateMetadata(song);
         await this.setPlaybackState('playing');
         this.notifyState();
