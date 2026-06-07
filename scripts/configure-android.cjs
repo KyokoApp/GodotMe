@@ -176,34 +176,23 @@ public class KyokoBeatNativePlugin extends Plugin {
         JSObject result = new JSObject(); result.put("songs", songs); call.resolve(result);
     }
 
-    // ─── Native audio player bridge ───────────────────────────────────────────
-
     @PluginMethod
-    public void nativePlay(PluginCall call) {
-        String url    = call.getString("url", "");
-        String title  = call.getString("title", "KyokoBeat");
-        String artist = call.getString("artist", "");
+    public void startAudioService(PluginCall call) {
+        String  title   = call.getString("title",   "KyokoBeat");
+        String  artist  = call.getString("artist",  "");
+        boolean playing = Boolean.TRUE.equals(call.getBoolean("playing", true));
 
-        AudioForegroundService.callback = new AudioForegroundService.EventCallback() {
-            @Override public void onProgress(int pos, int dur) {
-                JSObject d = new JSObject(); d.put("position", pos / 1000.0); d.put("duration", dur / 1000.0);
-                notifyListeners("nativeProgress", d);
-            }
-            @Override public void onEnded() { notifyListeners("nativeEnded", new JSObject()); }
-            @Override public void onError(String msg) {
-                JSObject d = new JSObject(); d.put("message", msg);
-                notifyListeners("nativeError", d);
-            }
-            @Override public void onPlay()  { notifyListeners("nativePlay",  new JSObject()); }
-            @Override public void onPause() { notifyListeners("nativePause", new JSObject()); }
-            @Override public void onNext()  { notifyListeners("nativeNext",  new JSObject()); }
-            @Override public void onPrev()  { notifyListeners("nativePrev",  new JSObject()); }
+        AudioForegroundService.listener = action -> {
+            JSObject d = new JSObject();
+            d.put("action", action);
+            notifyListeners("audioControl", d);
         };
 
         Intent i = new Intent(getContext(), AudioForegroundService.class);
-        i.putExtra("url",    url);
-        i.putExtra("title",  title);
-        i.putExtra("artist", artist);
+        i.putExtra("title",   title);
+        i.putExtra("artist",  artist);
+        i.putExtra("playing", playing);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getContext().startForegroundService(i);
         } else {
@@ -213,33 +202,7 @@ public class KyokoBeatNativePlugin extends Plugin {
     }
 
     @PluginMethod
-    public void nativePause(PluginCall call) {
-        Intent i = new Intent(getContext(), AudioForegroundService.class);
-        i.setAction(AudioForegroundService.ACTION_PAUSE);
-        getContext().startService(i);
-        call.resolve();
-    }
-
-    @PluginMethod
-    public void nativeResume(PluginCall call) {
-        Intent i = new Intent(getContext(), AudioForegroundService.class);
-        i.setAction(AudioForegroundService.ACTION_RESUME);
-        getContext().startService(i);
-        call.resolve();
-    }
-
-    @PluginMethod
-    public void nativeSeek(PluginCall call) {
-        int posMs = (int)(call.getDouble("position", 0.0) * 1000);
-        Intent i = new Intent(getContext(), AudioForegroundService.class);
-        i.setAction(AudioForegroundService.ACTION_SEEK);
-        i.putExtra("position", posMs);
-        getContext().startService(i);
-        call.resolve();
-    }
-
-    @PluginMethod
-    public void nativeStop(PluginCall call) {
+    public void stopAudioService(PluginCall call) {
         Intent i = new Intent(getContext(), AudioForegroundService.class);
         i.setAction(AudioForegroundService.ACTION_STOP);
         getContext().startService(i);
@@ -716,7 +679,7 @@ if (fs.existsSync(manifestPath)) {
       '<application',
       `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <application`
     );
-    console.log('✓ Added FOREGROUND_SERVICE + WAKE_LOCK permissions');
+    console.log('\u2713 Added FOREGROUND_SERVICE + WAKE_LOCK permissions');
   }
 
   // jofr plugin declares MediaSessionService automatically — no manual declaration needed
@@ -755,6 +718,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
     }
 
+    // Cegah WebView audio berhenti saat app di-background
     @Override
     public void onPause() {
         super.onPause();
@@ -777,9 +741,7 @@ console.log('✓ Updated MainActivity.java');
 
 console.log('--- Done! Semua native code siap ---');
 
-// ─────────────────────────────────────────────────────────
-// 10. AudioForegroundService.java — native MediaPlayer + lockscreen controls
-// ─────────────────────────────────────────────────────────
+// 10. AudioForegroundService.java
 const audioServiceCode = `package com.kyokobeat.musicplayer;
 
 import android.app.Notification;
@@ -788,12 +750,8 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
-import android.media.AudioAttributes;
-import android.media.MediaPlayer;
 import android.os.Build;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.os.PowerManager;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
@@ -805,33 +763,18 @@ public class AudioForegroundService extends Service {
     public static final String ACTION_PAUSE  = "kyokobeat.PAUSE";
     public static final String ACTION_RESUME = "kyokobeat.RESUME";
     public static final String ACTION_STOP   = "kyokobeat.STOP";
-    public static final String ACTION_SEEK   = "kyokobeat.SEEK";
-    public static final String ACTION_UPDATE = "kyokobeat.UPDATE";
     public static final String ACTION_PREV   = "kyokobeat.PREV";
     public static final String ACTION_NEXT   = "kyokobeat.NEXT";
     private static final int   NOTIF_ID      = 77;
 
-    public interface EventCallback {
-        void onProgress(int positionMs, int durationMs);
-        void onEnded();
-        void onError(String msg);
-        void onPlay();
-        void onPause();
-        void onNext();
-        void onPrev();
-    }
-    public static EventCallback callback;
+    public interface ActionListener { void onAction(String action); }
+    public static ActionListener listener;
 
-    private MediaPlayer mp;
     private MediaSessionCompat mediaSession;
     private PowerManager.WakeLock wakeLock;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private Runnable progressRunnable;
-    private boolean prepared = false;
-    private boolean playing  = false;
-    private String title  = "KyokoBeat";
-    private String artist = "";
-    private int durationMs = 0;
+    private String  title   = "KyokoBeat";
+    private String  artist  = "";
+    private boolean playing = false;
 
     @Override
     public void onCreate() {
@@ -842,10 +785,10 @@ public class AudioForegroundService extends Service {
             MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS |
             MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
         mediaSession.setCallback(new MediaSessionCompat.Callback() {
-            @Override public void onPlay()           { resumePlay(); if (callback != null) callback.onPlay();  }
-            @Override public void onPause()          { pausePlay();  if (callback != null) callback.onPause(); }
-            @Override public void onSkipToNext()     {               if (callback != null) callback.onNext();  }
-            @Override public void onSkipToPrevious() {               if (callback != null) callback.onPrev();  }
+            @Override public void onPlay()           { dispatch("play");  }
+            @Override public void onPause()          { dispatch("pause"); }
+            @Override public void onSkipToNext()     { dispatch("next");  }
+            @Override public void onSkipToPrevious() { dispatch("prev");  }
             @Override public void onStop()           { stopSelf(); }
         });
         mediaSession.setActive(true);
@@ -858,100 +801,28 @@ public class AudioForegroundService extends Service {
         if (intent == null) return START_STICKY;
         String action = intent.getAction() != null ? intent.getAction() : "";
         switch (action) {
-            case ACTION_PAUSE:  pausePlay();  break;
-            case ACTION_RESUME: resumePlay(); break;
-            case ACTION_STOP:   releasePlayer(); stopSelf(); return START_NOT_STICKY;
-            case ACTION_PREV:   if (callback != null) callback.onPrev(); break;
-            case ACTION_NEXT:   if (callback != null) callback.onNext(); break;
-            case ACTION_SEEK: {
-                int pos = intent.getIntExtra("position", 0);
-                if (mp != null && prepared) mp.seekTo(pos);
-                break;
-            }
-            case ACTION_UPDATE:
+            case ACTION_PAUSE:  playing = false; dispatch("pause"); break;
+            case ACTION_RESUME: playing = true;  dispatch("play");  break;
+            case ACTION_STOP:   stopSelf(); return START_NOT_STICKY;
+            case ACTION_PREV:   dispatch("prev"); break;
+            case ACTION_NEXT:   dispatch("next"); break;
+            default:
                 if (intent.getStringExtra("title")  != null) title  = intent.getStringExtra("title");
                 if (intent.getStringExtra("artist") != null) artist = intent.getStringExtra("artist");
-                updateNotif();
-                break;
-            default: {
-                String url = intent.getStringExtra("url");
-                if (intent.getStringExtra("title")  != null) title  = intent.getStringExtra("title");
-                if (intent.getStringExtra("artist") != null) artist = intent.getStringExtra("artist");
-                if (url != null && !url.isEmpty()) playUrl(url);
-            }
+                playing = intent.getBooleanExtra("playing", true);
         }
         if (!wakeLock.isHeld()) wakeLock.acquire(3600_000L);
+        updatePlaybackState();
         startForeground(NOTIF_ID, buildNotification());
         return START_STICKY;
     }
 
-    private void playUrl(String rawUrl) {
-        releasePlayer();
-        prepared = false; playing = false;
-        mp = new MediaPlayer();
-        mp.setAudioAttributes(new AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build());
-        try {
-            // Capacitor file URL → real path; cloud URLs passed as-is
-            String src = rawUrl.startsWith("https://localhost/_capacitor_file_")
-                ? rawUrl.replace("https://localhost/_capacitor_file_", "")
-                : rawUrl;
-            mp.setDataSource(src);
-            mp.prepareAsync();
-            mp.setOnPreparedListener(p -> {
-                prepared = true; playing = true;
-                durationMs = p.getDuration();
-                p.start();
-                updatePlaybackState(); updateNotif(); startProgressTimer();
-            });
-            mp.setOnCompletionListener(p -> {
-                playing = false; prepared = false;
-                stopProgressTimer(); updatePlaybackState(); updateNotif();
-                if (callback != null) callback.onEnded();
-            });
-            mp.setOnErrorListener((p, what, extra) -> {
-                playing = false; prepared = false;
-                if (callback != null) callback.onError("err " + what);
-                return true;
-            });
-        } catch (Exception e) {
-            if (callback != null) callback.onError(e.getMessage() != null ? e.getMessage() : "unknown");
-        }
-    }
-
-    private void pausePlay() {
-        if (mp != null && prepared && mp.isPlaying()) { mp.pause(); playing = false; }
-        stopProgressTimer(); updatePlaybackState(); updateNotif();
-    }
-
-    private void resumePlay() {
-        if (mp != null && prepared && !mp.isPlaying()) { mp.start(); playing = true; }
-        startProgressTimer(); updatePlaybackState(); updateNotif();
-    }
-
-    private void startProgressTimer() {
-        stopProgressTimer();
-        progressRunnable = new Runnable() {
-            @Override public void run() {
-                if (mp != null && prepared && mp.isPlaying()) {
-                    if (callback != null) callback.onProgress(mp.getCurrentPosition(), durationMs);
-                    handler.postDelayed(this, 1000);
-                }
-            }
-        };
-        handler.postDelayed(progressRunnable, 1000);
-    }
-
-    private void stopProgressTimer() {
-        if (progressRunnable != null) { handler.removeCallbacks(progressRunnable); progressRunnable = null; }
-    }
-
-    private void releasePlayer() {
-        stopProgressTimer();
-        if (mp != null) { try { mp.stop(); } catch (Exception ignored) {} mp.release(); mp = null; }
-        prepared = false; playing = false;
+    private void dispatch(String action) {
+        if (listener != null) listener.onAction(action);
+        if ("play".equals(action))  playing = true;
+        if ("pause".equals(action)) playing = false;
+        updatePlaybackState();
+        updateNotif();
     }
 
     private void updatePlaybackState() {
@@ -961,7 +832,7 @@ public class AudioForegroundService extends Service {
                 PlaybackStateCompat.ACTION_SKIP_TO_NEXT | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
             .setState(
                 playing ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED,
-                mp != null && prepared ? mp.getCurrentPosition() : 0, 1f)
+                PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1f)
             .build();
         mediaSession.setPlaybackState(ps);
     }
@@ -994,8 +865,7 @@ public class AudioForegroundService extends Service {
     }
 
     private void updateNotif() {
-        ((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
-            .notify(NOTIF_ID, buildNotification());
+        ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).notify(NOTIF_ID, buildNotification());
     }
 
     private PendingIntent makePi(String action, int req) {
@@ -1006,8 +876,7 @@ public class AudioForegroundService extends Service {
 
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel ch = new NotificationChannel(
-                CHANNEL_ID, "Music Playback", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel ch = new NotificationChannel(CHANNEL_ID, "Music Playback", NotificationManager.IMPORTANCE_LOW);
             ch.setDescription("KyokoBeat audio");
             ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
         }
@@ -1015,7 +884,6 @@ public class AudioForegroundService extends Service {
 
     @Override
     public void onDestroy() {
-        releasePlayer();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         if (mediaSession != null) { mediaSession.setActive(false); mediaSession.release(); }
         super.onDestroy();
@@ -1026,9 +894,9 @@ public class AudioForegroundService extends Service {
 `;
 const audioServicePath = path.join(mainActivityDir, 'AudioForegroundService.java');
 fs.writeFileSync(audioServicePath, audioServiceCode, 'utf8');
-console.log('✓ Created AudioForegroundService.java (with native MediaPlayer)');
+console.log('\u2713 Created AudioForegroundService.java');
 
-// Daftarkan di AndroidManifest
+// Daftarkan service di manifest
 if (fs.existsSync(manifestPath)) {
   let manifest = fs.readFileSync(manifestPath, 'utf8');
   if (!manifest.includes('AudioForegroundService')) {
@@ -1041,6 +909,6 @@ if (fs.existsSync(manifestPath)) {
     </application>`
     );
     fs.writeFileSync(manifestPath, manifest, 'utf8');
-    console.log('✓ Declared AudioForegroundService in AndroidManifest');
+    console.log('\u2713 Declared AudioForegroundService in AndroidManifest');
   }
 }
