@@ -314,16 +314,29 @@ class AudioManager {
           this.nativeIsPlaying   = true;
           this.nativeCurrentTime = 0;
           this.nativeDuration    = 0;
-          await nativePlug.nativePlay({
-            url:    src,
-            title:  song.title  || 'Unknown',
-            artist: song.artist || '',
+
+          // Listener error — reset state supaya UI tidak stuck
+          nativePlug.addListener('nativeError', (_e: any) => {
+            this.nativeIsPlaying = false;
+            this.notifyState();
           });
-          this.notifyState();
-          return;
+
+          try {
+            await nativePlug.nativePlay({
+              url:    src,
+              title:  song.title  || 'Unknown',
+              artist: song.artist || '',
+            });
+            this.notifyState();
+            return;
+          } catch (nativeErr) {
+            // Native service gagal — fallback ke HTMLAudioElement
+            console.warn('[audio] nativePlay gagal, fallback ke HTMLAudioElement:', nativeErr);
+            this.nativeIsPlaying = false;
+          }
         }
 
-        // Fallback: HTMLAudioElement (jika native plugin tidak tersedia)
+        // Fallback: HTMLAudioElement
         if (this.audio.src?.startsWith('blob:')) URL.revokeObjectURL(this.audio.src);
         this.audio.src = src;
         this.audio.load();
