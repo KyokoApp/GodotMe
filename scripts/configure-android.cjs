@@ -643,9 +643,9 @@ if (fs.existsSync(manifestPath)) {
   if (!manifest.includes('FOREGROUND_SERVICE')) {
     manifest = manifest.replace(
       '<application',
-      `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <application`
+      `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <application`
     );
-    console.log('✓ Added FOREGROUND_SERVICE + WAKE_LOCK permissions');
+    console.log('✓ Added FOREGROUND_SERVICE permissions');
   }
 
   // jofr plugin declares MediaSessionService automatically — no manual declaration needed
@@ -683,33 +683,251 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(FloatingLyricsPlugin.class);
         super.onCreate(savedInstanceState);
     }
-
-    /**
-     * Capacitor BridgeActivity.onPause() memanggil webView.onPause() yang
-     * men-suspend JavaScript & mematikan audio WebView di background.
-     * Kita re-resume WebView setelah super selesai agar audio tetap jalan.
-     */
-    @Override
-    public void onPause() {
-        super.onPause();
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().onResume();
-        }
-    }
-
-    /**
-     * onStop() juga memanggil bridge.onStop() yang bisa suppress WebView lebih lanjut.
-     */
-    @Override
-    public void onStop() {
-        super.onStop();
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().onResume();
-        }
-    }
 }
 `;
 fs.writeFileSync(mainActivityPath, mainActivityCode, 'utf8');
 console.log('✓ Updated MainActivity.java');
 
 console.log('--- Done! Semua native code siap ---');
+
+// ─────────────────────────────────────────────────────────
+// 10. AudioForegroundService.java — background audio + lockscreen controls
+// ─────────────────────────────────────────────────────────
+const audioServiceCode = `package com.kyokobeat.musicplayer;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Intent;
+import android.os.Build;
+import android.os.IBinder;
+import android.os.PowerManager;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.media.app.NotificationCompat.MediaStyle;
+
+public class AudioForegroundService extends Service {
+    public static final String CHANNEL_ID     = "kyokobeat_audio";
+    public static final String ACTION_PLAY    = "kyokobeat.PLAY";
+    public static final String ACTION_PAUSE   = "kyokobeat.PAUSE";
+    public static final String ACTION_NEXT    = "kyokobeat.NEXT";
+    public static final String ACTION_PREV    = "kyokobeat.PREV";
+    public static final String ACTION_STOP    = "kyokobeat.STOP";
+    public static final String ACTION_UPDATE  = "kyokobeat.UPDATE";
+    private static final int   NOTIF_ID       = 42;
+
+    /** JS-side callback — set by KyokoBeatNativePlugin */
+    public interface ActionListener { void onAction(String action); }
+    public static ActionListener listener;
+
+    private MediaSessionCompat mediaSession;
+    private PowerManager.WakeLock wakeLock;
+    private String title   = "KyokoBeat";
+    private String artist  = "";
+    private boolean playing = false;
+
+    // ── lifecycle ───────────────────────────────────────────────────────────
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createChannel();
+
+        mediaSession = new MediaSessionCompat(this, "KyokoBeat");
+        mediaSession.setFlags(
+            MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS |
+            MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+        );
+        mediaSession.setCallback(new MediaSessionCompat.Callback() {
+            @Override public void onPlay()           { dispatch("play");  }
+            @Override public void onPause()          { dispatch("pause"); }
+            @Override public void onSkipToNext()     { dispatch("next");  }
+            @Override public void onSkipToPrevious() { dispatch("prev");  }
+            @Override public void onStop()           { dispatch("stop");  }
+        });
+        mediaSession.setActive(true);
+
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "KyokoBeat:audio");
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        String action = intent != null ? intent.getAction() : null;
+        if      (ACTION_PLAY.equals(action))   dispatch("play");
+        else if (ACTION_PAUSE.equals(action))  dispatch("pause");
+        else if (ACTION_NEXT.equals(action))   dispatch("next");
+        else if (ACTION_PREV.equals(action))   dispatch("prev");
+        else if (ACTION_STOP.equals(action))   { stopSelf(); return START_NOT_STICKY; }
+        else if (intent != null) {
+            String t = intent.getStringExtra("title");  if (t != null) title  = t;
+            String a = intent.getStringExtra("artist"); if (a != null) artist = a;
+            playing  = intent.getBooleanExtra("playing", true);
+        }
+
+        if (!wakeLock.isHeld()) wakeLock.acquire(3600_000L); // 1 jam maks
+        startForeground(NOTIF_ID, buildNotification());
+        return START_STICKY;
+    }
+
+    @Override
+    public void onDestroy() {
+        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        if (mediaSession != null) { mediaSession.setActive(false); mediaSession.release(); }
+        super.onDestroy();
+    }
+
+    @Override public IBinder onBind(Intent intent) { return null; }
+
+    // ── internal helpers ────────────────────────────────────────────────────
+    private void dispatch(String action) {
+        if (listener != null) listener.onAction(action);
+        if ("play".equals(action))  { playing = true;  updateNotif(); }
+        if ("pause".equals(action)) { playing = false; updateNotif(); }
+        if ("stop".equals(action))  { stopSelf(); }
+    }
+
+    private void updateNotif() {
+        ((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
+            .notify(NOTIF_ID, buildNotification());
+    }
+
+    private Notification buildNotification() {
+        // Update MediaSession playback state (ini yang bikin lockscreen controls muncul)
+        PlaybackStateCompat ps = new PlaybackStateCompat.Builder()
+            .setActions(
+                PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE |
+                PlaybackStateCompat.ACTION_SKIP_TO_NEXT | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+            )
+            .setState(
+                playing ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED,
+                PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1f
+            )
+            .build();
+        mediaSession.setPlaybackState(ps);
+
+        PendingIntent openApp   = PendingIntent.getActivity(this, 0,
+            new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent prev      = makePi(ACTION_PREV,                    1);
+        PendingIntent playPause = makePi(playing ? ACTION_PAUSE : ACTION_PLAY, 2);
+        PendingIntent next      = makePi(ACTION_NEXT,                    3);
+
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle(title)
+            .setContentText(artist.isEmpty() ? "KyokoBeat" : artist)
+            .setContentIntent(openApp)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .addAction(android.R.drawable.ic_media_previous, "Prev", prev)
+            .addAction(
+                playing ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
+                playing ? "Pause" : "Play", playPause)
+            .addAction(android.R.drawable.ic_media_next, "Next", next)
+            .setStyle(new MediaStyle()
+                .setMediaSession(mediaSession.getSessionToken())
+                .setShowActionsInCompactView(0, 1, 2))
+            .build();
+    }
+
+    private PendingIntent makePi(String action, int req) {
+        return PendingIntent.getService(this, req,
+            new Intent(this, AudioForegroundService.class).setAction(action),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    private void createChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel ch = new NotificationChannel(
+                CHANNEL_ID, "Music Playback", NotificationManager.IMPORTANCE_LOW);
+            ch.setDescription("KyokoBeat audio playback");
+            ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
+        }
+    }
+}
+`;
+const audioServicePath = path.join(mainActivityDir, 'AudioForegroundService.java');
+fs.writeFileSync(audioServicePath, audioServiceCode, 'utf8');
+console.log('✓ Created AudioForegroundService.java');
+
+// ─────────────────────────────────────────────────────────
+// 11. Daftarkan AudioForegroundService di AndroidManifest
+// ─────────────────────────────────────────────────────────
+if (fs.existsSync(manifestPath)) {
+  let manifest = fs.readFileSync(manifestPath, 'utf8');
+  if (!manifest.includes('AudioForegroundService')) {
+    manifest = manifest.replace(
+      '</application>',
+      `    <service
+            android:name="com.kyokobeat.musicplayer.AudioForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+    </application>`
+    );
+    fs.writeFileSync(manifestPath, manifest, 'utf8');
+    console.log('✓ Declared AudioForegroundService in AndroidManifest');
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// 12. Tambah startAudioService / stopAudioService ke KyokoBeatNativePlugin
+// ─────────────────────────────────────────────────────────
+if (fs.existsSync(nativePluginPath)) {
+  let plugin = fs.readFileSync(nativePluginPath, 'utf8');
+
+  // Tambah import Intent kalau belum ada
+  if (!plugin.includes('import android.content.Intent;')) {
+    plugin = plugin.replace(
+      'import android.Manifest;',
+      'import android.Manifest;\nimport android.content.Intent;'
+    );
+  }
+
+  // Sisipkan dua method sebelum closing } terakhir
+  const audioMethods = `
+    @PluginMethod
+    public void startAudioService(PluginCall call) {
+        String  t       = call.getString("title",  "KyokoBeat");
+        String  a       = call.getString("artist", "");
+        boolean playing = Boolean.TRUE.equals(call.getBoolean("playing", true));
+
+        AudioForegroundService.listener = action -> {
+            com.getcapacitor.JSObject data = new com.getcapacitor.JSObject();
+            data.put("action", action);
+            notifyListeners("audioControl", data);
+        };
+
+        Intent i = new Intent(getContext(), AudioForegroundService.class);
+        i.putExtra("title",   t);
+        i.putExtra("artist",  a);
+        i.putExtra("playing", playing);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(i);
+        } else {
+            getContext().startService(i);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void stopAudioService(PluginCall call) {
+        Intent i = new Intent(getContext(), AudioForegroundService.class);
+        i.setAction(AudioForegroundService.ACTION_STOP);
+        getContext().startService(i);
+        call.resolve();
+    }
+`;
+
+  if (!plugin.includes('startAudioService')) {
+    // Sisipkan sebelum } terakhir
+    const lastBrace = plugin.lastIndexOf('\n}');
+    plugin = plugin.slice(0, lastBrace) + audioMethods + '\n}';
+    fs.writeFileSync(nativePluginPath, plugin, 'utf8');
+    console.log('✓ Added startAudioService/stopAudioService to KyokoBeatNativePlugin');
+  }
+}
