@@ -690,7 +690,7 @@ public class MainActivity extends BridgeActivity {
      * Kita re-resume WebView setelah super selesai agar audio tetap jalan.
      */
     @Override
-    protected void onPause() {
+    public void onPause() {
         super.onPause();
         if (getBridge() != null && getBridge().getWebView() != null) {
             getBridge().getWebView().onResume();
@@ -701,7 +701,7 @@ public class MainActivity extends BridgeActivity {
      * onStop() juga memanggil bridge.onStop() yang bisa suppress WebView lebih lanjut.
      */
     @Override
-    protected void onStop() {
+    public void onStop() {
         super.onStop();
         if (getBridge() != null && getBridge().getWebView() != null) {
             getBridge().getWebView().onResume();
