@@ -23,18 +23,6 @@ async function getPlugin() {
   }
 }
 
-// Native foreground service helper
-let _nativePlug: any = null;
-let _nativeListenerSet = false;
-async function getNativePlug() {
-  if (_nativePlug) return _nativePlug;
-  try {
-    const { registerPlugin } = await import('@capacitor/core');
-    _nativePlug = registerPlugin('KyokoBeatNative');
-  } catch {}
-  return _nativePlug;
-}
-
 class AudioManager {
   private audio: HTMLAudioElement;
   private audioContext: AudioContext | null = null;
@@ -240,30 +228,6 @@ class AudioManager {
     this.callbacks.forEach(cb => cb(state));
   }
 
-  private async syncNativeService(playing: boolean) {
-    if (!this.isNative() || !this.currentSong) return;
-    const plugin = await getNativePlug();
-    if (!plugin) return;
-    if (!_nativeListenerSet) {
-      _nativeListenerSet = true;
-      plugin.addListener('audioControl', (e: { action: string }) => {
-        switch (e.action) {
-          case 'play':  this.audio.play().catch(() => {}); this.setPlaybackState('playing'); break;
-          case 'pause': this.audio.pause();                this.setPlaybackState('paused');  break;
-          case 'next':  if (this.onTrackEnded) this.onTrackEnded(); break;
-          case 'prev':  if (this.onPrevTrack)  this.onPrevTrack();  break;
-        }
-      });
-    }
-    try {
-      await plugin.startAudioService({
-        title:   this.currentSong.title  || 'Unknown',
-        artist:  this.currentSong.artist || '',
-        playing,
-      });
-    } catch (e) { console.warn('[NativeService] error:', e); }
-  }
-
   public async playSong(song: LocalSong) {
     const native = this.isNative();
 
@@ -313,11 +277,10 @@ class AudioManager {
         this.audio.load();
         await this.audio.play();
 
-        // Mulai native foreground service — keepalive + lockscreen controls
-        // HTMLAudioElement TETAP jadi sumber audio, service hanya background persistence
-        this.syncNativeService(true).catch(() => {});
-
-        // Update metadata THEN set state to 'playing' — ORDER MATTERS for notification
+        // Update metadata THEN set state to 'playing' — ORDER MATTERS for notification.
+        // setPlaybackState('playing') is what makes @jofr/capacitor-media-session start its
+        // own foreground service — this alone covers both background keepalive AND the
+        // lockscreen/notification controls, no separate native service needed.
         await this.updateMetadata(song);
         await this.setPlaybackState('playing');
         this.notifyState();
