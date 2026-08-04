@@ -37,6 +37,7 @@ class AudioManager {
   private lastCrossOrigin = false;
   private positionTimer: ReturnType<typeof setInterval> | null = null;
   private handlersRegistered = false;
+  private failedNativeMethods = new Set<string>();
 
   constructor() {
     this.audio = new Audio();
@@ -72,6 +73,28 @@ class AudioManager {
       !!(window as any).Capacitor?.isNativePlatform?.();
   }
 
+  // ─── native plugin call wrapper ────────────────────────────────────────────
+  // Capacitor ngelempar error generik "X.then() is not implemented on android"
+  // tiap kali SATU method plugin native gagal — errornya ke-log sendiri sama
+  // Capacitor SEBELUM sempet ke-catch di kode kita, dan pesannya selalu bilang
+  // "then()" (bukan nama method aslinya) karena itu cara `await` ngecek promise.
+  // Makanya dulu keliatannya spam ratusan baris identik padahal cuma 1 method
+  // yang bermasalah — kemungkinan besar setPositionState, soalnya itu satu-
+  // satunya yang dipanggil tiap 1 detik lewat position timer.
+  // Wrapper ini: (1) nge-log SEKALI aja pake nama method yang BENERAN gagal,
+  // (2) skip diem-diem buat panggilan berikutnya ke method yang sama biar gak
+  // spam terus, (3) method lain yang masih jalan normal tetep jalan.
+  private async callNative<T>(methodName: string, fn: () => Promise<T>): Promise<T | null> {
+    if (this.failedNativeMethods.has(methodName)) return null;
+    try {
+      return await fn();
+    } catch (e) {
+      this.failedNativeMethods.add(methodName);
+      console.error(`[KyokoBeat:MediaSession] Native "${methodName}" gagal — dimatikan biar gak spam log. Error asli:`, e);
+      return null;
+    }
+  }
+
   // ─── position sync timer ───────────────────────────────────────────────────
   private startPositionTimer() {
     this.stopPositionTimer();
@@ -95,39 +118,35 @@ class AudioManager {
         console.error('[KyokoBeat:MediaSession] registerHandlers dibatalkan — plugin null (cek log import di atas)');
         return;
       }
-      try {
-        await plugin.setActionHandler({ action: 'play' }, async () => {
-          await this.audio.play().catch(() => {});
-          this.setPlaybackState('playing');
-        });
-        await plugin.setActionHandler({ action: 'pause' }, () => {
-          this.audio.pause();
-          this.setPlaybackState('paused');
-        });
-        await plugin.setActionHandler({ action: 'previoustrack' }, () => {
-          if (this.onPrevTrack) this.onPrevTrack();
-        });
-        await plugin.setActionHandler({ action: 'nexttrack' }, () => {
-          if (this.onTrackEnded) this.onTrackEnded();
-        });
-        await plugin.setActionHandler({ action: 'seekto' }, (details: any) => {
-          if (details?.seekTime !== undefined) {
-            this.audio.currentTime = details.seekTime;
-            this.syncPosition();
-          }
-        });
-        await plugin.setActionHandler({ action: 'seekbackward' }, (details: any) => {
-          this.audio.currentTime = Math.max(0, this.audio.currentTime - (details?.seekOffset ?? 10));
+      await this.callNative('setActionHandler(play)', () => plugin.setActionHandler({ action: 'play' }, async () => {
+        await this.audio.play().catch(() => {});
+        this.setPlaybackState('playing');
+      }));
+      await this.callNative('setActionHandler(pause)', () => plugin.setActionHandler({ action: 'pause' }, () => {
+        this.audio.pause();
+        this.setPlaybackState('paused');
+      }));
+      await this.callNative('setActionHandler(previoustrack)', () => plugin.setActionHandler({ action: 'previoustrack' }, () => {
+        if (this.onPrevTrack) this.onPrevTrack();
+      }));
+      await this.callNative('setActionHandler(nexttrack)', () => plugin.setActionHandler({ action: 'nexttrack' }, () => {
+        if (this.onTrackEnded) this.onTrackEnded();
+      }));
+      await this.callNative('setActionHandler(seekto)', () => plugin.setActionHandler({ action: 'seekto' }, (details: any) => {
+        if (details?.seekTime !== undefined) {
+          this.audio.currentTime = details.seekTime;
           this.syncPosition();
-        });
-        await plugin.setActionHandler({ action: 'seekforward' }, (details: any) => {
-          this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + (details?.seekOffset ?? 10));
-          this.syncPosition();
-        });
-        console.log('[KyokoBeat:MediaSession] registerHandlers OK — action handlers terpasang');
-      } catch (e) {
-        console.error('[KyokoBeat:MediaSession] registerHandlers error:', e);
-      }
+        }
+      }));
+      await this.callNative('setActionHandler(seekbackward)', () => plugin.setActionHandler({ action: 'seekbackward' }, (details: any) => {
+        this.audio.currentTime = Math.max(0, this.audio.currentTime - (details?.seekOffset ?? 10));
+        this.syncPosition();
+      }));
+      await this.callNative('setActionHandler(seekforward)', () => plugin.setActionHandler({ action: 'seekforward' }, (details: any) => {
+        this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + (details?.seekOffset ?? 10));
+        this.syncPosition();
+      }));
+      console.log('[KyokoBeat:MediaSession] registerHandlers selesai — cek baris di atas kalau ada handler yang gagal');
     } else {
       if (!('mediaSession' in navigator)) return;
       navigator.mediaSession.setActionHandler('play', () => { this.audio.play().catch(() => {}); });
@@ -154,11 +173,7 @@ class AudioManager {
         console.error('[KyokoBeat:MediaSession] updateMetadata dibatalkan — plugin null');
         return;
       }
-      try {
-        await plugin.setMetadata(meta);
-      } catch (e) {
-        console.error('[KyokoBeat:MediaSession] setMetadata error:', e);
-      }
+      await this.callNative('setMetadata', () => plugin.setMetadata(meta));
     } else {
       if (!('mediaSession' in navigator)) return;
       navigator.mediaSession.metadata = new MediaMetadata(meta);
@@ -172,13 +187,9 @@ class AudioManager {
         console.error('[KyokoBeat:MediaSession] setPlaybackState dibatalkan — plugin null, notifikasi TIDAK akan muncul');
         return;
       }
-      try {
-        // CRITICAL: must call setPlaybackState('playing') for notification to appear
-        await plugin.setPlaybackState({ playbackState: state });
-        console.log('[KyokoBeat:MediaSession] setPlaybackState OK ->', state);
-      } catch (e) {
-        console.error('[KyokoBeat:MediaSession] setPlaybackState error — notifikasi TIDAK akan muncul:', e);
-      }
+      // CRITICAL: must call setPlaybackState('playing') for notification to appear
+      const ok = await this.callNative('setPlaybackState', () => plugin.setPlaybackState({ playbackState: state }));
+      if (ok !== null) console.log('[KyokoBeat:MediaSession] setPlaybackState OK ->', state);
     } else {
       if (!('mediaSession' in navigator)) return;
       navigator.mediaSession.playbackState = state === 'playing' ? 'playing' : 'paused';
@@ -196,7 +207,7 @@ class AudioManager {
     if (this.isNative()) {
       const plugin = await getPlugin();
       if (!plugin) return;
-      try { await plugin.setPositionState(posState); } catch (_) {}
+      await this.callNative('setPositionState', () => plugin.setPositionState(posState));
     } else {
       if (!('mediaSession' in navigator)) return;
       try { navigator.mediaSession.setPositionState(posState); } catch (_) {}
