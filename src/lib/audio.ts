@@ -17,8 +17,12 @@ async function getPlugin() {
   try {
     const mod = await import('@jofr/capacitor-media-session');
     _mediaPlugin = mod.MediaSession;
+    if (!_mediaPlugin) {
+      console.error('[KyokoBeat:MediaSession] modul ke-import tapi export "MediaSession" gak ketemu:', mod);
+    }
     return _mediaPlugin;
-  } catch {
+  } catch (e) {
+    console.error('[KyokoBeat:MediaSession] GAGAL import @jofr/capacitor-media-session:', e);
     return null;
   }
 }
@@ -87,7 +91,10 @@ class AudioManager {
 
     if (this.isNative()) {
       const plugin = await getPlugin();
-      if (!plugin) return;
+      if (!plugin) {
+        console.error('[KyokoBeat:MediaSession] registerHandlers dibatalkan — plugin null (cek log import di atas)');
+        return;
+      }
       try {
         await plugin.setActionHandler({ action: 'play' }, async () => {
           await this.audio.play().catch(() => {});
@@ -117,8 +124,9 @@ class AudioManager {
           this.audio.currentTime = Math.min(this.audio.duration || 0, this.audio.currentTime + (details?.seekOffset ?? 10));
           this.syncPosition();
         });
+        console.log('[KyokoBeat:MediaSession] registerHandlers OK — action handlers terpasang');
       } catch (e) {
-        console.warn('[MediaSession] registerHandlers error:', e);
+        console.error('[KyokoBeat:MediaSession] registerHandlers error:', e);
       }
     } else {
       if (!('mediaSession' in navigator)) return;
@@ -142,11 +150,14 @@ class AudioManager {
 
     if (this.isNative()) {
       const plugin = await getPlugin();
-      if (!plugin) return;
+      if (!plugin) {
+        console.error('[KyokoBeat:MediaSession] updateMetadata dibatalkan — plugin null');
+        return;
+      }
       try {
         await plugin.setMetadata(meta);
       } catch (e) {
-        console.warn('[MediaSession] setMetadata error:', e);
+        console.error('[KyokoBeat:MediaSession] setMetadata error:', e);
       }
     } else {
       if (!('mediaSession' in navigator)) return;
@@ -157,12 +168,16 @@ class AudioManager {
   private async setPlaybackState(state: 'playing' | 'paused' | 'none') {
     if (this.isNative()) {
       const plugin = await getPlugin();
-      if (!plugin) return;
+      if (!plugin) {
+        console.error('[KyokoBeat:MediaSession] setPlaybackState dibatalkan — plugin null, notifikasi TIDAK akan muncul');
+        return;
+      }
       try {
         // CRITICAL: must call setPlaybackState('playing') for notification to appear
         await plugin.setPlaybackState({ playbackState: state });
+        console.log('[KyokoBeat:MediaSession] setPlaybackState OK ->', state);
       } catch (e) {
-        console.warn('[MediaSession] setPlaybackState error:', e);
+        console.error('[KyokoBeat:MediaSession] setPlaybackState error — notifikasi TIDAK akan muncul:', e);
       }
     } else {
       if (!('mediaSession' in navigator)) return;
