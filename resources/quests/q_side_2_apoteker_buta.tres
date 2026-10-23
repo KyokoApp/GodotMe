@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="QuestData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/QuestData.gd" id="1_qst"]
+
+[resource]
+script = ExtResource("1_qst")
+quest_id = "q_side_2_apoteker_buta"
+chapter_index = 2
+title_key = "Takaran Ingatan Perajin"
+summary_key = "Racik obat penenang untuk Perajin Raka yang mulai melupakan wajah mendiang istrinya akibat paparan Senyap."
+quest_type = "sampingan"
+reward_koin_embun = 110
+reward_pecahan_kelip = 0
+reward_exp = 130

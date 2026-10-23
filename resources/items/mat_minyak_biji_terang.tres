@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/ItemData.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_id = "mat_minyak_biji_terang"
+display_name_key = "ITEM_MINYAK_NAME"
+description_key = "ITEM_MINYAK_DESC"
+category = "consumable"
+rarity = "umum"
+max_stack = 20
+unit_weight = 0.4
+base_price_embun = 14
+attack_bonus = 0
+heal_hp = 0
+restore_oil = 35.0

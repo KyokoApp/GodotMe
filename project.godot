@@ -1,0 +1,64 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="LANTERNFALL - Part 1: Lentera Terakhir"
+config/description="2.5D Dark-Pastel Action RPG Offline Single-Player (Godot 4.7.2 Stable)"
+config/version="1.0.0-part1"
+run/main_scene="res://scenes/main/GameRoot.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility", "Mobile")
+config/icon="res://assets/sprites/ui/icon_lantern.png"
+
+[autoload]
+
+EventBus="*res://autoload/EventBus.gd"
+GameState="*res://autoload/GameState.gd"
+SaveSystem="*res://autoload/SaveSystem.gd"
+AudioBus="*res://autoload/AudioBus.gd"
+EconomyManager="*res://scripts/systems/EconomyManager.gd"
+InventorySystem="*res://scripts/systems/InventorySystem.gd"
+CraftingSystem="*res://scripts/systems/CraftingSystem.gd"
+DialogueManager="*res://scripts/systems/DialogueManager.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/mode=3
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+window/vsync/vsync_mode=1
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+pointing/emulate_mouse_from_touch=false
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://translations/lanternfall_id_en.csv")
+locale/fallback="id"
+
+[physics]
+
+common/physics_ticks_per_second=60
+3d/physics_engine="GodotPhysics3D"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+anti_aliasing/quality/msaa_3d=0
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0
+environment/defaults/default_clear_color=Color(0.09, 0.08, 0.13, 1)

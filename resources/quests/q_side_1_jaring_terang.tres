@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="QuestData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/QuestData.gd" id="1_qst"]
+
+[resource]
+script = ExtResource("1_qst")
+quest_id = "q_side_1_jaring_terang"
+chapter_index = 1
+title_key = "Jaring Benang Kunang"
+summary_key = "Kumpulkan serat lumut bercahaya bersama nelayan muda Bima agar perahu kecil desa berani melaut saat senja."
+quest_type = "sampingan"
+reward_koin_embun = 80
+reward_pecahan_kelip = 0
+reward_exp = 95

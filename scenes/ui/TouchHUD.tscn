@@ -1,0 +1,169 @@
+[gd_scene load_steps=2 format=3 uid="uid://d4m8k1n2p9v3x"]
+
+[ext_resource type="Script" path="res://scripts/ui/TouchHUDController.gd" id="1_hud"]
+
+[node name="TouchHUD" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="SafeAreaMargin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 18
+
+[node name="TopBar" type="HBoxContainer" parent="SafeAreaMargin"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 24
+
+[node name="StatsBox" type="VBoxContainer" parent="SafeAreaMargin/TopBar"]
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+
+[node name="HPBar" type="ProgressBar" parent="SafeAreaMargin/TopBar/StatsBox"]
+custom_minimum_size = Vector2(220, 18)
+layout_mode = 2
+max_value = 120.0
+value = 120.0
+show_percentage = false
+
+[node name="StaminaBar" type="ProgressBar" parent="SafeAreaMargin/TopBar/StatsBox"]
+custom_minimum_size = Vector2(220, 14)
+layout_mode = 2
+value = 100.0
+show_percentage = false
+
+[node name="OilBar" type="ProgressBar" parent="SafeAreaMargin/TopBar/StatsBox"]
+custom_minimum_size = Vector2(220, 16)
+layout_mode = 2
+value = 85.0
+show_percentage = false
+
+[node name="RegionBanner" type="Label" parent="SafeAreaMargin/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Desa Rembang (Prolog)"
+horizontal_alignment = 1
+
+[node name="CurrencyLabel" type="Label" parent="SafeAreaMargin/TopBar"]
+layout_mode = 2
+text = "Koin Embun: 65   |   Pecahan Kelip: 1"
+
+[node name="BtnPauseMenu" type="Button" parent="SafeAreaMargin/TopBar"]
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+text = "Jurnal"
+
+[node name="BtnCredits" type="Button" parent="SafeAreaMargin/TopBar"]
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+text = "Kredit"
+
+[node name="RightActionCluster" type="Control" parent="SafeAreaMargin"]
+custom_minimum_size = Vector2(280, 240)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+
+[node name="BtnAttack" type="Button" parent="SafeAreaMargin/RightActionCluster"]
+custom_minimum_size = Vector2(84, 84)
+layout_mode = 0
+offset_left = 165.0
+offset_top = 125.0
+offset_right = 249.0
+offset_bottom = 209.0
+text = "SERANG"
+
+[node name="BtnDodge" type="Button" parent="SafeAreaMargin/RightActionCluster"]
+custom_minimum_size = Vector2(68, 68)
+layout_mode = 0
+offset_left = 75.0
+offset_top = 150.0
+offset_right = 143.0
+offset_bottom = 218.0
+text = "HINDAR"
+
+[node name="BtnSkill1" type="Button" parent="SafeAreaMargin/RightActionCluster"]
+custom_minimum_size = Vector2(68, 68)
+layout_mode = 0
+offset_left = 90.0
+offset_top = 65.0
+offset_right = 158.0
+offset_bottom = 133.0
+text = "SINAR"
+
+[node name="BtnSkill2" type="Button" parent="SafeAreaMargin/RightActionCluster"]
+custom_minimum_size = Vector2(68, 68)
+layout_mode = 0
+offset_left = 175.0
+offset_top = 40.0
+offset_right = 243.0
+offset_bottom = 108.0
+text = "KELIP"
+
+[node name="BtnInteract" type="Button" parent="SafeAreaMargin/RightActionCluster"]
+custom_minimum_size = Vector2(68, 68)
+layout_mode = 0
+offset_left = 5.0
+offset_top = 95.0
+offset_right = 73.0
+offset_bottom = 163.0
+text = "AKSI"
+
+[node name="DialoguePanel" type="PanelContainer" parent="SafeAreaMargin"]
+visible = false
+custom_minimum_size = Vector2(780, 210)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 8
+
+[node name="VBox" type="VBoxContainer" parent="SafeAreaMargin/DialoguePanel"]
+layout_mode = 2
+
+[node name="SpeakerLabel" type="Label" parent="SafeAreaMargin/DialoguePanel/VBox"]
+layout_mode = 2
+text = "Kelip"
+
+[node name="BodyText" type="RichTextLabel" parent="SafeAreaMargin/DialoguePanel/VBox"]
+custom_minimum_size = Vector2(0, 75)
+layout_mode = 2
+text = "Dialog narasi..."
+
+[node name="ChoicesBox" type="VBoxContainer" parent="SafeAreaMargin/DialoguePanel/VBox"]
+layout_mode = 2
+
+[node name="PauseMenuPanel" type="PanelContainer" parent="SafeAreaMargin"]
+visible = false
+custom_minimum_size = Vector2(720, 440)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="CreditsPanel" type="PanelContainer" parent="SafeAreaMargin"]
+visible = false
+custom_minimum_size = Vector2(740, 460)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="CreditsText" type="RichTextLabel" parent="SafeAreaMargin/CreditsPanel"]
+layout_mode = 2
+text = "LANTERNFALL - ATRIBUSI ASET & LISENSI (Wajib Tampil)
+• 3D Low-Poly World & Ships: Quaternius (Ultimate Stylized Nature Pack, Medieval Village Pack, Ships Pack) — CC0 1.0 Public Domain
+• 2D Pixel Sprites & UI Prompts: Kenney.nl (Tiny Dungeon, Tiny Town, RPG Urban Pack, Input Prompts) — CC0 1.0 Public Domain
+• 4-Dir Pixel Character Base: OpenGameArt CC0 Walk Cycles & 3/4 Directional Sprite Sets — CC0 1.0 Public Domain
+• SFX Audio: Kenney RPG Audio, Impact Sounds, Interface Sounds & Freesound CC0 Contributors — CC0 1.0 Public Domain
+• BGM Music: Kevin MacLeod (incompetech.com) 'Teller of the Tales', 'Suonatore di Liuto', 'Evening Fall (Harp)' — CC-BY 4.0"
+
+[connection signal="pressed" from="SafeAreaMargin/TopBar/BtnPauseMenu" to="." method="on_btn_toggle_pause_menu"]
+[connection signal="pressed" from="SafeAreaMargin/TopBar/BtnCredits" to="." method="on_btn_toggle_credits"]
+[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnAttack" to="." method="on_btn_attack_pressed"]
+[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnDodge" to="." method="on_btn_dodge_pressed"]
+[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnSkill1" to="." method="on_btn_skill1_pressed"]
+[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnSkill2" to="." method="on_btn_skill2_pressed"]
+[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnInteract" to="." method="on_btn_interact_pressed"]

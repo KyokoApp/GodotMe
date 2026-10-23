@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="QuestData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/QuestData.gd" id="1_qst"]
+
+[resource]
+script = ExtResource("1_qst")
+quest_id = "q_side_1_surat_botol"
+chapter_index = 1
+title_key = "Surat di Dalam Lentera Kaca"
+summary_key = "Bantu Nenek Marni mengembalikan lentera kaca milik putranya yang hilang di perairan dangkal tanpa membongkar rahasia keluarganya."
+quest_type = "sampingan"
+reward_koin_embun = 75
+reward_pecahan_kelip = 0
+reward_exp = 90

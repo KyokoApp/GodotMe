@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/EnemyData.gd" id="1_enm"]
+
+[resource]
+script = ExtResource("1_enm")
+enemy_id = "enm_penguntit_kabut"
+display_name_key = "Penguntit Kabut"
+lore_summary_key = "Bayangan bungkuk yang bersembunyi di balik kabut gelap dan menyergap saat lentera redup."
+is_boss = false
+max_hp = 75
+move_speed = 3.4
+attack_damage = 14
+behavior_archetype = "ambush_in_dark"
+light_weakness_multiplier = 1.4
+exp_reward = 28
+koin_embun_min = 10
+koin_embun_max = 16
+drop_table = {"mat_minyak_biji_terang": 0.45, "mat_spora_jamur_senja": 0.30}

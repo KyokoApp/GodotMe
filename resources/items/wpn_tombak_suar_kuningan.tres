@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/ItemData.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_id = "wpn_tombak_suar_kuningan"
+display_name_key = "ITEM_TOMBAK_NAME"
+description_key = "ITEM_TOMBAK_DESC"
+category = "weapon"
+rarity = "langka"
+max_stack = 1
+unit_weight = 2.4
+base_price_embun = 140
+attack_bonus = 26
+heal_hp = 0
+restore_oil = 0.0

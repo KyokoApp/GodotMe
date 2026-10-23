@@ -1,0 +1,17 @@
+Category,Item_or_Activity_ID,Display_Name_ID,Chapter_Unlocked,Base_Price_Embun,Pulau_Embun_Mod,Hutan_Jamur_Mod,Pelabuhan_Karam_Mod,Sell_Base_65pct,Rarity,Notes_and_Formula_Role
+Material,mat_kayu_embun,Kayu Embun Liat,0,10,1.00,0.85,1.10,7,Umum,Bahan dasar perbaikan perahu & gagang senjata
+Material,mat_ikan_kabut,Ikan Kabut Asap,1,12,0.80,1.25,0.95,8,Umum,Murah di Pulau Embun (nelayan); mahal di Hutan Jamur
+Consumable,mat_minyak_biji_terang,Minyak Biji Terang,0,14,0.90,1.05,1.20,9,Umum,Sumber daya utama pengisi ulang Lentera (+35 Oil)
+Material,mat_kain_layar_tua,Kain Layar Tua,1,16,1.05,1.15,0.85,10,Umum,Bahan upgrade kapasitas tas & Jubah Tenun Kabut
+Material,mat_spora_jamur_senja,Spora Jamur Senja,2,18,1.30,0.75,1.15,12,Jarang,Komoditas ekspor Hutan Jamur Senja untuk kerajinan cahaya
+Consumable,cns_teh_hangat_rembang,Teh Hangat Rembang,0,22,0.95,1.00,1.10,14,Umum,Pulihkan +45 HP dan +10 Minyak Cahaya
+Material,mat_besi_karam,Besi Kapal Karam,3,24,1.25,1.35,0.78,16,Jarang,Murah di Pelabuhan Karam; bahan tempa senjata & tungku
+Consumable,cns_sup_jamur_kelip,Sup Jamur Kelip,2,34,1.15,0.90,1.10,22,Jarang,Masakan buff (+65 HP & +25 Minyak Cahaya)
+Weapon,wpn_dayung_retak,Dayung Penjaga Retak,0,45,1.00,1.00,1.00,29,Umum,Senjata awal Nara (+12 Attack)
+Lantern,lnt_lentera_kuningan_tua,Lentera Kuningan Rembang,0,90,1.00,1.00,1.00,59,Warisan,Lentera pusaka dengan upgrade lensa fokus
+Cloak,clk_jubah_tenun_kabut,Jubah Tenun Kabut,1,110,1.00,0.95,0.95,72,Jarang,Menahan dingin hujan abu & hemat minyak 20%
+Weapon,wpn_tombak_suar_kuningan,Tombak Suar Kuningan,3,140,1.10,1.10,0.90,91,Langka,Senjata tempa Bab 3 (+26 Attack & percikan cahaya)
+Hourly_Flow,flow_prolog_rembang,Arus Ekonomi Prolog (1 Jam),0,130,1.00,1.00,1.00,95,Balance,Pendapatan/jam: 130 Embun (Quest 60 + Eksplorasi 45 + Drop 25) vs Pengeluaran/jam: 95 Embun (Minyak 42 + Teh 44 + Perbaikan 9) -> Surplus Bersih +35 Embun
+Hourly_Flow,flow_bab1_pulau_embun,Arus Ekonomi Bab 1 Pulau Embun (1 Jam),1,360,1.00,1.00,1.00,315,Balance,Pendapatan/jam: 360 Embun (Quest 215 + Dagang/Loot 145) vs Pengeluaran/jam: 315 Embun (Upgrade Tas 85 + Pondok 90 + Minyak/Konsumsi 95 + Pajak Dermaga 45) -> Surplus Bersih +45 Embun
+Hourly_Flow,flow_bab2_hutan_jamur,Arus Ekonomi Bab 2 Hutan Jamur (1 Jam),2,520,1.00,1.00,1.00,470,Balance,Pendapatan/jam: 520 Embun (Quest 300 + Spora/Rahasisa 220) vs Pengeluaran/jam: 470 Embun (Upgrade Lentera 160 + Jubah 110 + Konsumsi/Perbaikan 110 + Rak Pondok 90) -> Surplus Bersih +50 Embun
+Hourly_Flow,flow_bab3_pelabuhan_karam,Arus Ekonomi Bab 3 Pelabuhan Karam (1 Jam),3,740,1.00,1.00,1.00,685,Balance,Pendapatan/jam: 740 Embun (Quest 410 + Arbitrase Antar-Pulau 190 + Boss/Drop 140) vs Pengeluaran/jam: 685 Embun (Tempa Tombak 185 + Perahu/Pajak 140 + Meja Tempa Pondok 150 + Konsumsi 210) -> Surplus Bersih +55 Embun

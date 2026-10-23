@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/EnemyData.gd" id="1_enm"]
+
+[resource]
+script = ExtResource("1_enm")
+enemy_id = "enm_anjing_abu"
+display_name_key = "Anjing Abu Dermaga"
+lore_summary_key = "Satwa liar pelabuhan yang kehilangan warnanya karena terpapar Senyap."
+is_boss = false
+max_hp = 68
+move_speed = 4.4
+attack_damage = 13
+behavior_archetype = "patrol_chase"
+light_weakness_multiplier = 1.25
+exp_reward = 25
+koin_embun_min = 9
+koin_embun_max = 15
+drop_table = {"mat_minyak_biji_terang": 0.45, "mat_spora_jamur_senja": 0.30}

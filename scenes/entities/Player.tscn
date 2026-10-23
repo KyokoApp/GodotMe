@@ -1,0 +1,60 @@
+[gd_scene load_steps=6 format=3 uid="uid://c8p4m2x7n1q5k"]
+
+[ext_resource type="Script" path="res://scripts/entities/PlayerController.gd" id="1_plr"]
+[ext_resource type="Texture2D" path="res://assets/sprites/characters/nara_spritesheet.png" id="2_tex"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_plr"]
+radius = 0.38
+height = 1.45
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_atk"]
+radius = 2.1
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_int"]
+radius = 2.4
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1_plr")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_plr")
+
+[node name="Sprite3D" type="Sprite3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.78, 0)
+pixel_size = 0.032
+billboard = 1
+shaded = true
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("2_tex")
+hframes = 8
+vframes = 4
+
+[node name="LanternLight3D" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, 1.05, 0.25)
+light_color = Color(0.98, 0.85, 0.64, 1)
+light_energy = 1.85
+shadow_enabled = true
+omni_range = 9.5
+omni_attenuation = 1.35
+
+[node name="KelipCompanion" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.65, 1.35, 0)
+
+[node name="KelipGlow" type="OmniLight3D" parent="KelipCompanion"]
+light_color = Color(0.85, 0.78, 0.96, 1)
+light_energy = 0.65
+omni_range = 2.5
+
+[node name="AttackHitbox" type="Area3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackHitbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -0.9)
+shape = SubResource("SphereShape3D_atk")
+
+[node name="InteractArea" type="Area3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractArea"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("SphereShape3D_int")

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="QuestData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/QuestData.gd" id="1_qst"]
+
+[resource]
+script = ExtResource("1_qst")
+quest_id = "q_main_3_pelabuhan_karam"
+chapter_index = 3
+title_key = "Layar di Atas Abu"
+summary_key = "Kemudikan perahu menembus kabut Pelabuhan Karam, bongkar penyelundupan minyak Serikat, dan kalahkan Nakhoda Abu."
+quest_type = "utama"
+reward_koin_embun = 260
+reward_pecahan_kelip = 3
+reward_exp = 420

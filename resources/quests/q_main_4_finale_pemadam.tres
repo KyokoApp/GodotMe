@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="QuestData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/QuestData.gd" id="1_qst"]
+
+[resource]
+script = ExtResource("1_qst")
+quest_id = "q_main_4_finale_pemadam"
+chapter_index = 4
+title_key = "Harga Sebuah Cahaya"
+summary_key = "Hadapi Sang Pemadam di Pelataran Bara Terakhir dan tentukan jalan hidup Nara menuju Part 2."
+quest_type = "utama"
+reward_koin_embun = 300
+reward_pecahan_kelip = 3
+reward_exp = 500

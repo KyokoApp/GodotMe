@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/EnemyData.gd" id="1_enm"]
+
+[resource]
+script = ExtResource("1_enm")
+enemy_id = "boss_nakhoda_abu"
+display_name_key = "BOSS 2: Nakhoda Abu Karam"
+lore_summary_key = "Komandan armada lama Pelabuhan Karam yang mengayunkan jangkar rantai kabut."
+is_boss = true
+max_hp = 640
+move_speed = 3.9
+attack_damage = 32
+behavior_archetype = "boss_phases"
+light_weakness_multiplier = 1.45
+exp_reward = 350
+koin_embun_min = 140
+koin_embun_max = 180
+drop_table = {"mat_minyak_biji_terang": 0.45, "mat_spora_jamur_senja": 0.30}

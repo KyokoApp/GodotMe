@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/EnemyData.gd" id="1_enm"]
+
+[resource]
+script = ExtResource("1_enm")
+enemy_id = "enm_lentera_palsu"
+display_name_key = "Pemangsa Lentera Palsu"
+lore_summary_key = "Memancing pengembara dengan cahaya dingin tiruan sebelum menerkam dari gelap."
+is_boss = false
+max_hp = 125
+move_speed = 3.5
+attack_damage = 22
+behavior_archetype = "ambush_in_dark"
+light_weakness_multiplier = 1.45
+exp_reward = 52
+koin_embun_min = 18
+koin_embun_max = 28
+drop_table = {"mat_minyak_biji_terang": 0.45, "mat_spora_jamur_senja": 0.30}

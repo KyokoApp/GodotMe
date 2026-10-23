@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/ItemData.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_id = "cns_sup_jamur_kelip"
+display_name_key = "ITEM_SUP_NAME"
+description_key = "ITEM_SUP_DESC"
+category = "consumable"
+rarity = "jarang"
+max_stack = 10
+unit_weight = 0.5
+base_price_embun = 34
+attack_bonus = 0
+heal_hp = 65
+restore_oil = 25.0

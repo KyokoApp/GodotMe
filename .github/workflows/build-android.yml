@@ -1,0 +1,215 @@
+name: Build LANTERNFALL APK
+
+# ─────────────────────────────────────────────────────────────────────────
+# Build APK Android (arm64-v8a) dari project Godot 4.7.2.
+#
+# • push ke main / tag v*   → build APK + upload artifact
+# • push tag v*             → otomatis bikin GitHub Release
+# • workflow_dispatch       → bisa dipicu manual, centang "release" untuk
+#                             langsung publish GitHub Release
+#
+# Penandatanganan:
+#   Kalau secret KEYSTORE_BASE64 + KEYSTORE_ALIAS + KEYSTORE_PASSWORD diisi,
+#   APK ditandatangani sebagai rilis (`--export-release`).
+#   Kalau belum diisi, otomatis fallback ke debug keystore
+#   (`--export-debug` + keystore debug bawaan repo) supaya APK tetap
+#   terpasang di HP.
+# ─────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      export_mode:
+        description: "Mode ekspor Godot"
+        type: choice
+        options: [release, debug]
+        default: release
+      release:
+        description: "Unggah APK ke GitHub Release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lanternfall-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+  GODOT_STATUS: "stable"
+  EXPORT_PRESET: "Android (arm64-v8a Release/Debug)"
+  APK_NAME: "LANTERNFALL.apk"
+  ANDROID_SDK_FALLBACK: "/usr/local/lib/android/sdk"
+
+jobs:
+  build:
+    name: Export APK (Godot ${{ env.GODOT_VERSION }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Tentukan path Android SDK & Java SDK
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$ANDROID_SDK_FALLBACK}}"
+          echo "ANDROID_SDK_PATH=$SDK" >> "$GITHUB_ENV"
+          echo "JAVA_SDK_PATH=$JAVA_HOME" >> "$GITHUB_ENV"
+          echo "Android SDK : $SDK"
+          echo "Java SDK    : $JAVA_HOME"
+          ls "$SDK"
+          ls "$SDK/build-tools"
+
+      # ── Godot + export templates (di-cache, 1.3 GB kalau unduh ulang) ──
+      - name: Cache Godot & export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/bin/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${GODOT_VERSION}-${GODOT_STATUS}-linux-x86_64-v1
+
+      - name: Install Godot & export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}"
+          mkdir -p "$HOME/.local/bin" "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
+          echo "⬇️  Godot editor ${GODOT_VERSION}-${GODOT_STATUS}"
+          curl -sSL "${BASE}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip" -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot-editor
+          mv /tmp/godot-editor/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64 "$HOME/.local/bin/godot"
+          chmod +x "$HOME/.local/bin/godot"
+          echo "⬇️  Export templates ${GODOT_VERSION}-${GODOT_STATUS}"
+          curl -sSL "${BASE}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz" -o /tmp/templates.tpz
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          mv /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/"
+          rm -rf /tmp/godot-editor /tmp/godot-templates /tmp/godot.zip /tmp/templates.tpz
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Pastikan godot ada di PATH
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/godot" --version
+
+      # ── Konfigurasi editor Godot (SDK Android & Java) ─────────────────
+      - name: Bootstrap editor settings Godot
+        run: |
+          "$HOME/.local/bin/godot" --headless --path . --editor --quit || true
+
+      - name: Tulis Android SDK & Java SDK ke editor settings
+        run: |
+          python3 scripts/setup-godot-ci.py --sdk "$ANDROID_SDK_PATH" --java "$JAVA_SDK_PATH"
+
+      # ── Keystore rilis (opsional, dari GitHub Secrets) ────────────────
+      - name: Siapkan keystore rilis
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          MODE: ${{ inputs.export_mode || 'release' }}
+        run: |
+          if [ -n "$KS_B64" ] && [ -n "$KS_ALIAS" ] && [ -n "$KS_PASS" ] && [ "$MODE" = "release" ]; then
+            mkdir -p android/keystore
+            echo "$KS_B64" | base64 -d > android/keystore/release.keystore
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$GITHUB_WORKSPACE/android/keystore/release.keystore" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$KS_ALIAS" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+            echo "EXPORT_MODE=release" >> "$GITHUB_ENV"
+            echo "✅ Mode: RELEASE (keystore dari secret)"
+          else
+            echo "EXPORT_MODE=debug" >> "$GITHUB_ENV"
+            echo "⚠️  Mode: DEBUG — secret keystore rilis belum lengkap atau mode=debug."
+            echo "   APK tetap terpasang, tapi nanti update harus uninstall dulu."
+          fi
+
+      # ── Import & ekspor ───────────────────────────────────────────────
+      - name: Import project
+        run: |
+          "$HOME/.local/bin/godot" --headless --path . --import
+
+      - name: Export APK
+        run: |
+          mkdir -p build
+          if [ "$EXPORT_MODE" = "release" ]; then
+            "$HOME/.local/bin/godot" --headless --path . --export-release "$EXPORT_PRESET" "build/${APK_NAME}"
+          else
+            "$HOME/.local/bin/godot" --headless --path . --export-debug  "$EXPORT_PRESET" "build/${APK_NAME}"
+          fi
+
+      - name: Verifikasi APK
+        run: |
+          cp "build/${APK_NAME}" "${APK_NAME}"
+          ls -lh "${APK_NAME}"
+          APKSIGNER="$(ls -d "$ANDROID_SDK_PATH"/build-tools/*/ | sort -V | tail -n1)apksigner"
+          echo "apksigner: $APKSIGNER"
+          "$APKSIGNER" verify --print-certs "${APK_NAME}" || {
+            echo "❌ APK tidak tertandatangani / rusak"; exit 1;
+          }
+          echo "✅ APK tertandatangani & siap dipasang"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LANTERNFALL-APK
+          path: ${{ env.APK_NAME }}
+          if-no-files-found: error
+
+      # ── Versi & GitHub Release ────────────────────────────────────────
+      - name: Baca versi dari project.godot
+        id: version
+        run: |
+          VERSION="$(sed -n 's/^config\/version="\(.*\)"$/\1/p' project.godot | head -n1)"
+          echo "version=${VERSION:-0.0.0}" >> "$GITHUB_OUTPUT"
+          echo "Versi project: ${VERSION:-0.0.0}"
+
+      - name: Update version.json
+        if: inputs.release || startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cat > version.json <<EOF
+          {
+            "version": "${{ steps.version.outputs.version }}",
+            "apkUrl": "https://github.com/${{ github.repository }}/releases/latest/download/${{ env.APK_NAME }}",
+            "changelog": "LANTERNFALL Part 1: Lentera Terakhir v${{ steps.version.outputs.version }} (Android arm64-v8a, minSdk 24)."
+          }
+          EOF
+          cat version.json
+
+      - name: Buat GitHub Release
+        if: inputs.release || startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.version.outputs.version) }}
+          name: LANTERNFALL v${{ steps.version.outputs.version }}
+          body: |
+            ## LANTERNFALL — Part 1: Lentera Terakhir
+
+            APK Android `arm64-v8a`, minSdk 24 (Android 7.0+), Godot 4.7.2 (GL Compatibility).
+
+            **Cara pasang:** unduh `${{ env.APK_NAME }}`, izinkan "Install unknown apps", lalu buka berkasnya.
+
+            | Item | Nilai |
+            | --- | --- |
+            | Versi | `${{ steps.version.outputs.version }}` |
+            | Paket | `id.rembangstudio.lanternfall` |
+            | Arsitektur | `arm64-v8a` |
+            | Mode build | `${{ env.EXPORT_MODE }}` |
+          files: |
+            ${{ env.APK_NAME }}
+            version.json
+          token: ${{ secrets.PAT_TOKEN || github.token }}

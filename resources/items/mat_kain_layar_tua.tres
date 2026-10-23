@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/ItemData.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_id = "mat_kain_layar_tua"
+display_name_key = "ITEM_KAIN_NAME"
+description_key = "ITEM_KAIN_DESC"
+category = "material"
+rarity = "umum"
+max_stack = 15
+unit_weight = 0.6
+base_price_embun = 16
+attack_bonus = 0
+heal_hp = 0
+restore_oil = 0.0

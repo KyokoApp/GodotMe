@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/EnemyData.gd" id="1_enm"]
+
+[resource]
+script = ExtResource("1_enm")
+enemy_id = "enm_penenun_bisik"
+display_name_key = "Penenun Bisik"
+lore_summary_key = "Makhluk Senyap yang meniru suara warga desa untuk memancing Penjaga keluar jalur cahaya."
+is_boss = false
+max_hp = 90
+move_speed = 3.1
+attack_damage = 17
+behavior_archetype = "ambush_in_dark"
+light_weakness_multiplier = 1.5
+exp_reward = 38
+koin_embun_min = 13
+koin_embun_max = 21
+drop_table = {"mat_minyak_biji_terang": 0.45, "mat_spora_jamur_senja": 0.30}

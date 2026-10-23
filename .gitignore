@@ -1,0 +1,22 @@
+# ── Godot ──────────────────────────────────────────────────────────────
+.godot/                      # cache & hasil import editor (jangan di-commit)
+/android/build/              # gradle build artifact (kalau gradle build dipakai)
+/android/.gradle/
+/build/                      # hasil ekspor APK (diisi CI)
+export_android/
+
+# ── Keystore ───────────────────────────────────────────────────────────
+# Debug keystore boleh ikut (supaya build debug konsisten),
+# keystore rilis TIDAK boleh pernah masuk repo.
+*.keystore
+*.jks
+!android/keystore/debug.keystore
+
+# ── OS / editor ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.vscode/
+.idea/

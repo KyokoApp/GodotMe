@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/EnemyData.gd" id="1_enm"]
+
+[resource]
+script = ExtResource("1_enm")
+enemy_id = "boss_penjaga_kabut"
+display_name_key = "BOSS 1: Penjaga Kabut Terlupa"
+lore_summary_key = "Mantan penjaga dermaga Pulau Embun yang menyatu dengan kawanan Senyap."
+is_boss = true
+max_hp = 420
+move_speed = 3.6
+attack_damage = 26
+behavior_archetype = "boss_phases"
+light_weakness_multiplier = 1.4
+exp_reward = 220
+koin_embun_min = 90
+koin_embun_max = 120
+drop_table = {"mat_minyak_biji_terang": 0.45, "mat_spora_jamur_senja": 0.30}

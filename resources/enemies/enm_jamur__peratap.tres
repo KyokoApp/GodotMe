@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/EnemyData.gd" id="1_enm"]
+
+[resource]
+script = ExtResource("1_enm")
+enemy_id = "enm_jamur__peratap"
+display_name_key = "Jamur Peratap Senja"
+lore_summary_key = "Koloni jamur berjalan yang menyemburkan spora peredup cahaya dari jarak jauh."
+is_boss = false
+max_hp = 85
+move_speed = 2.2
+attack_damage = 16
+behavior_archetype = "ranged_spore"
+light_weakness_multiplier = 1.35
+exp_reward = 32
+koin_embun_min = 12
+koin_embun_max = 19
+drop_table = {"mat_minyak_biji_terang": 0.45, "mat_spora_jamur_senja": 0.30}

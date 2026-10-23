@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="QuestData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/QuestData.gd" id="1_qst"]
+
+[resource]
+script = ExtResource("1_qst")
+quest_id = "q_main_1_pulau_embun"
+chapter_index = 1
+title_key = "Bara di Pulau Embun"
+summary_key = "Selesaikan sengketa minyak antara Nelayan Embun dan Serikat Layar Abu, lalu hadapi Penjaga Kabut di kuil dermaga."
+quest_type = "utama"
+reward_koin_embun = 140
+reward_pecahan_kelip = 2
+reward_exp = 220

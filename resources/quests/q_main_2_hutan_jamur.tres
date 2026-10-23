@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="QuestData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/QuestData.gd" id="1_qst"]
+
+[resource]
+script = ExtResource("1_qst")
+quest_id = "q_main_2_hutan_jamur"
+chapter_index = 2
+title_key = "Gema di Hutan Jamur Senja"
+summary_key = "Seberangi jembatan vertikal Spora, pecahkan teka-teki cermin cahaya, dan putuskan nasib gema ingatan Guru Soka."
+quest_type = "utama"
+reward_koin_embun = 190
+reward_pecahan_kelip = 2
+reward_exp = 300

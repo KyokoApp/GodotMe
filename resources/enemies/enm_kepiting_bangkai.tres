@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/classes/EnemyData.gd" id="1_enm"]
+
+[resource]
+script = ExtResource("1_enm")
+enemy_id = "enm_kepiting_bangkai"
+display_name_key = "Kepiting Bangkai Layar"
+lore_summary_key = "Berlindung di balik kayu kapal karam sebagai perisai keras; butuh Sinar Fokus untuk membuka cangkangnya."
+is_boss = false
+max_hp = 115
+move_speed = 2.5
+attack_damage = 18
+behavior_archetype = "heavy_shield"
+light_weakness_multiplier = 1.6
+exp_reward = 40
+koin_embun_min = 14
+koin_embun_max = 22
+drop_table = {"mat_minyak_biji_terang": 0.45, "mat_spora_jamur_senja": 0.30}
