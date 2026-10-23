@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://d4m8k1n2p9v3x"]
+[gd_scene load_steps=23 format=3 uid="uid://d4m8k1n2p9v3x"]
 
 [ext_resource type="Script" path="res://scripts/ui/TouchHUDController.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://assets/ui/lanternfall_theme.tres" id="2_theme"]
@@ -16,6 +16,10 @@
 [ext_resource type="Texture2D" path="res://assets/ui/doboui/Dialogues/Separator3.png" id="14_separator"]
 [ext_resource type="Texture2D" path="res://assets/ui/doboui/Headers/Header2_ultramarine.png" id="15_header"]
 [ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_default.tres" id="16_panel_default"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_gerigi.png" id="18_gerigi"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_lentera.png" id="19_lentera"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_kelip.png" id="20_kelip"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_tutup.png" id="21_tutup"]
 [ext_resource type="Script" path="res://scripts/ui/JoystickPad.gd" id="17_joystick"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_flat"]
@@ -103,85 +107,6 @@ offset_right = -28.0
 offset_bottom = 128.0
 grow_horizontal = 0
 text = "MENU"
-
-[node name="RadialLayer" type="Control" parent="HudRoot"]
-visible = false
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="RadJurnal" type="Button" parent="HudRoot/RadialLayer"]
-anchors_preset = 2
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -292.0
-offset_top = 24.0
-offset_right = -188.0
-offset_bottom = 128.0
-grow_horizontal = 0
-text = "Jurnal"
-icon = ExtResource("3_quill")
-vertical_icon_alignment = 0
-
-[node name="RadKredit" type="Button" parent="HudRoot/RadialLayer"]
-anchors_preset = 2
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -284.0
-offset_top = 73.0
-offset_right = -180.0
-offset_bottom = 177.0
-grow_horizontal = 0
-text = "Kredit"
-icon = ExtResource("4_scroll")
-vertical_icon_alignment = 0
-
-[node name="RadSetelan" type="Button" parent="HudRoot/RadialLayer"]
-anchors_preset = 2
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -261.0
-offset_top = 118.0
-offset_right = -157.0
-offset_bottom = 222.0
-grow_horizontal = 0
-text = "Setel"
-
-[node name="RadSinar" type="Button" parent="HudRoot/RadialLayer"]
-anchors_preset = 2
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -226.0
-offset_top = 154.0
-offset_right = -122.0
-offset_bottom = 258.0
-grow_horizontal = 0
-text = "Sinar"
-
-[node name="RadKelip" type="Button" parent="HudRoot/RadialLayer"]
-anchors_preset = 2
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -181.0
-offset_top = 176.0
-offset_right = -77.0
-offset_bottom = 280.0
-grow_horizontal = 0
-text = "Kelip"
-
-[node name="RadTutup" type="Button" parent="HudRoot/RadialLayer"]
-anchors_preset = 2
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -132.0
-offset_top = 184.0
-offset_right = -28.0
-offset_bottom = 288.0
-grow_horizontal = 0
-text = "Tutup"
 
 [node name="BtnAttack" type="Button" parent="HudRoot"]
 anchors_preset = 3
@@ -537,6 +462,99 @@ theme_override_styles/normal = ExtResource("11_wide_normal")
 theme_override_styles/hover = ExtResource("12_wide_hover")
 theme_override_styles/pressed = ExtResource("13_wide_pressed")
 text = "Tutup"
+
+[node name="RadialLayer" type="Control" parent="HudRoot"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="RadJurnal" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -500.0
+offset_top = 36.0
+offset_right = -420.0
+offset_bottom = 116.0
+grow_horizontal = 0
+text = "Jurnal"
+theme_override_font_sizes/font_size = 18
+icon = ExtResource("3_quill")
+vertical_icon_alignment = 0
+
+[node name="RadKredit" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -481.4
+offset_top = 153.4
+offset_right = -401.4
+offset_bottom = 233.4
+grow_horizontal = 0
+text = "Kredit"
+theme_override_font_sizes/font_size = 18
+icon = ExtResource("4_scroll")
+vertical_icon_alignment = 0
+
+[node name="RadSetelan" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -427.4
+offset_top = 259.4
+offset_right = -347.4
+offset_bottom = 339.4
+grow_horizontal = 0
+text = "Setel"
+theme_override_font_sizes/font_size = 18
+icon = ExtResource("18_gerigi")
+vertical_icon_alignment = 0
+
+[node name="RadSinar" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -343.4
+offset_top = 343.4
+offset_right = -263.4
+offset_bottom = 423.4
+grow_horizontal = 0
+text = "Sinar"
+theme_override_font_sizes/font_size = 18
+icon = ExtResource("19_lentera")
+vertical_icon_alignment = 0
+
+[node name="RadKelip" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -237.4
+offset_top = 397.4
+offset_right = -157.4
+offset_bottom = 477.4
+grow_horizontal = 0
+text = "Kelip"
+theme_override_font_sizes/font_size = 18
+icon = ExtResource("20_kelip")
+vertical_icon_alignment = 0
+
+[node name="RadTutup" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -120.0
+offset_top = 416.0
+offset_right = -40.0
+offset_bottom = 496.0
+grow_horizontal = 0
+text = "Tutup"
+theme_override_font_sizes/font_size = 18
+icon = ExtResource("21_tutup")
+vertical_icon_alignment = 0
 
 [node name="JoystickPad" type="Control" parent="."]
 mouse_filter = 2

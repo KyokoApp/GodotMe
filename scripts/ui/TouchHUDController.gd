@@ -141,6 +141,19 @@ func _update_pause_state() -> void:
 	var should_pause: bool = _is_menu_open()
 	if get_tree().paused != should_pause:
 		get_tree().paused = should_pause
+	_sync_controls_visibility()
+
+
+## Kontrol gerakan disembunyikan saat menu/panel terbuka atau dialog berjalan:
+## tidak ada gunanya ditampilkan (game berhenti) dan letaknya berbenturan
+## dengan panel tengah bawah.
+func _sync_controls_visibility() -> void:
+	var hide_actions: bool = _is_menu_open() or DialogueManager.is_dialogue_active
+	for btn in [btn_attack, btn_dodge, btn_interact]:
+		if btn != null:
+			btn.visible = not hide_actions
+	if hide_actions:
+		_release_joystick()
 
 
 func _animate_radial(opening: bool) -> void:
@@ -333,7 +346,7 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _is_menu_open():
+	if _is_menu_open() or DialogueManager.is_dialogue_active:
 		return
 	var player: PlayerController = _get_player()
 	if player == null:
@@ -351,15 +364,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			if st.index == _joystick_touch_idx:
 				_joystick_touch_idx = -1
-				_joystick_vec = Vector2.ZERO
+				_release_joystick()
 				player.set_touch_move_vector(Vector2.ZERO)
-				if joystick_pad != null:
-					joystick_pad.release()
 
 	elif event is InputEventScreenDrag:
 		var sd: InputEventScreenDrag = event as InputEventScreenDrag
 		if sd.index == _joystick_touch_idx:
 			_update_joystick_delta(sd.position, player)
+
+
+func _release_joystick() -> void:
+	_joystick_vec = Vector2.ZERO
+	if joystick_pad != null:
+		joystick_pad.release()
 
 
 func _update_joystick_delta(touch_pos: Vector2, player: PlayerController) -> void:
@@ -393,6 +410,10 @@ func _try_tap_to_interact(screen_pos: Vector2, player: PlayerController) -> void
 ## Tombol AKSI cuma muncul kalau ada objek yang bisa disentuh di sekitar.
 func _update_interact_button() -> void:
 	if btn_interact == null:
+		return
+	# selama menu/dialog terbuka semua kontrol gerakan disembunyikan
+	if _is_menu_open() or DialogueManager.is_dialogue_active:
+		btn_interact.visible = false
 		return
 	var player: PlayerController = _get_player()
 	if player == null or player.interact_area == null:
@@ -497,6 +518,7 @@ func _on_dialogue_started(_npc_id: String, node_id: String) -> void:
 	if dialogue_panel == null or not DialogueManager.dialogue_db.has(node_id):
 		return
 	dialogue_panel.visible = true
+	_sync_controls_visibility()
 	var entry: Dictionary = DialogueManager.dialogue_db[node_id]
 	if dialogue_speaker != null:
 		dialogue_speaker.text = String(entry.get("speaker", ""))
@@ -523,6 +545,7 @@ func _on_dialogue_started(_npc_id: String, node_id: String) -> void:
 func _on_dialogue_ended(_npc_id: String) -> void:
 	if dialogue_panel != null:
 		dialogue_panel.visible = false
+	_sync_controls_visibility()
 
 
 # ════════════════════════════════════════════════════════════════════════
