@@ -1,24 +1,30 @@
-[gd_scene load_steps=14 format=3 uid="uid://d4m8k1n2p9v3x"]
+[gd_scene load_steps=19 format=3 uid="uid://d4m8k1n2p9v3x"]
 
 [ext_resource type="Script" path="res://scripts/ui/TouchHUDController.gd" id="1_hud"]
 [ext_resource type="Theme" path="res://assets/ui/lanternfall_theme.tres" id="2_theme"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/icon_bulu.png" id="3_quill"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/icon_gulungan.png" id="4_scroll"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/icon_pedang.png" id="5_sword"]
-[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_large.tres" id="6_panel_large"]
-[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_modal.tres" id="7_panel_modal"]
-[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/slot_normal.tres" id="8_slot_normal"]
-[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/bar_fill_yellow.tres" id="9_bar_oil"]
-[ext_resource type="Texture2D" path="res://assets/ui/doboui/Dialogues/Separator3.png" id="10_separator"]
-[ext_resource type="Texture2D" path="res://assets/ui/doboui/Headers/Header2_ultramarine.png" id="11_header"]
-[ext_resource type="Script" path="res://scripts/ui/JoystickPad.gd" id="12_joystick"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_koin.png" id="6_coin"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_large.tres" id="7_panel_large"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_modal.tres" id="8_panel_modal"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/slot_normal.tres" id="9_slot_normal"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/bar_fill_yellow.tres" id="10_bar_oil"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/button_wide_normal.tres" id="11_wide_normal"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/button_wide_hover.tres" id="12_wide_hover"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/button_wide_pressed.tres" id="13_wide_pressed"]
+[ext_resource type="Texture2D" path="res://assets/ui/doboui/Dialogues/Separator3.png" id="14_separator"]
+[ext_resource type="Texture2D" path="res://assets/ui/doboui/Headers/Header2_ultramarine.png" id="15_header"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_default.tres" id="16_panel_default"]
+[ext_resource type="Script" path="res://scripts/ui/JoystickPad.gd" id="17_joystick"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_flat"]
 
 [node name="TouchHUD" type="CanvasLayer"]
+process_mode = 3
 script = ExtResource("1_hud")
 
-[node name="SafeAreaMargin" type="MarginContainer" parent="."]
+[node name="HudRoot" type="Control" parent="."]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -26,193 +32,287 @@ grow_horizontal = 2
 grow_vertical = 2
 texture_filter = 1
 theme = ExtResource("2_theme")
-theme_override_constants/margin_left = 28
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 28
-theme_override_constants/margin_bottom = 18
+mouse_filter = 2
 
-[node name="TopBar" type="HBoxContainer" parent="SafeAreaMargin"]
-layout_mode = 2
-size_flags_vertical = 0
-theme_override_constants/separation = 20
+[node name="StatusBox" type="VBoxContainer" parent="HudRoot"]
+offset_left = 20.0
+offset_top = 16.0
+offset_right = 300.0
+offset_bottom = 190.0
+theme_override_constants/separation = 8
 
-[node name="StatsBox" type="VBoxContainer" parent="SafeAreaMargin/TopBar"]
-custom_minimum_size = Vector2(280, 0)
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="HPBar" type="ProgressBar" parent="SafeAreaMargin/TopBar/StatsBox"]
-custom_minimum_size = Vector2(272, 38)
+[node name="HPBar" type="ProgressBar" parent="HudRoot/StatusBox"]
+custom_minimum_size = Vector2(280, 34)
 layout_mode = 2
 max_value = 120.0
 value = 120.0
 show_percentage = false
 
-[node name="StaminaBar" type="ProgressBar" parent="SafeAreaMargin/TopBar/StatsBox"]
-custom_minimum_size = Vector2(272, 34)
+[node name="StaminaBar" type="ProgressBar" parent="HudRoot/StatusBox"]
+custom_minimum_size = Vector2(240, 26)
 layout_mode = 2
 value = 100.0
 show_percentage = false
 
-[node name="OilBar" type="ProgressBar" parent="SafeAreaMargin/TopBar/StatsBox"]
-custom_minimum_size = Vector2(272, 34)
+[node name="OilBar" type="ProgressBar" parent="HudRoot/StatusBox"]
+custom_minimum_size = Vector2(240, 26)
 layout_mode = 2
 value = 85.0
 show_percentage = false
-theme_override_styles/fill = ExtResource("9_bar_oil")
+theme_override_styles/fill = ExtResource("10_bar_oil")
 
-[node name="RegionBanner" type="Label" parent="SafeAreaMargin/TopBar"]
+[node name="CoinRow" type="HBoxContainer" parent="HudRoot/StatusBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CoinIcon" type="TextureRect" parent="HudRoot/StatusBox/CoinRow"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("6_coin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CoinLabel" type="Label" parent="HudRoot/StatusBox/CoinRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Desa Rembang (Prolog)"
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+text = "65"
+vertical_alignment = 1
+
+[node name="ToastLabel" type="Label" parent="HudRoot"]
+anchors_preset = 6
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -260.0
+offset_top = 14.0
+offset_right = 260.0
+offset_bottom = 62.0
+grow_horizontal = 2
+text = "Desa Rembang"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="CurrencyLabel" type="Label" parent="SafeAreaMargin/TopBar"]
-layout_mode = 2
-text = "Koin Embun: 65   |   Pecahan Kelip: 1"
-vertical_alignment = 1
+[node name="RadialButton" type="Button" parent="HudRoot"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -132.0
+offset_top = 24.0
+offset_right = -28.0
+offset_bottom = 128.0
+grow_horizontal = 0
+text = "MENU"
 
-[node name="BtnPauseMenu" type="Button" parent="SafeAreaMargin/TopBar"]
-custom_minimum_size = Vector2(168, 88)
-layout_mode = 2
-size_flags_vertical = 4
-text = "Jurnal"
-icon = ExtResource("3_quill")
-icon_alignment = 0
-
-[node name="BtnCredits" type="Button" parent="SafeAreaMargin/TopBar"]
-custom_minimum_size = Vector2(168, 88)
-layout_mode = 2
-size_flags_vertical = 4
-text = "Kredit"
-icon = ExtResource("4_scroll")
-icon_alignment = 0
-
-[node name="RightActionCluster" type="Control" parent="SafeAreaMargin"]
-custom_minimum_size = Vector2(330, 330)
-layout_mode = 2
-size_flags_horizontal = 16
-size_flags_vertical = 16
+[node name="RadialLayer" type="Control" parent="HudRoot"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 
-[node name="BtnAttack" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(104, 104)
-layout_mode = 0
-offset_left = 200.0
-offset_top = 165.0
-offset_right = 304.0
-offset_bottom = 269.0
+[node name="RadJurnal" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -292.0
+offset_top = 24.0
+offset_right = -188.0
+offset_bottom = 128.0
+grow_horizontal = 0
+text = "Jurnal"
+icon = ExtResource("3_quill")
+vertical_icon_alignment = 0
+
+[node name="RadKredit" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -284.0
+offset_top = 73.0
+offset_right = -180.0
+offset_bottom = 177.0
+grow_horizontal = 0
+text = "Kredit"
+icon = ExtResource("4_scroll")
+vertical_icon_alignment = 0
+
+[node name="RadSetelan" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -261.0
+offset_top = 118.0
+offset_right = -157.0
+offset_bottom = 222.0
+grow_horizontal = 0
+text = "Setel"
+
+[node name="RadSinar" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -226.0
+offset_top = 154.0
+offset_right = -122.0
+offset_bottom = 258.0
+grow_horizontal = 0
+text = "Sinar"
+
+[node name="RadKelip" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -181.0
+offset_top = 176.0
+offset_right = -77.0
+offset_bottom = 280.0
+grow_horizontal = 0
+text = "Kelip"
+
+[node name="RadTutup" type="Button" parent="HudRoot/RadialLayer"]
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -132.0
+offset_top = 184.0
+offset_right = -28.0
+offset_bottom = 288.0
+grow_horizontal = 0
+text = "Tutup"
+
+[node name="BtnAttack" type="Button" parent="HudRoot"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -166.0
+offset_top = -216.0
+offset_right = -34.0
+offset_bottom = -84.0
+grow_horizontal = 0
+grow_vertical = 0
 text = "SERANG"
 icon = ExtResource("5_sword")
 vertical_icon_alignment = 0
 
-[node name="BtnDodge" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(104, 104)
-layout_mode = 0
-offset_left = 60.0
-offset_top = 220.0
-offset_right = 164.0
-offset_bottom = 324.0
+[node name="BtnDodge" type="Button" parent="HudRoot"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -296.0
+offset_top = -156.0
+offset_right = -184.0
+offset_bottom = -44.0
+grow_horizontal = 0
+grow_vertical = 0
 text = "HINDAR"
 
-[node name="BtnSkill1" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(104, 104)
-layout_mode = 0
-offset_left = 95.0
-offset_top = 100.0
-offset_right = 199.0
-offset_bottom = 204.0
-text = "SINAR"
-
-[node name="BtnSkill2" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(104, 104)
-layout_mode = 0
-offset_left = 215.0
-offset_top = 40.0
-offset_right = 319.0
-offset_bottom = 144.0
-text = "KELIP"
-
-[node name="BtnInteract" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(104, 104)
-layout_mode = 0
-offset_left = 0.0
-offset_top = 110.0
-offset_right = 104.0
-offset_bottom = 214.0
+[node name="BtnInteract" type="Button" parent="HudRoot"]
+visible = false
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -160.0
+offset_top = -356.0
+offset_right = -48.0
+offset_bottom = -244.0
+grow_horizontal = 0
+grow_vertical = 0
 text = "AKSI"
 
-[node name="DialoguePanel" type="PanelContainer" parent="SafeAreaMargin"]
+[node name="DialoguePanel" type="PanelContainer" parent="HudRoot"]
 visible = false
-custom_minimum_size = Vector2(880, 300)
-layout_mode = 2
-size_flags_horizontal = 8
-size_flags_vertical = 16
-theme_override_styles/panel = ExtResource("6_panel_large")
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -440.0
+offset_top = -400.0
+offset_right = 440.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = ExtResource("7_panel_large")
 
-[node name="VBox" type="VBoxContainer" parent="SafeAreaMargin/DialoguePanel"]
+[node name="VBox" type="VBoxContainer" parent="HudRoot/DialoguePanel"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="SpeakerLabel" type="Label" parent="SafeAreaMargin/DialoguePanel/VBox"]
+[node name="SpeakerLabel" type="Label" parent="HudRoot/DialoguePanel/VBox"]
 layout_mode = 2
 text = "Kelip"
 
-[node name="Separator" type="TextureRect" parent="SafeAreaMargin/DialoguePanel/VBox"]
+[node name="Separator" type="TextureRect" parent="HudRoot/DialoguePanel/VBox"]
 custom_minimum_size = Vector2(0, 19)
 layout_mode = 2
-texture = ExtResource("10_separator")
+texture = ExtResource("14_separator")
 expand_mode = 2
 stretch_mode = 6
 
-[node name="BodyText" type="RichTextLabel" parent="SafeAreaMargin/DialoguePanel/VBox"]
+[node name="BodyText" type="RichTextLabel" parent="HudRoot/DialoguePanel/VBox"]
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
 text = "Dialog narasi..."
 
-[node name="ChoicesBox" type="VBoxContainer" parent="SafeAreaMargin/DialoguePanel/VBox"]
+[node name="ChoicesBox" type="VBoxContainer" parent="HudRoot/DialoguePanel/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="PauseMenuPanel" type="PanelContainer" parent="SafeAreaMargin"]
+[node name="JurnalPanel" type="PanelContainer" parent="HudRoot"]
 visible = false
-custom_minimum_size = Vector2(720, 440)
-layout_mode = 2
-size_flags_horizontal = 8
-size_flags_vertical = 8
-theme_override_styles/panel = ExtResource("7_panel_modal")
+custom_minimum_size = Vector2(720, 460)
+anchors_preset = 9
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -360.0
+offset_top = -230.0
+offset_right = 360.0
+offset_bottom = 230.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = ExtResource("8_panel_modal")
 
-[node name="PauseVBox" type="VBoxContainer" parent="SafeAreaMargin/PauseMenuPanel"]
+[node name="PauseVBox" type="VBoxContainer" parent="HudRoot/JurnalPanel"]
 layout_mode = 2
-theme_override_constants/separation = 18
+theme_override_constants/separation = 16
 
-[node name="PauseHeader" type="TextureRect" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox"]
+[node name="PauseHeader" type="TextureRect" parent="HudRoot/JurnalPanel/PauseVBox"]
 custom_minimum_size = Vector2(0, 86)
 layout_mode = 2
 size_flags_horizontal = 4
-texture = ExtResource("11_header")
+texture = ExtResource("15_header")
 expand_mode = 2
 stretch_mode = 6
 
-[node name="PauseTitle" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox"]
+[node name="PauseTitle" type="Label" parent="HudRoot/JurnalPanel/PauseVBox"]
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
 theme_override_font_sizes/font_size = 28
 text = "Jurnal Penjaga"
 horizontal_alignment = 1
 
-[node name="EquipRow" type="HBoxContainer" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox"]
+[node name="EquipRow" type="HBoxContainer" parent="HudRoot/JurnalPanel/PauseVBox"]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_constants/separation = 24
 
-[node name="SlotWeapon" type="PanelContainer" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow"]
+[node name="SlotWeapon" type="PanelContainer" parent="HudRoot/JurnalPanel/PauseVBox/EquipRow"]
 custom_minimum_size = Vector2(129, 129)
 layout_mode = 2
-theme_override_styles/panel = ExtResource("8_slot_normal")
+theme_override_styles/panel = ExtResource("9_slot_normal")
 
-[node name="SlotWeaponLabel" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow/SlotWeapon"]
+[node name="SlotWeaponLabel" type="Label" parent="HudRoot/JurnalPanel/PauseVBox/EquipRow/SlotWeapon"]
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
 theme_override_font_sizes/font_size = 16
@@ -221,12 +321,12 @@ horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
 
-[node name="SlotCloak" type="PanelContainer" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow"]
+[node name="SlotCloak" type="PanelContainer" parent="HudRoot/JurnalPanel/PauseVBox/EquipRow"]
 custom_minimum_size = Vector2(129, 129)
 layout_mode = 2
-theme_override_styles/panel = ExtResource("8_slot_normal")
+theme_override_styles/panel = ExtResource("9_slot_normal")
 
-[node name="SlotCloakLabel" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow/SlotCloak"]
+[node name="SlotCloakLabel" type="Label" parent="HudRoot/JurnalPanel/PauseVBox/EquipRow/SlotCloak"]
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
 theme_override_font_sizes/font_size = 16
@@ -235,12 +335,12 @@ horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
 
-[node name="SlotLantern" type="PanelContainer" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow"]
+[node name="SlotLantern" type="PanelContainer" parent="HudRoot/JurnalPanel/PauseVBox/EquipRow"]
 custom_minimum_size = Vector2(129, 129)
 layout_mode = 2
-theme_override_styles/panel = ExtResource("8_slot_normal")
+theme_override_styles/panel = ExtResource("9_slot_normal")
 
-[node name="SlotLanternLabel" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow/SlotLantern"]
+[node name="SlotLanternLabel" type="Label" parent="HudRoot/JurnalPanel/PauseVBox/EquipRow/SlotLantern"]
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
 theme_override_font_sizes/font_size = 16
@@ -249,21 +349,42 @@ horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
 
-[node name="PauseHint" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox"]
+[node name="PauseHint" type="Label" parent="HudRoot/JurnalPanel/PauseVBox"]
 layout_mode = 2
 theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
 text = "Inventori & crafting menyusul pada Part 2."
 horizontal_alignment = 1
 
-[node name="CreditsPanel" type="PanelContainer" parent="SafeAreaMargin"]
-visible = false
-custom_minimum_size = Vector2(760, 470)
+[node name="BtnCloseJurnal" type="Button" parent="HudRoot/JurnalPanel/PauseVBox"]
 layout_mode = 2
-size_flags_horizontal = 8
-size_flags_vertical = 8
-theme_override_styles/panel = ExtResource("6_panel_large")
+size_flags_horizontal = 4
+theme_override_styles/normal = ExtResource("11_wide_normal")
+theme_override_styles/hover = ExtResource("12_wide_hover")
+theme_override_styles/pressed = ExtResource("13_wide_pressed")
+text = "Tutup"
 
-[node name="CreditsText" type="RichTextLabel" parent="SafeAreaMargin/CreditsPanel"]
+[node name="CreditsPanel" type="PanelContainer" parent="HudRoot"]
+visible = false
+custom_minimum_size = Vector2(780, 480)
+anchors_preset = 9
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -390.0
+offset_top = -240.0
+offset_right = 390.0
+offset_bottom = 240.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = ExtResource("7_panel_large")
+
+[node name="CreditsVBox" type="VBoxContainer" parent="HudRoot/CreditsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="CreditsText" type="RichTextLabel" parent="HudRoot/CreditsPanel/CreditsVBox"]
+custom_minimum_size = Vector2(0, 300)
 layout_mode = 2
 text = "LANTERNFALL - ATRIBUSI ASET & LISENSI (Wajib Tampil)
 • 3D Low-Poly World & Ships: Quaternius (Ultimate Stylized Nature Pack, Medieval Village Pack, Ships Pack) — CC0 1.0 Public Domain
@@ -273,14 +394,165 @@ text = "LANTERNFALL - ATRIBUSI ASET & LISENSI (Wajib Tampil)
 • UI / GUI (tombol, panel, bar, dialog, slot, ikon): dobo_ui — 'Fantasy RPG UI Pack' versi DEMO (https://dobo-ui.itch.io/fantasy-rpg-ui-pack)
 • BGM Music: Kevin MacLeod (incompetech.com) 'Teller of the Tales', 'Suonatore di Liuto', 'Evening Fall (Harp)' — CC-BY 4.0"
 
+[node name="BtnCloseCredits" type="Button" parent="HudRoot/CreditsPanel/CreditsVBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/normal = ExtResource("11_wide_normal")
+theme_override_styles/hover = ExtResource("12_wide_hover")
+theme_override_styles/pressed = ExtResource("13_wide_pressed")
+text = "Tutup"
+
+[node name="SettingsPanel" type="PanelContainer" parent="HudRoot"]
+visible = false
+custom_minimum_size = Vector2(640, 540)
+anchors_preset = 9
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -270.0
+offset_right = 320.0
+offset_bottom = 270.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = ExtResource("8_panel_modal")
+
+[node name="SettingsVBox" type="VBoxContainer" parent="HudRoot/SettingsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SettingsTitle" type="Label" parent="HudRoot/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+theme_override_styles/normal = ExtResource("16_panel_default")
+theme_override_font_sizes/font_size = 26
+text = "Pengaturan"
+horizontal_alignment = 1
+
+[node name="RowGrafis" type="HBoxContainer" parent="HudRoot/SettingsPanel/SettingsVBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="LblGrafis" type="Label" parent="HudRoot/SettingsPanel/SettingsVBox/RowGrafis"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+text = "Kualitas grafis"
+vertical_alignment = 1
+
+[node name="OptGrafis" type="OptionButton" parent="HudRoot/SettingsPanel/SettingsVBox/RowGrafis"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+
+[node name="RowWarna" type="HBoxContainer" parent="HudRoot/SettingsPanel/SettingsVBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="LblWarna" type="Label" parent="HudRoot/SettingsPanel/SettingsVBox/RowWarna"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+text = "Mode buta warna"
+vertical_alignment = 1
+
+[node name="OptWarna" type="OptionButton" parent="HudRoot/SettingsPanel/SettingsVBox/RowWarna"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+
+[node name="RowBahasa" type="HBoxContainer" parent="HudRoot/SettingsPanel/SettingsVBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="LblBahasa" type="Label" parent="HudRoot/SettingsPanel/SettingsVBox/RowBahasa"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+text = "Bahasa"
+vertical_alignment = 1
+
+[node name="OptBahasa" type="OptionButton" parent="HudRoot/SettingsPanel/SettingsVBox/RowBahasa"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+
+[node name="BtnBattery" type="Button" parent="HudRoot/SettingsPanel/SettingsVBox"]
+custom_minimum_size = Vector2(0, 62)
+layout_mode = 2
+text = "Hemat baterai (30 FPS): MATI"
+
+[node name="RowVolMaster" type="HBoxContainer" parent="HudRoot/SettingsPanel/SettingsVBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="LblVolMaster" type="Label" parent="HudRoot/SettingsPanel/SettingsVBox/RowVolMaster"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+text = "Volume utama"
+vertical_alignment = 1
+
+[node name="OptVolMaster" type="OptionButton" parent="HudRoot/SettingsPanel/SettingsVBox/RowVolMaster"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+
+[node name="RowVolBgm" type="HBoxContainer" parent="HudRoot/SettingsPanel/SettingsVBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="LblVolBgm" type="Label" parent="HudRoot/SettingsPanel/SettingsVBox/RowVolBgm"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+text = "Volume musik"
+vertical_alignment = 1
+
+[node name="OptVolBgm" type="OptionButton" parent="HudRoot/SettingsPanel/SettingsVBox/RowVolBgm"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+
+[node name="RowVolSfx" type="HBoxContainer" parent="HudRoot/SettingsPanel/SettingsVBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="LblVolSfx" type="Label" parent="HudRoot/SettingsPanel/SettingsVBox/RowVolSfx"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+text = "Volume efek suara"
+vertical_alignment = 1
+
+[node name="OptVolSfx" type="OptionButton" parent="HudRoot/SettingsPanel/SettingsVBox/RowVolSfx"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+
+[node name="BtnCloseSettings" type="Button" parent="HudRoot/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/normal = ExtResource("11_wide_normal")
+theme_override_styles/hover = ExtResource("12_wide_hover")
+theme_override_styles/pressed = ExtResource("13_wide_pressed")
+text = "Tutup"
+
 [node name="JoystickPad" type="Control" parent="."]
 mouse_filter = 2
-script = ExtResource("12_joystick")
+script = ExtResource("17_joystick")
 
-[connection signal="pressed" from="SafeAreaMargin/TopBar/BtnPauseMenu" to="." method="on_btn_toggle_pause_menu"]
-[connection signal="pressed" from="SafeAreaMargin/TopBar/BtnCredits" to="." method="on_btn_toggle_credits"]
-[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnAttack" to="." method="on_btn_attack_pressed"]
-[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnDodge" to="." method="on_btn_dodge_pressed"]
-[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnSkill1" to="." method="on_btn_skill1_pressed"]
-[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnSkill2" to="." method="on_btn_skill2_pressed"]
-[connection signal="pressed" from="SafeAreaMargin/RightActionCluster/BtnInteract" to="." method="on_btn_interact_pressed"]
+[connection signal="pressed" from="HudRoot/RadialButton" to="." method="on_radial_button_pressed"]
+[connection signal="pressed" from="HudRoot/RadialLayer/RadJurnal" to="." method="on_rad_jurnal_pressed"]
+[connection signal="pressed" from="HudRoot/RadialLayer/RadKredit" to="." method="on_rad_kredit_pressed"]
+[connection signal="pressed" from="HudRoot/RadialLayer/RadSetelan" to="." method="on_rad_setelan_pressed"]
+[connection signal="pressed" from="HudRoot/RadialLayer/RadSinar" to="." method="on_rad_sinar_pressed"]
+[connection signal="pressed" from="HudRoot/RadialLayer/RadKelip" to="." method="on_rad_kelip_pressed"]
+[connection signal="pressed" from="HudRoot/RadialLayer/RadTutup" to="." method="on_rad_tutup_pressed"]
+[connection signal="pressed" from="HudRoot/BtnAttack" to="." method="on_btn_attack_pressed"]
+[connection signal="pressed" from="HudRoot/BtnDodge" to="." method="on_btn_dodge_pressed"]
+[connection signal="pressed" from="HudRoot/BtnInteract" to="." method="on_btn_interact_pressed"]
+[connection signal="pressed" from="HudRoot/JurnalPanel/PauseVBox/BtnCloseJurnal" to="." method="on_close_jurnal_pressed"]
+[connection signal="pressed" from="HudRoot/CreditsPanel/CreditsVBox/BtnCloseCredits" to="." method="on_close_credits_pressed"]
+[connection signal="pressed" from="HudRoot/SettingsPanel/SettingsVBox/BtnBattery" to="." method="on_battery_pressed"]
+[connection signal="pressed" from="HudRoot/SettingsPanel/SettingsVBox/BtnCloseSettings" to="." method="on_close_settings_pressed"]
