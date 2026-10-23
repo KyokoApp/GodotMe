@@ -12,7 +12,7 @@ config_version=5
 
 config/name="LANTERNFALL - Part 1: Lentera Terakhir"
 config/description="2.5D Dark-Pastel Action RPG Offline Single-Player (Godot 4.7.2 Stable)"
-config/version="1.0.0-part1"
+config/version="1.1.0"
 run/main_scene="res://scenes/main/GameRoot.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility", "Mobile")
 config/icon="res://assets/sprites/ui/icon_lantern.png"

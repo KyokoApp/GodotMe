@@ -121,7 +121,29 @@ Kalau ketiga secret terisi, workflow otomatis memakai `--export-release`; kalau 
 
 ---
 
-## 5. Catatan penting
+## 5. Aset UI / GUI
+
+Seluruh antarmuka game (HUD sentuh, dialog, bar, panel jurnal, slot perlengkapan) memakai
+**Fantasy RPG UI Pack — versi DEMO** karya [dobo_ui](https://dobo-ui.itch.io/fantasy-rpg-ui-pack).
+
+```text
+assets/ui/doboui/          # 171 berkas asli pack (struktur folder asli dipertahankan)
+assets/ui/styles/          # StyleBoxTexture 9-patch (.tres), satu berkas per gaya
+assets/ui/lanternfall_theme.tres   # Theme Godot: menghubungkan style ke tiap jenis kontrol
+assets/ui/icons/           # ikon 48px yang dipakai HUD
+```
+
+- Tema dipasang di node `SafeAreaMargin` pada `scenes/ui/TouchHUD.tscn`, jadi semua kontrol HUD mewarisi gaya.
+- Peta lengkap "bagian UI ← style ← berkas PNG ← margin 9-patch" ada di [`docs/UI_ASSET_MAP.md`](docs/UI_ASSET_MAP.md).
+- Untuk ganti warna tombol / ikon / margin regangan, lihat bagian **"Cara menyesuaikan"** di dokumen itu.
+
+> ⚠️ Yang terpasang adalah **versi DEMO**. Untuk rilis komersial cek dulu ketentuan lisensinya
+> atau beli versi lengkapnya, dan tetap cantumkan atribusi
+> (sudah ada di layar **Kredit** dalam game dan di `docs/ASSET_CREDITS.md`).
+
+---
+
+## 6. Catatan penting
 
 - **Mode ekspor non-gradle.** `gradle_build/use_gradle_build=false` supaya build APK di CI cuma butuh export template + `apksigner` (tanpa Android Gradle Plugin). Konsekuensinya `minSdk`/`targetSdk` memakai nilai bawaan template Godot 4.7 (`24` / `36`) — itu sudah sesuai target. Untuk bikin **AAB / upload ke Play Store** atau mengubah SDK, setel kembali ke `true` dan pasang *Android Build Template* dari editor (Project ▸ Install Android Build Template).
 - **Kompresi tekstur ETC2/ASTC** (`rendering/textures/vram_compression/import_etc2_astc`) wajib `true`; tanpa itu Godot menolak ekspor Android.
@@ -133,6 +155,6 @@ Kalau ketiga secret terisi, workflow otomatis memakai `--export-release`; kalau 
 
 ---
 
-## 6. Lisensi
+## 7. Lisensi
 
 Kode proyek ini mengikuti lisensi pemilik repo. Aset pihak ketiga mengikuti lisensi masing-masing — lihat [`docs/ASSET_CREDITS.md`](docs/ASSET_CREDITS.md).

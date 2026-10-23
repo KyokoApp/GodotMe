@@ -24,3 +24,6 @@ desktop.ini
 *~
 .vscode/
 .idea/
+
+# Unduhan sementara (hasil download dari Drive / link eksternal)
+google_drive/

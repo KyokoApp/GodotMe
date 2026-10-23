@@ -1,6 +1,19 @@
-[gd_scene load_steps=2 format=3 uid="uid://d4m8k1n2p9v3x"]
+[gd_scene load_steps=14 format=3 uid="uid://d4m8k1n2p9v3x"]
 
 [ext_resource type="Script" path="res://scripts/ui/TouchHUDController.gd" id="1_hud"]
+[ext_resource type="Theme" path="res://assets/ui/lanternfall_theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_bulu.png" id="3_quill"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_gulungan.png" id="4_scroll"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/icon_pedang.png" id="5_sword"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_large.tres" id="6_panel_large"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_modal.tres" id="7_panel_modal"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/slot_normal.tres" id="8_slot_normal"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/bar_fill_yellow.tres" id="9_bar_oil"]
+[ext_resource type="Texture2D" path="res://assets/ui/doboui/Dialogues/Separator3.png" id="10_separator"]
+[ext_resource type="Texture2D" path="res://assets/ui/doboui/Headers/Header2_ultramarine.png" id="11_header"]
+[ext_resource type="Script" path="res://scripts/ui/JoystickPad.gd" id="12_joystick"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_flat"]
 
 [node name="TouchHUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -11,6 +24,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+texture_filter = 1
+theme = ExtResource("2_theme")
 theme_override_constants/margin_left = 28
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 28
@@ -19,137 +34,234 @@ theme_override_constants/margin_bottom = 18
 [node name="TopBar" type="HBoxContainer" parent="SafeAreaMargin"]
 layout_mode = 2
 size_flags_vertical = 0
-theme_override_constants/separation = 24
+theme_override_constants/separation = 20
 
 [node name="StatsBox" type="VBoxContainer" parent="SafeAreaMargin/TopBar"]
-custom_minimum_size = Vector2(240, 0)
+custom_minimum_size = Vector2(280, 0)
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="HPBar" type="ProgressBar" parent="SafeAreaMargin/TopBar/StatsBox"]
-custom_minimum_size = Vector2(220, 18)
+custom_minimum_size = Vector2(272, 38)
 layout_mode = 2
 max_value = 120.0
 value = 120.0
 show_percentage = false
 
 [node name="StaminaBar" type="ProgressBar" parent="SafeAreaMargin/TopBar/StatsBox"]
-custom_minimum_size = Vector2(220, 14)
+custom_minimum_size = Vector2(272, 34)
 layout_mode = 2
 value = 100.0
 show_percentage = false
 
 [node name="OilBar" type="ProgressBar" parent="SafeAreaMargin/TopBar/StatsBox"]
-custom_minimum_size = Vector2(220, 16)
+custom_minimum_size = Vector2(272, 34)
 layout_mode = 2
 value = 85.0
 show_percentage = false
+theme_override_styles/fill = ExtResource("9_bar_oil")
 
 [node name="RegionBanner" type="Label" parent="SafeAreaMargin/TopBar"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Desa Rembang (Prolog)"
 horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="CurrencyLabel" type="Label" parent="SafeAreaMargin/TopBar"]
 layout_mode = 2
 text = "Koin Embun: 65   |   Pecahan Kelip: 1"
+vertical_alignment = 1
 
 [node name="BtnPauseMenu" type="Button" parent="SafeAreaMargin/TopBar"]
-custom_minimum_size = Vector2(56, 56)
+custom_minimum_size = Vector2(168, 88)
 layout_mode = 2
+size_flags_vertical = 4
 text = "Jurnal"
+icon = ExtResource("3_quill")
+icon_alignment = 0
 
 [node name="BtnCredits" type="Button" parent="SafeAreaMargin/TopBar"]
-custom_minimum_size = Vector2(56, 56)
+custom_minimum_size = Vector2(168, 88)
 layout_mode = 2
+size_flags_vertical = 4
 text = "Kredit"
+icon = ExtResource("4_scroll")
+icon_alignment = 0
 
 [node name="RightActionCluster" type="Control" parent="SafeAreaMargin"]
-custom_minimum_size = Vector2(280, 240)
+custom_minimum_size = Vector2(330, 330)
 layout_mode = 2
-size_flags_horizontal = 8
-size_flags_vertical = 8
+size_flags_horizontal = 16
+size_flags_vertical = 16
+mouse_filter = 2
 
 [node name="BtnAttack" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(84, 84)
+custom_minimum_size = Vector2(104, 104)
 layout_mode = 0
-offset_left = 165.0
-offset_top = 125.0
-offset_right = 249.0
-offset_bottom = 209.0
+offset_left = 200.0
+offset_top = 165.0
+offset_right = 304.0
+offset_bottom = 269.0
 text = "SERANG"
+icon = ExtResource("5_sword")
+vertical_icon_alignment = 0
 
 [node name="BtnDodge" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(68, 68)
+custom_minimum_size = Vector2(104, 104)
 layout_mode = 0
-offset_left = 75.0
-offset_top = 150.0
-offset_right = 143.0
-offset_bottom = 218.0
+offset_left = 60.0
+offset_top = 220.0
+offset_right = 164.0
+offset_bottom = 324.0
 text = "HINDAR"
 
 [node name="BtnSkill1" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(68, 68)
+custom_minimum_size = Vector2(104, 104)
 layout_mode = 0
-offset_left = 90.0
-offset_top = 65.0
-offset_right = 158.0
-offset_bottom = 133.0
+offset_left = 95.0
+offset_top = 100.0
+offset_right = 199.0
+offset_bottom = 204.0
 text = "SINAR"
 
 [node name="BtnSkill2" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(68, 68)
+custom_minimum_size = Vector2(104, 104)
 layout_mode = 0
-offset_left = 175.0
+offset_left = 215.0
 offset_top = 40.0
-offset_right = 243.0
-offset_bottom = 108.0
+offset_right = 319.0
+offset_bottom = 144.0
 text = "KELIP"
 
 [node name="BtnInteract" type="Button" parent="SafeAreaMargin/RightActionCluster"]
-custom_minimum_size = Vector2(68, 68)
+custom_minimum_size = Vector2(104, 104)
 layout_mode = 0
-offset_left = 5.0
-offset_top = 95.0
-offset_right = 73.0
-offset_bottom = 163.0
+offset_left = 0.0
+offset_top = 110.0
+offset_right = 104.0
+offset_bottom = 214.0
 text = "AKSI"
 
 [node name="DialoguePanel" type="PanelContainer" parent="SafeAreaMargin"]
 visible = false
-custom_minimum_size = Vector2(780, 210)
+custom_minimum_size = Vector2(880, 300)
 layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 8
+size_flags_horizontal = 8
+size_flags_vertical = 16
+theme_override_styles/panel = ExtResource("6_panel_large")
 
 [node name="VBox" type="VBoxContainer" parent="SafeAreaMargin/DialoguePanel"]
 layout_mode = 2
+theme_override_constants/separation = 12
 
 [node name="SpeakerLabel" type="Label" parent="SafeAreaMargin/DialoguePanel/VBox"]
 layout_mode = 2
 text = "Kelip"
 
+[node name="Separator" type="TextureRect" parent="SafeAreaMargin/DialoguePanel/VBox"]
+custom_minimum_size = Vector2(0, 19)
+layout_mode = 2
+texture = ExtResource("10_separator")
+expand_mode = 2
+stretch_mode = 6
+
 [node name="BodyText" type="RichTextLabel" parent="SafeAreaMargin/DialoguePanel/VBox"]
-custom_minimum_size = Vector2(0, 75)
+custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
 text = "Dialog narasi..."
 
 [node name="ChoicesBox" type="VBoxContainer" parent="SafeAreaMargin/DialoguePanel/VBox"]
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="PauseMenuPanel" type="PanelContainer" parent="SafeAreaMargin"]
 visible = false
 custom_minimum_size = Vector2(720, 440)
 layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+theme_override_styles/panel = ExtResource("7_panel_modal")
+
+[node name="PauseVBox" type="VBoxContainer" parent="SafeAreaMargin/PauseMenuPanel"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="PauseHeader" type="TextureRect" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox"]
+custom_minimum_size = Vector2(0, 86)
+layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
+texture = ExtResource("11_header")
+expand_mode = 2
+stretch_mode = 6
+
+[node name="PauseTitle" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+theme_override_font_sizes/font_size = 28
+text = "Jurnal Penjaga"
+horizontal_alignment = 1
+
+[node name="EquipRow" type="HBoxContainer" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 24
+
+[node name="SlotWeapon" type="PanelContainer" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow"]
+custom_minimum_size = Vector2(129, 129)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("8_slot_normal")
+
+[node name="SlotWeaponLabel" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow/SlotWeapon"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+theme_override_font_sizes/font_size = 16
+text = "Dayung Retak"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="SlotCloak" type="PanelContainer" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow"]
+custom_minimum_size = Vector2(129, 129)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("8_slot_normal")
+
+[node name="SlotCloakLabel" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow/SlotCloak"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+theme_override_font_sizes/font_size = 16
+text = "Jubah Tenun Kabut"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="SlotLantern" type="PanelContainer" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow"]
+custom_minimum_size = Vector2(129, 129)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("8_slot_normal")
+
+[node name="SlotLanternLabel" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow/SlotLantern"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+theme_override_font_sizes/font_size = 16
+text = "Lentera Kuningan"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="PauseHint" type="Label" parent="SafeAreaMargin/PauseMenuPanel/PauseVBox"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxEmpty_flat")
+text = "Inventori & crafting menyusul pada Part 2."
+horizontal_alignment = 1
 
 [node name="CreditsPanel" type="PanelContainer" parent="SafeAreaMargin"]
 visible = false
-custom_minimum_size = Vector2(740, 460)
+custom_minimum_size = Vector2(760, 470)
 layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
+size_flags_horizontal = 8
+size_flags_vertical = 8
+theme_override_styles/panel = ExtResource("6_panel_large")
 
 [node name="CreditsText" type="RichTextLabel" parent="SafeAreaMargin/CreditsPanel"]
 layout_mode = 2
@@ -158,7 +270,12 @@ text = "LANTERNFALL - ATRIBUSI ASET & LISENSI (Wajib Tampil)
 • 2D Pixel Sprites & UI Prompts: Kenney.nl (Tiny Dungeon, Tiny Town, RPG Urban Pack, Input Prompts) — CC0 1.0 Public Domain
 • 4-Dir Pixel Character Base: OpenGameArt CC0 Walk Cycles & 3/4 Directional Sprite Sets — CC0 1.0 Public Domain
 • SFX Audio: Kenney RPG Audio, Impact Sounds, Interface Sounds & Freesound CC0 Contributors — CC0 1.0 Public Domain
+• UI / GUI (tombol, panel, bar, dialog, slot, ikon): dobo_ui — 'Fantasy RPG UI Pack' versi DEMO (https://dobo-ui.itch.io/fantasy-rpg-ui-pack)
 • BGM Music: Kevin MacLeod (incompetech.com) 'Teller of the Tales', 'Suonatore di Liuto', 'Evening Fall (Harp)' — CC-BY 4.0"
+
+[node name="JoystickPad" type="Control" parent="."]
+mouse_filter = 2
+script = ExtResource("12_joystick")
 
 [connection signal="pressed" from="SafeAreaMargin/TopBar/BtnPauseMenu" to="." method="on_btn_toggle_pause_menu"]
 [connection signal="pressed" from="SafeAreaMargin/TopBar/BtnCredits" to="." method="on_btn_toggle_credits"]

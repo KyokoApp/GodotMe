@@ -24,9 +24,21 @@ var _joystick_vec: Vector2 = Vector2.ZERO
 @onready var choices_box: VBoxContainer = $SafeAreaMargin/DialoguePanel/VBox/ChoicesBox
 @onready var pause_tab_panel: PanelContainer = $SafeAreaMargin/PauseMenuPanel
 @onready var credits_panel: PanelContainer = $SafeAreaMargin/CreditsPanel
+@onready var joystick_pad: JoystickPad = $JoystickPad
+@onready var slot_weapon_label: Label = $SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow/SlotWeapon/SlotWeaponLabel
+@onready var slot_cloak_label: Label = $SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow/SlotCloak/SlotCloakLabel
+@onready var slot_lantern_label: Label = $SafeAreaMargin/PauseMenuPanel/PauseVBox/EquipRow/SlotLantern/SlotLanternLabel
+
+## StyleBox tombol lebar (dobo_ui) untuk pilihan dialog — butuh tinggi >= 92px
+## karena margin 9-patch ujungnya 46px, jadi tidak dipasang di tema global.
+const WIDE_BUTTON_NORMAL = preload("res://assets/ui/styles/button_wide_normal.tres")
+const WIDE_BUTTON_HOVER = preload("res://assets/ui/styles/button_wide_hover.tres")
+const WIDE_BUTTON_PRESSED = preload("res://assets/ui/styles/button_wide_pressed.tres")
+const CHOICE_BUTTON_HEIGHT: int = 100
 
 func _ready() -> void:
 	_apply_notch_safe_area()
+	_refresh_equipment_readouts()
 	EventBus.player_hp_changed.connect(_on_hp_changed)
 	EventBus.player_stamina_changed.connect(_on_stamina_changed)
 	EventBus.lantern_oil_changed.connect(_on_oil_changed)
@@ -74,6 +86,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_joystick_touch_idx = -1
 				_joystick_vec = Vector2.ZERO
 				player.set_touch_move_vector(Vector2.ZERO)
+				if joystick_pad != null:
+					joystick_pad.release()
 
 	elif event is InputEventScreenDrag:
 		var sd: InputEventScreenDrag = event as InputEventScreenDrag
@@ -86,6 +100,8 @@ func _update_joystick_delta(touch_pos: Vector2, player: PlayerController) -> voi
 		diff = diff.normalized() * _joystick_radius
 	_joystick_vec = diff / _joystick_radius
 	player.set_touch_move_vector(_joystick_vec)
+	if joystick_pad != null:
+		joystick_pad.set_state(_joystick_center, _joystick_vec, _joystick_radius)
 
 func _try_tap_to_interact(screen_pos: Vector2, player: PlayerController) -> void:
 	var vp: Viewport = get_viewport()
@@ -138,7 +154,29 @@ func on_btn_lockon_pressed() -> void:
 func on_btn_toggle_pause_menu() -> void:
 	if pause_tab_panel != null:
 		pause_tab_panel.visible = not pause_tab_panel.visible
+		_refresh_equipment_readouts()
 		AudioBus.play_sfx("ui_tap", 1.0, 1.05)
+
+## Mengisi 3 slot perlengkapan di panel Jurnal dari GameState.
+func _refresh_equipment_readouts() -> void:
+	if slot_weapon_label != null:
+		slot_weapon_label.text = _item_short_name(GameState.equipped_weapon_id)
+	if slot_cloak_label != null:
+		slot_cloak_label.text = _item_short_name(GameState.equipped_cloak_id)
+	if slot_lantern_label != null:
+		slot_lantern_label.text = _item_short_name(GameState.equipped_lantern_id)
+
+## "wpn_dayung_retak" -> "Dayung Retak"
+func _item_short_name(item_id: String) -> String:
+	if item_id.is_empty():
+		return "Kosong"
+	var parts: PackedStringArray = item_id.split("_")
+	if parts.size() < 2:
+		return item_id.capitalize()
+	var words: Array[String] = []
+	for i in range(1, parts.size()):
+		words.append(parts[i].capitalize())
+	return " ".join(words)
 
 func on_btn_toggle_credits() -> void:
 	if credits_panel != null:
@@ -190,7 +228,10 @@ func _on_dialogue_started(_npc_id: String, node_id: String) -> void:
 		for i in range(ch_list.size()):
 			var c_dict: Dictionary = ch_list[i]
 			var btn: Button = Button.new()
-			btn.custom_minimum_size = Vector2(0, 48)
+			btn.custom_minimum_size = Vector2(0, CHOICE_BUTTON_HEIGHT)
+			btn.add_theme_stylebox_override("normal", WIDE_BUTTON_NORMAL)
+			btn.add_theme_stylebox_override("hover", WIDE_BUTTON_HOVER)
+			btn.add_theme_stylebox_override("pressed", WIDE_BUTTON_PRESSED)
 			btn.text = "▸ " + String(c_dict.get("label", "Lanjut"))
 			var idx: int = i
 			btn.pressed.connect(func() -> void: DialogueManager.select_choice(idx))

@@ -1,0 +1,14 @@
+[gd_resource type="StyleBoxTexture" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/ui/doboui/Buttons/PatternButtons/PatternLongButton2_purple.png" id="1_tex"]
+
+[resource]
+texture = ExtResource("1_tex")
+texture_margin_left = 49
+texture_margin_top = 46
+texture_margin_right = 50
+texture_margin_bottom = 46
+content_margin_left = 34
+content_margin_top = 22
+content_margin_right = 34
+content_margin_bottom = 22

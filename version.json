@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0-part1",
+  "version": "1.1.0",
   "apkUrl": "https://github.com/KyokoApp/GodotMe/releases/latest/download/LANTERNFALL.apk",
-  "changelog": "Rilis perdana LANTERNFALL Part 1: Lentera Terakhir — Android arm64-v8a (Android 7.0+/minSdk 24)."
+  "changelog": "HUD & dialog serba baru memakai Fantasy RPG UI Pack (dobo_ui): tombol aksi, bar HP/Stamina/Minyak, panel dialog, jurnal perlengkapan, ikon, plus visual joystick."
 }

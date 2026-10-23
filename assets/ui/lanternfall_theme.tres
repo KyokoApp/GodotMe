@@ -1,0 +1,48 @@
+[gd_resource type="Theme" format=3]
+
+; ─────────────────────────────────────────────────────────────────────────
+; Tema UI LANTERNFALL — disusun dari Fantasy RPG UI Pack (demo) by dobo_ui.
+; Semua StyleBox 9-patch ada di assets/ui/styles/, sumber PNG di
+; assets/ui/doboui/. Tema ini dipasang di TouchHUD.tscn (SafeAreaMargin)
+; dan menurun ke seluruh kontrol HUD.
+;
+; Catatan: varian tombol lebar (button_wide_*) TIDAK dipasang di tema karena
+; butuh tinggi minimal ~92px; tombol pilihan dialog memakainya lewat
+; add_theme_stylebox_override() di TouchHUDController.
+; ─────────────────────────────────────────────────────────────────────────
+
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/button_normal.tres" id="btn_normal"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/button_hover.tres" id="btn_hover"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/button_pressed.tres" id="btn_pressed"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/button_focus.tres" id="btn_focus"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/button_disabled.tres" id="btn_disabled"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_default.tres" id="panel_default"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/panel_blue.tres" id="panel_blue"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/bar_background.tres" id="bar_bg"]
+[ext_resource type="StyleBoxTexture" path="res://assets/ui/styles/bar_fill_blue.tres" id="bar_fill"]
+
+[resource]
+default_font_size = 22
+
+; ── Button ───────────────────────────────────────────────────────────────
+Button/styles/normal = ExtResource("btn_normal")
+Button/styles/hover = ExtResource("btn_hover")
+Button/styles/pressed = ExtResource("btn_pressed")
+Button/styles/focus = ExtResource("btn_focus")
+Button/styles/disabled = ExtResource("btn_disabled")
+Button/colors/font_color = Color(0.96, 0.93, 0.86, 1)
+Button/colors/font_hover_color = Color(1, 0.99, 0.93, 1)
+Button/colors/font_pressed_color = Color(0.72, 0.86, 1, 1)
+Button/colors/font_disabled_color = Color(0.62, 0.6, 0.64, 1)
+
+; ── Label (pelat nama pembicara, banner wilayah, mata uang) ──────────────
+Label/styles/normal = ExtResource("panel_default")
+Label/colors/font_color = Color(0.95, 0.92, 0.85, 1)
+
+; ── Panel / PanelContainer ───────────────────────────────────────────────
+Panel/styles/panel = ExtResource("panel_blue")
+PanelContainer/styles/panel = ExtResource("panel_default")
+
+; ── ProgressBar (HP / Stamina / Minyak Lentera) ──────────────────────────
+ProgressBar/styles/background = ExtResource("bar_bg")
+ProgressBar/styles/fill = ExtResource("bar_fill")
