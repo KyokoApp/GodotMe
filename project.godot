@@ -45,7 +45,12 @@ pointing/emulate_mouse_from_touch=false
 
 [internationalization]
 
-locale/translations=PackedStringArray("res://translations/lanternfall_id_en.csv")
+; Importer CSV Godot tidak menyimpan satu resource utama: dari
+; `lanternfall_id_en.csv` ia menghasilkan satu file .translation per locale
+; (dibuat saat `godot --headless --import`). Yang boleh didaftar di sini
+; adalah file .translation hasil generate itu, bukan CSV-nya — kalau CSV
+; yang didaftar, ekspor gagal dengan "Resource file not found: (Translation)".
+locale/translations=PackedStringArray("res://translations/lanternfall_id_en.id.translation", "res://translations/lanternfall_id_en.en.translation")
 locale/fallback="id"
 
 [physics]

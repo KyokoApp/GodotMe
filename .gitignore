@@ -5,6 +5,10 @@
 /build/                      # hasil ekspor APK (diisi CI)
 export_android/
 
+# ── Hasil import CSV translation (dibuat Godot saat --import) ──────────
+translations/*.translation
+translations/*.import
+
 # ── Keystore ───────────────────────────────────────────────────────────
 # Debug keystore boleh ikut (supaya build debug konsisten),
 # keystore rilis TIDAK boleh pernah masuk repo.
