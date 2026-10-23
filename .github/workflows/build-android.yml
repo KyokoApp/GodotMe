@@ -18,7 +18,7 @@ name: Build LANTERNFALL APK
 
 on:
   push:
-    branches: [main, arena/ba68537b-godotme]
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -172,24 +172,6 @@ jobs:
             "$HOME/.local/bin/godot" --headless --path . --export-debug  "$EXPORT_PRESET" "build/${APK_NAME}" 2>&1 | tee /tmp/export.log
           fi
           exit "${PIPESTATUS[0]}"
-
-      - name: Debug log ekspor (hanya saat gagal)
-        if: failure() && steps.export_apk.outcome == 'failure'
-        run: |
-          python3 - <<'PY'
-          text = open('/tmp/export.log', encoding='utf-8', errors='replace').read()
-          text = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-          if not text.strip():
-              text = '(log kosong)'
-          for i in range(0, len(text), 3000):
-              print('::error::' + text[i:i + 3000])
-          PY
-
-      - name: Debug info environment (hanya saat gagal)
-        if: failure() && steps.export_apk.outcome == 'failure'
-        run: |
-          echo "::error::export_presets.cfg:%0A$(sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/$/%0A/' export_presets.cfg | tr -d '\n')"
-          echo "::error::editor settings:%0A$(sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/$/%0A/' ~/.config/godot/editor_settings-4.7.tres | tr -d '\n')"
 
       - name: Verifikasi APK
         run: |

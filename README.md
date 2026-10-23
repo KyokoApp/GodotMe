@@ -123,7 +123,9 @@ Kalau ketiga secret terisi, workflow otomatis memakai `--export-release`; kalau 
 
 ## 5. Catatan penting
 
-- **Mode ekspor non-gradle.** `gradle_build/use_gradle_build=false` supaya build APK di CI cuma butuh export template + `apksigner` (tanpa Android Gradle Plugin). Untuk bikin **AAB / upload ke Play Store**, setel kembali ke `true` dan pasang *Android Build Template* dari editor (Project ▸ Install Android Build Template).
+- **Mode ekspor non-gradle.** `gradle_build/use_gradle_build=false` supaya build APK di CI cuma butuh export template + `apksigner` (tanpa Android Gradle Plugin). Konsekuensinya `minSdk`/`targetSdk` memakai nilai bawaan template Godot 4.7 (`24` / `36`) — itu sudah sesuai target. Untuk bikin **AAB / upload ke Play Store** atau mengubah SDK, setel kembali ke `true` dan pasang *Android Build Template* dari editor (Project ▸ Install Android Build Template).
+- **Kompresi tekstur ETC2/ASTC** (`rendering/textures/vram_compression/import_etc2_astc`) wajib `true`; tanpa itu Godot menolak ekspor Android.
+- **Translasi:** `locale/translations` harus menunjuk file `.translation` hasil import (`lanternfall_id_en.id.translation`, `.en.translation`), bukan CSV-nya. File itu dibuat otomatis saat `godot --headless --import` dan tidak di-commit (lihat `.gitignore`).
 - **Ikon proyek** `assets/sprites/ui/icon_lantern.png` berukuran 64×64 dan dipakai sebagai ikon launcher. Untuk hasil terbaik di HP, ganti dengan PNG ≥ 192×192 (atau isi opsi *Launcher Icons* di preset ekspor).
 - **Aset eksternal:** lihat `docs/ASSET_CREDITS.md` — sebagian besar CC0 1.0, ada musik Kevin MacLeod berlisensi **CC-BY 4.0** yang wajib dikreditkan di layar Kredit game.
 - **Dokumen desain:** `docs/GDD_LANTERNFALL.md` (arsitektur + milestone M1–M7), `docs/STORY_SCRIPT_PART1.md` (naskah), `docs/ECONOMY_BALANCE.csv` (balans ekonomi).
