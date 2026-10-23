@@ -61,12 +61,31 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Tentukan path Android SDK & Java SDK
+      # Runner GitHub sudah membawa Android SDK di /usr/local/lib/android/sdk.
+      # Kalau tidak ada (image berubah), unduh commandlinetools & pasang
+      # build-tools yang dibutuhkan apksigner.
+      - name: Siapkan Android SDK
         run: |
+          set -e
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$ANDROID_SDK_FALLBACK}}"
+          mkdir -p "$SDK"
+          if [ ! -d "$SDK/cmdline-tools" ]; then
+            echo "⬇️  Android cmdline-tools tidak ada, unduh..."
+            curl -sSL -o /tmp/cmdline-tools.zip \
+              https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline
+            mkdir -p "$SDK/cmdline-tools"
+            rm -rf "$SDK/cmdline-tools/latest"
+            mv /tmp/cmdline/cmdline-tools "$SDK/cmdline-tools/latest"
+          fi
+          if [ -z "$(ls -A "$SDK/build-tools" 2>/dev/null)" ]; then
+            echo "⬇️  build-tools belum ada, instal..."
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" --licenses >/dev/null 2>&1 || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" \
+              "platform-tools" "build-tools;35.0.0" "platforms;android-35"
+          fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_PATH=$SDK" >> "$GITHUB_ENV"
           echo "JAVA_SDK_PATH=$JAVA_HOME" >> "$GITHUB_ENV"
           echo "Android SDK : $SDK"
