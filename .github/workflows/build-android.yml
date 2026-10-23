@@ -233,4 +233,6 @@ jobs:
           files: |
             ${{ env.APK_NAME }}
             version.json
-          token: ${{ secrets.PAT_TOKEN || github.token }}
+          # GITHUB_TOKEN bawaan (izin contents:write sudah diset di atas).
+          # Ganti ke secrets.PAT_TOKEN kalau rilis perlu memicu workflow lain.
+          token: ${{ github.token }}
