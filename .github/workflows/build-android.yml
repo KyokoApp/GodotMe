@@ -48,7 +48,7 @@ env:
 
 jobs:
   build:
-    name: Export APK (Godot ${{ env.GODOT_VERSION }})
+    name: Export APK Android (arm64-v8a)
     runs-on: ubuntu-latest
 
     steps:
