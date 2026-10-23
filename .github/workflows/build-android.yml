@@ -18,7 +18,7 @@ name: Build LANTERNFALL APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, arena/ba68537b-godotme]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
