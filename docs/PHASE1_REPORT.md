@@ -210,9 +210,11 @@ membangun ulang).
 
 ## 5. Risiko & hal yang perlu diketahui
 
-1. **Kunci tanda tangan demo** memakai kunci debug Android. Untuk distribusi
-   nyata, buat keystore sendiri dan simpan sebagai secret CI; APK yang sudah
-   dipasang hanya bisa diperbarui oleh APK dengan kunci yang sama.
+1. **Kunci tanda tangan demo** dibuat ulang setiap kali rilis dibangun, jadi
+   Android menolak memasang APK baru di atas APK dari rilis lain — **copot
+   pemasangan versi lama dulu**, baru pasang yang baru. Untuk rilis sungguhan,
+   pakai satu keystore tetap yang disimpan sebagai secret CI, karena APK yang
+   sudah terpasang hanya bisa diperbarui oleh APK dengan kunci yang sama.
 2. **Google Play** membatasi aplikasi yang mengunduh kode yang dapat dieksekusi
    (kebijakan "Deceptive Behavior"/"Device and Network Abuse" terkait dynamic
    code). Pola launcher + PCK seperti ini umum untuk sideload/itch.io, tapi

@@ -54,7 +54,10 @@ if listed != present:
 print("manifest matches", len(listed), "packages on disk")
 PY
 
-cat > NOTES.md <<'MD'
+BUILD_ID=$(sed -n 's/^build_id="\(.*\)"/\1/p' launcher/project.godot 2>/dev/null || true)
+[ -n "${BUILD_ID:-}" ] || BUILD_ID="(tidak diketahui)"
+
+cat > NOTES.md <<MD
 ## Re - Traveller — demo launcher + paket contoh
 
 **Cara pakai di HP (sekali pasang):**
@@ -70,6 +73,14 @@ selisih (delta), bukan unduh ulang semuanya.
 
 APK ini ditandatangani dengan kunci uji. Untuk distribusi, buat APK
 bertanda tangan kunci Anda sendiri (`docs/BUILD_AND_RELEASE.md`).
+
+**Build launcher:** \`${BUILD_ID}\` — nilai ini juga tampil di baris status
+launcher. Kalau baris status belum menampilkan nilai yang sama, APK lama masih
+terpasang.
+
+> Kunci uji dibuat ulang setiap kali rilis dibangun, jadi Android akan menolak
+> "pasang di atas" APK dari rilis berbeda. **Copot pemasangan aplikasi lama
+> dulu**, baru pasang APK ini.
 MD
 
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
