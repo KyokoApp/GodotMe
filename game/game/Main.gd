@@ -85,8 +85,13 @@ func _build_hud() -> void:
 	var plaque := PanelContainer.new()
 	plaque.theme = _theme()
 	plaque.add_theme_stylebox_override("panel", _nine(PARCH, 20, 26, 18))
-	plaque.position = Vector2(26, 24)
-	plaque.custom_minimum_size = Vector2(300, 0)
+	plaque.anchor_left = 0.0
+	plaque.anchor_top = 0.0
+	plaque.offset_left = 26.0
+	plaque.offset_top = 24.0
+	plaque.offset_right = 366.0
+	plaque.offset_bottom = 24.0
+	plaque.grow_vertical = Control.GROW_DIRECTION_END
 	root.add_child(plaque)
 
 	var box := VBoxContainer.new()
@@ -113,9 +118,14 @@ func _build_hud() -> void:
 	var note := PanelContainer.new()
 	note.theme = _theme()
 	note.add_theme_stylebox_override("panel", _nine(PARCH, 20, 22, 16))
-	note.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	note.position = Vector2(26, -150)
-	note.custom_minimum_size = Vector2(430, 0)
+	note.anchor_left = 0.0
+	note.anchor_right = 0.0
+	note.anchor_top = 1.0
+	note.anchor_bottom = 1.0
+	note.offset_left = 26.0
+	note.offset_right = 470.0
+	note.offset_top = -26.0
+	note.offset_bottom = -26.0
 	note.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	root.add_child(note)
 
@@ -151,8 +161,14 @@ func _build_hud() -> void:
 	back.add_theme_font_size_override("font_size", 18)
 	back.add_theme_color_override("font_color", INK)
 	back.custom_minimum_size = Vector2(150, 46)
-	back.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	back.position = Vector2(-176, 24)
+	back.anchor_left = 1.0
+	back.anchor_right = 1.0
+	back.anchor_top = 0.0
+	back.anchor_bottom = 0.0
+	back.offset_left = -176.0
+	back.offset_right = -26.0
+	back.offset_top = 24.0
+	back.offset_bottom = 70.0
 	back.pressed.connect(_on_back_pressed)
 	root.add_child(back)
 
@@ -166,8 +182,12 @@ func _build_hud() -> void:
 	_hint.add_theme_constant_override("shadow_offset_y", 2)
 	_hint.add_theme_constant_override("shadow_outline_size", 4)
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_hint.position = Vector2(0, -54)
+	_hint.anchor_left = 0.0
+	_hint.anchor_right = 1.0
+	_hint.anchor_top = 1.0
+	_hint.anchor_bottom = 1.0
+	_hint.offset_top = -58.0
+	_hint.offset_bottom = -30.0
 	root.add_child(_hint)
 	var tw := create_tween()
 	tw.tween_interval(5.0)
@@ -238,7 +258,7 @@ func _maybe_capture_or_quit() -> void:
 			get_tree().quit(0)
 			return
 		if a.begins_with("--capture="):
-			var dir := a.substr("--capture=".length())
+			var dir: String = a.substr("--capture=".length())
 			var shot_name := "08_diorama"
 			for arg2 in OS.get_cmdline_user_args():
 				var b := String(arg2)

@@ -173,11 +173,11 @@ func _build_path() -> void:
 	var indices := PackedInt32Array()
 	var run := 0.0
 	for i in range(PATH.size() - 1):
-		var a := PATH[i]
-		var b := PATH[i + 1]
-		var dir := (b - a).normalized()
-		var side := Vector2(-dir.y, dir.x) * (PATH_WIDTH * 0.5)
-		var seg := a.distance_to(b)
+		var a: Vector2 = PATH[i]
+		var b: Vector2 = PATH[i + 1]
+		var dir: Vector2 = (b - a).normalized()
+		var side: Vector2 = Vector2(-dir.y, dir.x) * (PATH_WIDTH * 0.5)
+		var seg: float = a.distance_to(b)
 		var base := verts.size()
 		for corner in [[a - side, 0.0], [a + side, 1.0], [b - side, 0.0], [b + side, 1.0]]:
 			var p: Vector2 = corner[0]
