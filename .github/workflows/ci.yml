@@ -61,6 +61,23 @@ jobs:
           tools/run_launcher_tests.sh ${{ matrix.case }} 2>&1 | tee /tmp/case.log
           exit ${PIPESTATUS[0]}
 
+      - name: Publish case log as PR comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f /tmp/case.log ]; then echo "no log produced"; exit 0; fi
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -z "$PR" ]; then echo "no PR for $GITHUB_REF_NAME"; exit 0; fi
+          {
+            echo "### CI log — case \`${{ matrix.case }}\`"
+            echo ""
+            echo '```'
+            tail -c 50000 /tmp/case.log | sed 's/```/``\`/g'
+            echo '```'
+          } > /tmp/comment.md
+          gh pr comment "$PR" --body-file /tmp/comment.md --repo "$GITHUB_REPOSITORY" || true
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
