@@ -178,62 +178,62 @@ func _build_ground() -> void:
 
 
 func _build_path() -> void:
-	var verts := PackedVector3Array()
-	var uvs := PackedVector2Array()
-	var uvs2 := PackedVector2Array()
-	var norms := PackedVector3Array()
-	var indices := PackedInt32Array()
-	var run := 0.0
-	for i in range(PATH.size() - 1):
-		var a: Vector2 = PATH[i]
-		var b: Vector2 = PATH[i + 1]
-		var dir: Vector2 = (b - a).normalized()
-		var side: Vector2 = Vector2(-dir.y, dir.x) * (PATH_WIDTH * 0.5)
-		var seg: float = a.distance_to(b)
-		var base := verts.size()
-		for corner in [[a - side, 0.0], [a + side, 1.0], [b - side, 0.0], [b + side, 1.0]]:
-			var p: Vector2 = corner[0]
-			var across: float = corner[1]
-			verts.append(Vector3(p.x, 0.02, p.y))
-			norms.append(Vector3.UP)
-			# X stays 0..1 across the strip (the shader needs the edge distance),
-			# Y is metres/2 so texels stay square along the track
-			uvs.append(Vector2(across, run / 2.0))
-			# the ground plane tiles 2 m per texture repeat and its UV origin is
-			# the plane corner, so the offset is what makes the grass under the
-			# path line up with the grass around it
-			uvs2.append(Vector2((p.x + GROUND_SIZE.x * 0.5) / 2.0,
-				(p.y + GROUND_SIZE.y * 0.5) / 2.0))
-		indices.append_array([base, base + 1, base + 2, base + 1, base + 3, base + 2])
-		run += seg
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = norms
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_TEX_UV2] = uvs2
-	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-
-	var mi := MeshInstance3D.new()
-	mi.name = "Path"
-	mi.mesh = mesh
+	# The track is drawn as ONE quad per leg, offset a hair above the meadow.
+	# A hand-built strip mesh had unreliable winding (back-face culling made it
+	# vanish) and its long thin triangles smeared the texture into stripes.
+	var root := Node3D.new()
+	root.name = "Path"
+	add_child(root)
 	var dirt := WorldArt.tex(TEX_DIR + "path_tile.png")
 	var grass_tex := WorldArt.tex(TEX_DIR + "grass_tile.png")
 	var mat := ShaderMaterial.new()
 	var shader_ok := ResourceLoader.exists(WORLD_DIR + "path.gdshader")
 	if shader_ok:
 		mat.shader = load(WORLD_DIR + "path.gdshader")
-	print("[WORLD] path shader exists=%s loaded=%s dirt_tex=%s grass_tex=%s" % [
-		shader_ok, mat.shader != null, dirt != null, grass_tex != null])
 	mat.set_shader_parameter("dirt_tex", dirt)
 	mat.set_shader_parameter("grass_tex", grass_tex)
 	mat.set_shader_parameter("half_width", PATH_WIDTH * 0.5)
-	mat.set_shader_parameter("feather", 0.28)
+	mat.set_shader_parameter("feather", 0.26)
+	mat.set_shader_parameter("dirt_tint", Color(1.42, 1.34, 1.20))
+	print("[WORLD] path shader exists=%s loaded=%s dirt=%s grass=%s legs=%d" % [
+		shader_ok, mat.shader != null, dirt != null, grass_tex != null,
+		PATH.size() - 1])
+
+	var run := 0.0
+	for i in range(PATH.size() - 1):
+		var a: Vector2 = PATH[i]
+		var b: Vector2 = PATH[i + 1]
+		var leg := a.distance_to(b)
+		var quad := QuadMesh.new()
+		# a little longer than the leg so the joints overlap instead of gapping
+		quad.size = Vector2(PATH_WIDTH, leg + PATH_WIDTH * 0.6)
+		var mi := MeshInstance3D.new()
+		mi.name = "Leg%d" % i
+		mi.mesh = quad
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var mid := (a + b) * 0.5
+		mi.position = Vector3(mid.x, 0.02, mid.y)
+		# QuadMesh lies in XY; lay it flat and point +Y along the leg
+		mi.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+		mi.rotate_y(atan2(-(b - a).x, -(b - a).y))
+		root.add_child(mi)
+		run += leg
+	# a soft patch of bare earth in front of the door
+	_add_dirt_patch(root, mat, Vector2(-2.2, 0.4), 2.6)
+
+
+func _add_dirt_patch(parent: Node3D, mat: ShaderMaterial, at: Vector2, size: float) -> void:
+	var quad := QuadMesh.new()
+	quad.size = Vector2(size, size * 1.2)
+	var mi := MeshInstance3D.new()
+	mi.name = "Yard"
+	mi.mesh = quad
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
+	mi.position = Vector3(at.x, 0.015, at.y)
+	mi.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+	parent.add_child(mi)
 
 
 # ------------------------------------------------------------------ props ----
@@ -284,11 +284,13 @@ func _make_prop(kind: String, s: float, flip: bool) -> Node3D:
 
 # ----------------------------------------------------------------- camera ----
 func _build_camera() -> void:
+	# Build the rig as a self-contained scene: the camera must be a child BEFORE
+	# the rig enters the tree, otherwise its @onready lookup runs too early and
+	# pan/zoom silently do nothing (this happened, and only the log showed it).
 	_camera = DioramaCamera.new()
 	_camera.name = "CameraRig"
 	_camera.bounds = Vector2(GROUND_SIZE.x * 0.5 - 4.0, GROUND_SIZE.y * 0.5 - 3.5)
 	_camera.start_zoom = 19.0
-	add_child(_camera)
 	var cam := Camera3D.new()
 	cam.name = "Camera3D"
 	cam.fov = 30.0
@@ -297,6 +299,8 @@ func _build_camera() -> void:
 	cam.position = Vector3(0.0, 0.0, _camera.start_zoom)
 	cam.current = true
 	_camera.add_child(cam)
+	add_child(_camera)
+	print("[WORLD] camera rig ready, cam present=%s" % (_camera.get_node_or_null("Camera3D") != null))
 
 
 func reset_view() -> void:

@@ -38,7 +38,11 @@ void fragment() {
 	float mask = smoothstep(0.12, 0.12 + feather, edge + wear);
 
 	ALBEDO = mix(grass, dirt, mask);
-	ALPHA = 1.0;
+	// A quad laid on the ground still has to fade out at its own border, or the
+	// patch ends in a hard rectangle where the meadow continues.
+	float edge_fade = smoothstep(0.0, 0.10, min(UV.x, 1.0 - UV.x))
+		* smoothstep(0.0, 0.16, min(UV.y, 1.0 - UV.y));
+	ALPHA = mask * edge_fade;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
 }
