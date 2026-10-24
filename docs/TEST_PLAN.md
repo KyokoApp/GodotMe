@@ -109,3 +109,18 @@ tools/testserver.py               # server uji: Range, throttle, audit request
 Yang **tidak** bisa diotomasi di sandbox dan harus dicoba di HP: rasa stik dan
 ukuran tombol dengan jempol, ketajaman pada layar sungguhan, getar kamera,
 dan apakah dialog terbaca saat matahari rendah.
+
+### Uji aturan permainan (`PlayTest`, headless, masuk CI)
+
+```bash
+godot --headless --path game res://game/tests/PlayTest.tscn   # exit 1 bila ada yang gagal
+```
+
+| # | Yang diuji | Kenapa |
+| --- | --- | --- |
+| P1 | satu pukulan masuk state `hurt`, lalu pulih ke `idle` | dasar flinch |
+| P2 | flinch kedua memutar ulang dari frame awal | dulu strip tidak di-restart → terkunci |
+| P3 | tetap bisa berjalan setelah dipukul | hit-stop dulu membekukan animasi selamanya |
+| P4 | `death` menahan frame terakhir | animasi mati tidak boleh loop |
+| P5 | orc memukul berkali-kali: ksatria tetap bisa dikendalikan | laporan perangkat "stuck saat dipukul" |
+| P6 | tepi bawah setiap prop di diorama = 0 m (toleransi 2 cm) | laporan perangkat "pohon/batu melayang" |

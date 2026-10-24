@@ -376,3 +376,59 @@ Uji regresi: `boot_packs` di `tools/run_launcher_tests.sh` (matrix CI) yang
 memeriksa skrip menempel & terkompilasi, `boot_ok.json` menyebut versi aktif,
 node `Diorama`, `HUD`, dan `Diorama/Characters` benar-benar terbangun, plus
 tangkapan layar `docs/screenshots/14_game_dari_paket.png`.
+
+## 11. Dua bug perangkat dari laporan pemilik (25 Okt 2026)
+
+Laporan: *"tiba-tiba stuck saat dipukul monster, dan objek kayaknya melayang —
+pohon, batu, dan lain-lain"*. Keduanya direproduksi dulu sebagai uji
+`game/tests/PlayTest.tscn` (headless, masuk CI sebagai "Play rules"), **gagal**
+dengan perbaikan belum dipasang, lalu hijau setelahnya.
+
+### 11.1 Ksatria terkunci setelah dipukul (lampu putih berhenti)
+
+Penyebabnya hit-stop. `_process()` menghentikan animasi dengan
+`sprite.speed_scale = 0.0` selama 0,05 s, tetapi **tidak pernah
+mengembalikannya**. Akibatnya animasi `hurt` berhenti di frame pertamanya.
+Frame pertama `hurt` dari pack Ksatria adalah siluet putih — itulah yang terlihat
+di tangkapan layar pemilik. Karena animasi tidak pernah maju,
+`animation_finished` tidak pernah datang, dan `_on_anim_finished()` adalah
+satu-satunya jalan keluar dari state `hurt`:
+
+```
+stuck = hurt (speed_scale 0) -> animasi mati -> tak ada animation_finished
+      -> state tetap HURT -> drive() & try_attack() keduanya menolak
+```
+
+Perbaikan (semua di `Actor.gd`):
+
+1. `_anim_speed` menyimpan kecepatan animasi; ketika hit-stop selesai,
+   `speed_scale` dikembalikan ke nilai itu (bukan dibiarkan 0).
+2. `_play(anim, speed, restart)`: parameter `restart` memaksa `sprite.play()`
+   walau nama animasinya sama. Dulu flinch kedua tidak pernah memutar ulang
+   strip karena `_anim` masih `"hurt"`.
+3. Flinch tidak bisa dirantai: `take_hit()` diabaikan bila masih di `hurt`
+   kurang dari 0,2 s (dua orc yang memukul bersamaan dulu mengunci pemain).
+4. Pengawas `_watch_one_shot()`: kalau `animation_finished` tetap tidak datang
+   (tree dijeda, sinyal hilang), state `hurt`/`attack` dilepas setelah durasi
+   animasi + 0,35 s dan karakter kembali `idle`. Ada `push_warning` supaya
+   kejadiannya terlihat di log, bukan hilang diam-diam.
+5. Semua perpindahan state memakai `_enter_state()` yang juga mereset
+   `_state_time` (dipakai pengawas dan jendela anti-rantai).
+
+### 11.2 Pohon, batu, dan semak melayang
+
+Kuad prop digambar terpusat pada origin node, jadi ia menapak hanya bila
+`position.y = tinggi/2`. Kode lama memakai tinggi **tanpa** skala:
+
+```gdscript
+mi.scale = Vector3(s, s, s)
+mi.position.y = size.y * 0.5        # benar hanya bila s == 1
+```
+
+Semua prop berskala 0,85–1,2, sehingga prop kecil melayang sampai **0,324 m**
+(diukur uji) dan prop besar tenggelam. Sekarang `mi.position.y = size.y * 0.5 * s`.
+
+**Aturan:** setiap kuad yang "berdiri di tanah" harus menghitung tinggi
+**setelah** skala. Uji `PlayTest` mengukur tepi bawah setiap prop di diorama
+sungguhan dan menuntut |y| ≤ 0,02 m, jadi kesalahan seperti ini tidak bisa
+lolos lagi.
