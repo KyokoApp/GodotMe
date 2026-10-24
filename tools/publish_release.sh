@@ -29,6 +29,11 @@ if [ -z "${GH_TOKEN:-}" ]; then
   exit 2
 fi
 
+# Read the build id before moving into the artifact directory: this script can
+# run from anywhere, but only the checkout has the launcher project file.
+BUILD_ID=$(sed -n 's/^build_id="\(.*\)"/\1/p' "${SRC_DIR:-.}/launcher/project.godot" 2>/dev/null || true)
+[ -n "${BUILD_ID:-}" ] || BUILD_ID="(tidak diketahui)"
+
 cd "$REL"
 
 for f in version.json re-traveller-launcher.apk; do
@@ -54,10 +59,9 @@ if listed != present:
 print("manifest matches", len(listed), "packages on disk")
 PY
 
-BUILD_ID=$(sed -n 's/^build_id="\(.*\)"/\1/p' launcher/project.godot 2>/dev/null || true)
-[ -n "${BUILD_ID:-}" ] || BUILD_ID="(tidak diketahui)"
-
-cat > NOTES.md <<MD
+# Quoted heredoc: the note text is full of backticks (file names), and an
+# unquoted heredoc executed them as commands, blanking the published notes.
+cat > NOTES.md <<'MD'
 ## Re - Traveller — demo launcher + paket contoh
 
 **Cara pakai di HP (sekali pasang):**
@@ -74,7 +78,7 @@ selisih (delta), bukan unduh ulang semuanya.
 APK ini ditandatangani dengan kunci uji. Untuk distribusi, buat APK
 bertanda tangan kunci Anda sendiri (`docs/BUILD_AND_RELEASE.md`).
 
-**Build launcher:** \`${BUILD_ID}\` — nilai ini juga tampil di baris status
+**Build launcher:** `@BUILD_ID@` — nilai ini juga tampil di baris status
 launcher. Kalau baris status belum menampilkan nilai yang sama, APK lama masih
 terpasang.
 
@@ -82,6 +86,8 @@ terpasang.
 > "pasang di atas" APK dari rilis berbeda. **Copot pemasangan aplikasi lama
 > dulu**, baru pasang APK ini.
 MD
+
+sed -i "s/@BUILD_ID@/${BUILD_ID}/g" NOTES.md
 
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
   echo "release $TAG exists -> replacing assets"

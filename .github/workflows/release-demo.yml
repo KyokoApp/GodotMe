@@ -72,7 +72,8 @@ jobs:
           manifest["changelog"] = [
               "Tahap sprite: ksatria, penjaga, dan tiga orc hidup di lembah.",
               "Kontrol sentuh: stik jalan/lari, serang, tahan blok, bicara dengan penjaga.",
-              "Yang berubah hanya core.pck dan characters.pck; paket lain tetap.",
+              "Dialog perkamen: 3 halaman + satu cabang dua pilihan.",
+              "Paket yang berubah: characters.pck (sprite + data), world.pck (warna jalur), core.pck. Paket lain tetap dan tidak diunduh ulang.",
           ]
           # GitHub Release assets are flat: the manifest must point at bare file
           # names, so rewrite "packs/<file>" -> "<file>" and copy just the packs
