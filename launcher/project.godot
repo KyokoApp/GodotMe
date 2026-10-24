@@ -59,5 +59,6 @@ theme/default_font_generate_mipmaps=false
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
+textures/vram_compression/import_etc2_astc=true
 anti_aliasing/quality/msaa_2d=0
 environment/defaults/default_clear_color=Color(0.086, 0.063, 0.051, 1)
