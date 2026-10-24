@@ -191,7 +191,9 @@ def write_tres(info: dict, path: str) -> None:
     spec = info["spec"]
     fw, fh = spec["frame_size"]
     lines = [
-        "[gd_resource type=\"Resource\" format=3]",
+        # same header shape Godot writes itself (script_class + load_steps), so
+        # the loader never has to guess how many external resources to expect
+        "[gd_resource type=\"Resource\" script_class=\"CharacterDef\" load_steps=2 format=3]",
         "",
         "[ext_resource type=\"Script\" path=\"res://game/characters/CharacterDef.gd\" id=\"1_def\"]",
         "",

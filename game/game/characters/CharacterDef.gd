@@ -41,17 +41,22 @@ func has_anim(anim: String) -> bool:
 
 ## Empty dictionary when the animation is not in this character's set.
 func anim_entry(anim: String) -> Dictionary:
-	for a in animations:
-		if typeof(a) == TYPE_DICTIONARY and String((a as Dictionary).get("name", "")) == anim:
-			return a as Dictionary
+	for raw in animations:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var entry: Dictionary = raw
+		if String(entry.get("name", "")) == anim:
+			return entry
 	return {}
 
 
 func anim_names() -> Array:
 	var out: Array = []
-	for a in animations:
-		if typeof(a) == TYPE_DICTIONARY:
-			out.append(String((a as Dictionary).get("name", "")))
+	for raw in animations:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var entry: Dictionary = raw
+		out.append(String(entry.get("name", "")))
 	return out
 
 

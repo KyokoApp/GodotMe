@@ -99,11 +99,28 @@ func _load_defs() -> Dictionary:
 		if res == null:
 			push_error("[CHAR] definisi gagal dimuat: %s" % path)
 			continue
-		if res.get_script() == null:
-			push_error("[CHAR] %s kehilangan skrip CharacterDef (skrip gagal di-parse?)" % path)
-			continue
-		out[key] = res
+		out[key] = _as_definition(res, path)
 	return out
+
+
+## A .tres whose `script` did not attach still carries every property. Instead of
+## dying on a missing method later, rebuild a proper CharacterDef from those
+## values and say so once, loudly.
+func _as_definition(res: Resource, path: String) -> Resource:
+	if res.get_script() != null:
+		return res
+	var script: Script = load("res://game/characters/CharacterDef.gd")
+	if script == null:
+		push_error("[CHAR] CharacterDef.gd tidak bisa dimuat")
+		return res
+	var def: Resource = script.new()
+	for key in ["id", "display_name", "role", "sprite_dir", "frame_size",
+			"pixel_scale", "pivot", "body_width_px", "content_height_px",
+			"world_pixel_size", "walk_stride_m", "run_stride_m", "body_radius_m",
+			"animations"]:
+		def.set(key, res.get(key))
+	push_warning("[CHAR] %s tanpa skrip; definisi dibangun ulang dari properti" % path)
+	return def
 
 
 func _wire_ground() -> void:

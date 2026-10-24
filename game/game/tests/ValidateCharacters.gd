@@ -17,7 +17,7 @@ const IDS := ["knight", "soldier", "orc"]
 func _ready() -> void:
 	var problems := 0
 	for id in IDS:
-		var path := DEF_DIR + id + ".tres"
+		var path: String = DEF_DIR + String(id) + ".tres"
 		if not ResourceLoader.exists(path):
 			print("[VALIDATE] FAIL %s tidak ada" % path)
 			problems += 1
