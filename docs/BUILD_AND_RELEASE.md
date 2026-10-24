@@ -480,3 +480,23 @@ tidak ada, memakai `"0.1.0"`. Di HP hasilnya kebetulan benar; di sandbox uji
 hasilnya salah, dan kalau path itu bergeser, `Guard` akan menjatuhkan versi yang
 sebenarnya sehat (layar hitam + "versi ditahan"). Sekarang kedua sisi memakai
 nilai yang sama tanpa menebak.
+
+### 0.2.1 — perbaikan yang membuat game benar-benar bisa dibuka
+
+`demo-v0.1.0` (latest) sekarang memuat **paket versi 0.2.1**:
+
+| Aset | Ukuran | Keterangan |
+| --- | --- | --- |
+| `core_100.pck` | 42.016 B | `Main.gd` tanpa `class_name` global → **ini yang memperbaiki layar hitam** |
+| `world_100.pck` | 1.615.652 B | `Diorama.gd`/`DioramaCamera.gd`/`WorldArt.gd` saling dipanggil lewat `preload`, bukan nama kelas global |
+| `characters_100.pck` | 153.884 B | tidak berubah |
+| `version.json` | 1.858 B | `version: 0.2.1` + changelog |
+
+APK tidak berubah (`rt-launcher-v2-main-fix`), jadi cukup **Periksa Lagi** lalu
+**MAIN** — tidak perlu memasang ulang.
+
+Bukti di CI (job `screenshots`, artefak `docs/screenshots/`):
+`14_game_dari_paket.png` adalah game **yang dimuat dari paket .pck**, persis
+jalur yang dipakai HP, lengkap dengan `boot_ok.json` yang menyebut versi aktif.
+Uji yang sama juga memastikan `Main.gd` benar-benar punya skrip dan terkompilasi
+sebelum dijalankan — kalau tidak, build merah, bukan layar hitam.
