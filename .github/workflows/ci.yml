@@ -178,16 +178,26 @@ jobs:
           ls -la docs/screenshots
 
       - name: Commit screenshots
+        # The branch is also pushed to by whoever is working; a rejected push
+        # here must not turn a good capture into a red build.
+        continue-on-error: true
         run: |
+          set +e
           git config user.name "arena-ci"
           git config user.email "ci@arena.ai"
           git add -A docs/screenshots
           if git diff --cached --quiet; then
             echo "screenshots unchanged"
-          else
-            git commit -m "docs: tangkapan layar launcher (CI) [skip ci]"
-            git push
+            exit 0
           fi
+          git commit -m "docs: tangkapan layar launcher (CI) [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push && {
+              echo "screenshots committed on attempt $attempt"; exit 0; }
+            echo "push attempt $attempt rejected, retrying"; sleep 10
+          done
+          echo "could not push screenshots; they are still in the artifact"
+          exit 0
 
       - uses: actions/upload-artifact@v4
         if: always()
