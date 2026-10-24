@@ -188,7 +188,7 @@ func _scenario_first_install() -> void:
 		if not Store.pack_ready(pkg):
 			all_ok = false
 	_check(all_ok, "semua paket ada dan berukuran tepat")
-	var prev := Util.read_json(Cfg.active_file()).get("previous", "")
+	var prev: Variant = Util.read_json(Cfg.active_file()).get("previous", "")
 	_check(String(prev) == "", "instalasi pertama tanpa versi sebelumnya", String(prev))
 	# pretend the player has progress: save data lives OUTSIDE the pack tree
 	DirAccess.make_dir_recursive_absolute("user://save")

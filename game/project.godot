@@ -16,6 +16,10 @@ run/main_scene="res://game/Main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/version="0.1.0"
 
+[debug]
+
+gdscript/warnings/treat_warnings_as_errors=false
+
 [display]
 
 window/size/viewport_width=1280

@@ -486,21 +486,21 @@ func _on_pkg_progress(done: int, total: int, expected: int) -> void:
 		var delta := done - _speed_bytes
 		if delta < 0:
 			delta = 0
-		var inst := float(delta) / max(dt, 0.001)
-		_speed_bps = inst if _speed_bps <= 0.0 else lerp(_speed_bps, inst, 0.35)
+		var inst: float = float(delta) / maxf(dt, 0.001)
+		_speed_bps = inst if _speed_bps <= 0.0 else lerpf(_speed_bps, inst, 0.35)
 		_speed_bytes = done
 		_speed_ms = now
-	var pkg_total := expected if expected > 0 else max(total, 1)
+	var pkg_total: int = expected if expected > 0 else maxi(total, 1)
 	_emit_progress(false, done, pkg_total)
 
 
 func _emit_progress(force: bool, pkg_done: int = -1, pkg_total: int = -1) -> void:
-	var done := _bytes_done
+	var done: int = _bytes_done
 	if pkg_done >= 0:
 		done += pkg_done
-	var total := max(_bytes_total, 1)
+	var total: int = maxi(_bytes_total, 1)
 	var pct := clampf(float(done) / float(total), 0.0, 1.0)
-	var remaining := max(0, total - done)
+	var remaining: int = maxi(0, total - done)
 	var eta := -1.0
 	if _speed_bps > 1024.0:
 		eta = float(remaining) / _speed_bps
