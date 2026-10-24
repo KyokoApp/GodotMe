@@ -11,7 +11,7 @@ uniform sampler2D dirt_tex : source_color, filter_nearest, repeat_enable;
 uniform sampler2D grass_tex : source_color, filter_nearest, repeat_enable;
 uniform float half_width = 0.8;   // strip half width in metres (for square texels)
 uniform float feather = 0.28;
-uniform vec3 dirt_tint : source_color = vec3(1.42, 1.34, 1.20);
+uniform vec3 dirt_tint : source_color = vec3(1.08, 1.00, 0.88);
 
 varying vec2 ground_uv;
 

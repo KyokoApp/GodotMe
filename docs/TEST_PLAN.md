@@ -46,7 +46,7 @@ nama paket ganda, `sha256` salah, path tidak aman).
 
 * **Tangkapan layar** (`docs/screenshots/`): menyiapkan, mengunduh, siap,
   kendala, mode luring, modal pemulihan otomatis, **dan layar dunia setelah MAIN
-  ditekan** (`07_dunia.png`, diambil dari proyek game langsung) — semua dengan GL
+  ditekan** (`08_diorama.png`, diambil dari proyek game langsung) — semua dengan GL
   software (llvmpipe) pada 1280×720.
 * **Audit permintaan server**: satu paket yang berubah hanya diminta sekali
   selama delta update; paket yang tidak berubah tidak diunduh ulang.

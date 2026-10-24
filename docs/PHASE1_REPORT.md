@@ -122,7 +122,7 @@ Bukti visual (diambil otomatis oleh CI, 1280×720, dijalankan terhadap
 | `docs/screenshots/04_kendala.png` | unduhan gagal + Coba Lagi |
 | `docs/screenshots/05_luring.png` | mode luring memakai versi valid terakhir |
 | `docs/screenshots/06_pemulihan.png` | modal pemulihan otomatis setelah game gagal boot |
-| `docs/screenshots/07_dunia.png` | layar yang muncul setelah MAIN ditekan (dunia dari paket `.pck`) |
+| `docs/screenshots/08_diorama.png` | layar yang muncul setelah MAIN ditekan: diorama HD-2D dari paket `.pck` (Fase 2 tahap 1) |
 
 ### Status CI terakhir
 

@@ -158,3 +158,36 @@ Sudah dicatat supaya fase berikutnya tidak mengulang kesalahan:
 * Dunia wajib diisi: rumput, bunga, batu, ranting bervariasi; tidak boleh ada
   bidang kosong.
 * Partikel "debu" memakai sprite kecil (4×4), jangan kotak.
+
+---
+
+## 8. Fase 2 — mesin diorama HD-2D (tahap 1)
+
+Tambahan pada 24 Okt 2026. Tujuannya: membuktikan "HD-2D" di atas renderer yang
+dipaksa APK (`gl_compatibility`), tanpa satu pun sprite karakter.
+
+**Yang membentuk tampilan**
+
+| Unsur | Keputusan | Alasan |
+| --- | --- | --- |
+| Kamera | rig sudut tetap: pitch −38°, yaw −22°, FOV 30°, zoom awal 19 | Sudut miring rendah = kesan miniatur/diorama. Kamera tidak pernah tilt supaya ilusi tidak pecah. |
+| Pergerakan kamera | geser satu jari/mouse, cubit dua jari atau gulir untuk zoom (11–32) | Semua lewat sentuhan; tidak ada joystick di layar. |
+| Sprite properti | `QuadMesh` billboard, `alpha_scissor` 0,45, filter Nearest | Alpha-scissor (bukan transparan) supaya sinar matahari benar-benar mengenai sprite dan bayangannya jatuh di rumput. |
+| Cahaya | satu `DirectionalLight3D` hangat-netral, bayangan ortho 60 m, bias 0,04/1,2, blur 1,4 | Bayangan panjang dari kiri atas adalah ciri khas diorama; bias dijaga agar tidak "peter-panning". |
+| Udara | fog 0,0045 warna netral-hangat | Memberi kedalaman. Density 0,011 pernah membuat seluruh padang berwarna pasir — jangan dinaikkan tanpa cek tangkapan layar. |
+| Warna | ACES, exposure 1,0, kontras 1,08, saturasi 1,12, glow 0,30 | Hijau harus tetap hijau; matahari terlalu kuning membuat rumput tampak jerami. |
+| Depth of field | **tidak ada di Compatibility** → shader tilt-shift layar penuh (`tiltshift.gdshader`) | Blur vertikal bertahap dari garis fokus; inilah yang membuat tampilan terasa miniatur. |
+| Jalan setapak | quad per segmen + `path.gdshader` (decal) | Dekal mencampur tekstur tanah dengan tekstur rumput yang sama dengan lantai, tepinya diberi noise, jadi tidak terlihat seperti pita yang ditempel. |
+
+**Pelajaran teknis (jangan diulang)**
+
+* `node.position = Vector3(x, 0, z)` menimpa offset Y yang sudah dipasang; sprite
+  jadi setengah terkubur. Tulis `.x`/`.z` saja.
+* Node rig kamera harus punya `Camera3D` **sebelum** masuk tree, kalau tidak
+  `@onready` gagal dan pan/zoom mati tanpa error yang terlihat.
+* Mesh strip datar buatan tangan bisa ter-cull dan teksturnya memanjang; quad per
+  segmen jauh lebih dapat diprediksi.
+* Tile hasil generator punya rim gelap di pinggir gambar → crop 10% sebelum
+  edge-blend, kalau tidak seam-nya terlihat sebagai grid.
+* `alpha_scissor` butuh tepi alpha keras; PNG hasil `pixelate()` sudah dibuat
+  biner (ambang 110/255).
