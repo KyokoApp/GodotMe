@@ -1,0 +1,24 @@
+# Godot 4 cache / import artefacts
+.godot/
+**/.godot/
+*.translation
+
+# build outputs
+dist/
+build/
+*.apk
+*.aab
+*.pck
+*.zip
+!assets_src/*.zip
+
+# OS noise
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+
+# manifest signing - never commit private keys
+*_private.pem
+*.keystore
+launcher/signing/public_key.pem

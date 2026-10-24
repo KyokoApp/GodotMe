@@ -1,0 +1,269 @@
+name: release-demo
+
+# Builds one GitHub Release that contains everything needed to try the whole
+# pipeline on a real phone:
+#
+#   re-traveller-launcher.apk   <- install this once
+#   version.json                <- what the launcher reads
+#   packs/*.pck                 <- the six modular packages it downloads
+#
+# Because the release is "latest", the launcher's default MANIFEST_URL
+# (https://github.com/<owner>/<repo>/releases/latest/download/version.json)
+# points straight at it - no hosting needed to test.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag"
+        default: "demo-v0.1.0"
+        required: true
+      pack_version:
+        description: "Version written into version.json"
+        default: "0.1.0"
+        required: true
+  push:
+    branches: ["arena/5c17933c-godotme"]
+    paths: ["RELEASE_DEMO"]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tools"
+          curl -sSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/.tools"
+          mv "$GITHUB_WORKSPACE/.tools/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GITHUB_WORKSPACE/.tools/godot"
+          chmod +x "$GITHUB_WORKSPACE/.tools/godot"
+          echo "$GITHUB_WORKSPACE/.tools" >> "$GITHUB_PATH"
+
+      # ---------------------------------------------------------- packs -----
+      - name: Build the six game packages + manifest
+        run: |
+          set -euo pipefail
+          timeout 240 godot --headless --path launcher --import
+          timeout 240 godot --headless --path game --import
+          rm -rf /tmp/rel && mkdir -p /tmp/rel
+          timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
+            --game-dir="$PWD/game" --out=/tmp/rel
+          VERSION="${{ github.event.inputs.pack_version || '0.1.0' }}"
+          python3 - "$VERSION" <<'PY'
+          import json, os, shutil, sys
+          version = sys.argv[1]
+          rel = "/tmp/rel/release"
+          os.makedirs(rel, exist_ok=True)
+          with open("/tmp/rel/v100.json", encoding="utf-8") as fh:
+              manifest = json.load(fh)
+          manifest["version"] = version
+          manifest["changelog"] = [
+              "Rilis demo: enam paket modular (core, characters, enemies, world, ui, audio).",
+              "Dunia contoh dimuat dari paket .pck, bukan dari APK.",
+              "Uji: update karakter hanya mengunduh characters.pck.",
+          ]
+          # GitHub Release assets are flat: the manifest must point at bare file
+          # names, so rewrite "packs/<file>" -> "<file>" and copy just the packs
+          # the manifest actually references (the fixture also builds packs for
+          # the rollback / bad-hash / slow-download scenarios).
+          for pkg in manifest["packages"]:
+              src = os.path.join("/tmp/rel", pkg["url"])
+              name = os.path.basename(pkg["url"])
+              shutil.copy2(src, os.path.join(rel, name))
+              pkg["url"] = name
+              pkg["size"] = os.path.getsize(os.path.join(rel, name))
+          with open(os.path.join(rel, "version.json"), "w", encoding="utf-8") as fh:
+              json.dump(manifest, fh, indent=2)
+              fh.write("\n")
+          print("manifest:", version, [p["name"] for p in manifest["packages"]])
+          PY
+          ls -la /tmp/rel/release
+          # sanity: every listed package must exist with the recorded size
+          python3 - <<'PY'
+          import json, os
+          rel = "/tmp/rel/release"
+          m = json.load(open(os.path.join(rel, "version.json")))
+          for p in m["packages"]:
+              size = os.path.getsize(os.path.join(rel, p["url"]))
+              assert size == p["size"], (p["name"], size, p["size"])
+          print("manifest verified:", len(m["packages"]), "packages")
+          PY
+
+      # ------------------------------------------------------------ apk -----
+      - name: Install export templates
+        run: |
+          mkdir -p /tmp/tpl
+          curl -sSL -o /tmp/tpl.tpz \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/tpl.tpz -d /tmp/tpl
+          DEST="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$DEST"
+          cp -r /tmp/tpl/templates/* "$DEST"/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Keystore + editor settings
+        run: |
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey \
+            -keypass android -keystore /tmp/debug.keystore -storepass android \
+            -dname "CN=Re Traveller Demo,O=Arena,C=ID" -validity 9999 \
+            -deststoretype pkcs12
+          SDK=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$SDK"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "/tmp/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          export/android/force_system_user = false
+          export/android/shutdown_adb_on_exit = true
+          EOF
+          sed -i 's/^          //' "$HOME/.config/godot/editor_settings-4.7.tres"
+
+      - name: Export APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Godot reads keystore from the environment *before* the preset
+          # (EditorExportPreset::get_or_env), so no preset patching is needed.
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /tmp/debug.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: android
+        run: |
+          set +e
+          : > /tmp/apk.log
+          echo "keystore: $GODOT_ANDROID_KEYSTORE_RELEASE_PATH"
+          ls -l "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH" || echo "KEYSTORE MISSING"
+          mkdir -p dist
+          godot --headless --path launcher --export-release "Android" \
+            "$PWD/dist/re-traveller-launcher.apk" >> /tmp/apk.log 2>&1
+          code=$?
+          tail -40 /tmp/apk.log
+          ls -la dist >> /tmp/apk.log
+          APKSIGNER=$(ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/build-tools/*/apksigner 2>/dev/null | tail -1)
+          if [ -f dist/re-traveller-launcher.apk ]; then
+            if [ -n "$APKSIGNER" ]; then
+              "$APKSIGNER" verify --print-certs dist/re-traveller-launcher.apk \
+                >> /tmp/apk.log 2>&1
+              vcode=$?
+              echo "apksigner verify exit=$vcode" | tee -a /tmp/apk.log
+              [ $vcode -ne 0 ] && code=1
+            fi
+          else
+            code=1
+          fi
+
+          # Prove the APK was built from this commit: build_id lives in
+          # project.godot and ends up inside assets/project.binary, so a stale
+          # or wrong artifact fails here instead of being published.
+          python3 - <<'PYEOF' 2>&1 | tee -a /tmp/apk.log
+          import glob, re, sys, zipfile
+          src = open("launcher/project.godot", encoding="utf-8").read()
+          m = re.search(r'^build_id="([^"]+)"', src, re.M)
+          if not m:
+              sys.exit("project.godot has no [re_traveller] build_id")
+          marker = m.group(1).encode()
+          apks = sorted(glob.glob("dist/*.apk"))
+          if not apks:
+              sys.exit("no APK produced")
+          failed = False
+          for apk in apks:
+              hit = False
+              where = ""
+              with zipfile.ZipFile(apk) as z:
+                  for info in z.infolist():
+                      if hit or info.file_size > 80 * 1024 * 1024:
+                          continue
+                      try:
+                          if marker in z.read(info):
+                              hit = True
+                              where = info.filename
+                      except Exception:
+                          pass
+              print("BUILD_ID %s in %s: %s %s" % (marker.decode(), apk, hit, where))
+              failed = failed or not hit
+          sys.exit(1 if failed else 0)
+          PYEOF
+          [ ${PIPESTATUS[0]} -ne 0 ] && code=1
+
+          cp dist/re-traveller-launcher.apk /tmp/rel/release/ 2>/dev/null || true
+          ls -la /tmp/rel/release/re-traveller-launcher.apk || true
+          if [ $code -ne 0 ]; then
+            PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+            if [ -n "$PR" ]; then
+              { echo "### release-demo APK log"; echo '```'; tail -c 30000 /tmp/apk.log; echo '```'; } > /tmp/rel_apk.md
+              gh pr comment "$PR" --body-file /tmp/rel_apk.md --repo "$GITHUB_REPOSITORY" || true
+            fi
+          fi
+          exit $code
+
+      - name: Publish export log
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          [ -z "$PR" ] && { echo "no PR"; exit 0; }
+          { echo "### release-demo export log"; echo '```'; tail -c 30000 /tmp/apk.log 2>/dev/null || echo "(empty)"; echo '```'; } > /tmp/rel_apk2.md
+          gh pr comment "$PR" --body-file /tmp/rel_apk2.md --repo "$GITHUB_REPOSITORY" || true
+
+      # --------------------------------------------------------- release ----
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || 'demo-v0.1.0' }}
+          REPO: ${{ github.repository }}
+        run: |
+          # /tmp/rel is not a git checkout, so every gh call needs an explicit
+          # --repo; without it gh cannot infer the repository and bails out.
+          set -o pipefail
+          bash tools/publish_release.sh 2>&1 | tee /tmp/rel_pub.log
+
+      - name: Publish release log
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          [ -z "$PR" ] && { echo "no PR"; exit 0; }
+          { echo "### release-demo publish log"; echo '```'; tail -c 12000 /tmp/rel_pub.log 2>/dev/null || echo "(empty)"; echo '```'; } > /tmp/rel_pub.md
+          gh pr comment "$PR" --body-file /tmp/rel_pub.md --repo "$GITHUB_REPOSITORY" || true
+
+      - name: Verify the release is reachable exactly like the launcher does
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || 'demo-v0.1.0' }}"
+          URL="https://github.com/${{ github.repository }}/releases/latest/download/version.json"
+          echo "fetching $URL"
+          curl -sSL --retry 5 "$URL" -o /tmp/live.json
+          python3 - <<'PY'
+          import json, urllib.request
+          m = json.load(open("/tmp/live.json"))
+          print("live manifest version:", m["version"], "packages:", len(m["packages"]))
+          base = "https://github.com/%s/releases/latest/download/" % __import__("os").environ["GITHUB_REPOSITORY"]
+          for p in m["packages"]:
+              req = urllib.request.Request(base + p["url"], method="GET",
+                                           headers={"Range": "bytes=0-63"})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  first = r.read(64)
+                  print("  %-11s %s  range-ok=%s first8=%s" % (
+                      p["name"], r.status, r.status in (200, 206), first[:8].hex()))
+          PY

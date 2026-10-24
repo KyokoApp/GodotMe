@@ -1,0 +1,31 @@
+# Re - Traveller : demo release trigger
+#
+# This file is not code. Pushing a change to it runs .github/workflows/release-demo.yml,
+# which builds the six game packages plus the launcher APK and publishes them as a
+# GitHub Release (so the launcher's default MANIFEST_URL resolves to it).
+#
+# Why a file instead of only workflow_dispatch: GitHub only exposes manual
+# dispatch for workflows that exist on the default branch. The path trigger works
+# from this branch, which means the demo can be rebuilt from a phone by editing
+# one line here.
+#
+# Release tag: demo-v0.1.0
+# Pack version written into version.json: 0.1.0
+# re-run 13:29:17
+# re-run 13:34:33
+# re-run 13:39:41
+# re-run 13:43:54
+# re-run 13:49:18
+# re-run 13:50:32
+# re-run 13:52:19
+# re-run 13:58:52
+# re-run 14:16:06
+# re-run 14:58:29
+# re-run 15:00:37
+# re-run 15:02:41
+# re-run 15:04:36
+# re-run 15:06:29
+# re-run 15:08:24
+# re-run 15:12:29
+# re-run 18:50:39
+# re-run 19:49:30

@@ -1,0 +1,392 @@
+name: ci
+
+on:
+  push:
+    branches: ["arena/5c17933c-godotme"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  # ------------------------------------------------------------ lint/parse ---
+  lint:
+    name: parse check (all scripts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tools"
+          curl -sSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/.tools"
+          mv "$GITHUB_WORKSPACE/.tools/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GITHUB_WORKSPACE/.tools/godot"
+          chmod +x "$GITHUB_WORKSPACE/.tools/godot"
+          echo "$GITHUB_WORKSPACE/.tools" >> "$GITHUB_PATH"
+
+      - name: Check every script
+        run: |
+          set +e
+          : > /tmp/lint.log
+          godot --headless --path launcher --import >/dev/null 2>&1
+          godot --headless --path game --import >/dev/null 2>&1
+          for f in $(cd launcher && find . -name "*.gd" | sed 's|^\./||'); do
+            echo "--- launcher/$f" >> /tmp/lint.log
+            godot --headless --path launcher --check-only --script "res://$f" 2>&1 \
+              | grep -v "^Godot Engine" \
+              | grep -vE "Identifier not found: (Cfg|Store|Log|Guard|Updater)" >> /tmp/lint.log
+          done
+          for f in $(cd game && find . -name "*.gd" | sed 's|^\./||'); do
+            echo "--- game/$f" >> /tmp/lint.log
+            godot --headless --path game --check-only --script "res://$f" 2>&1 | grep -v "^Godot Engine" >> /tmp/lint.log
+          done
+          cat /tmp/lint.log
+          # --check-only cannot resolve autoloads, so "Compilation failed" noise
+          # is expected; a real Parse Error never appears in a clean run.
+          if grep -qE "Parse Error|Failed to parse" /tmp/lint.log; then
+            echo "LINT FAILED: parse error in a GDScript file"
+            grep -nE "Parse Error|Failed to parse" /tmp/lint.log
+            LINT_FAILED=1
+          fi
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### parse check"; echo '```'; tail -c 60000 /tmp/lint.log; echo '```'; } > /tmp/lint.md
+            gh pr comment "$PR" --body-file /tmp/lint.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit ${LINT_FAILED:-0}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # ------------------------------------------------- one job per test case ---
+  launcher-tests:
+    name: test / ${{ matrix.case }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        case:
+          - unit
+          - first_install
+          - partial_update
+          - resume
+          - bad_hash
+          - offline
+          - launcher_too_old
+          - blocked
+          - signed_ok
+          - signed_bad
+          - ui_input
+          - crash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tools"
+          curl -sSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/.tools"
+          mv "$GITHUB_WORKSPACE/.tools/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GITHUB_WORKSPACE/.tools/godot"
+          chmod +x "$GITHUB_WORKSPACE/.tools/godot"
+          echo "$GITHUB_WORKSPACE/.tools" >> "$GITHUB_PATH"
+
+      - name: Throwaway signing key
+        run: |
+          mkdir -p launcher/signing
+          openssl genrsa -out /tmp/rt_priv.pem 2048 2>/dev/null
+          openssl rsa -in /tmp/rt_priv.pem -pubout -out launcher/signing/public_key.pem 2>/dev/null
+
+      - name: Run case
+        env:
+          GODOT: ${{ github.workspace }}/.tools/godot
+          SIGN_KEY: /tmp/rt_priv.pem
+          PORT: "8765"
+        run: |
+          chmod +x tools/run_launcher_tests.sh
+          tools/run_launcher_tests.sh ${{ matrix.case }} 2>&1 | tee /tmp/case.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Publish case log as PR comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f /tmp/case.log ]; then echo "no log produced"; exit 0; fi
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -z "$PR" ]; then echo "no PR for $GITHUB_REF_NAME"; exit 0; fi
+          {
+            echo "### CI log — case \`${{ matrix.case }}\`"
+            echo ""
+            echo '```'
+            tail -c 50000 /tmp/case.log | sed 's/```/``\`/g'
+            echo '```'
+          } > /tmp/comment.md
+          gh pr comment "$PR" --body-file /tmp/comment.md --repo "$GITHUB_REPOSITORY" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: log-${{ matrix.case }}
+          path: /tmp/case.log
+          if-no-files-found: warn
+
+  # -------------------------------------------------------- screenshots -----
+  screenshots:
+    name: screenshots
+    runs-on: ubuntu-latest
+    needs: [launcher-tests]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tools"
+          curl -sSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/.tools"
+          mv "$GITHUB_WORKSPACE/.tools/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GITHUB_WORKSPACE/.tools/godot"
+          chmod +x "$GITHUB_WORKSPACE/.tools/godot"
+          echo "$GITHUB_WORKSPACE/.tools" >> "$GITHUB_PATH"
+
+      - name: Install software GL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 libegl-mesa0 mesa-utils
+
+      - name: Capture
+        env:
+          GODOT: ${{ github.workspace }}/.tools/godot
+          SIGN_KEY: /tmp/rt_priv.pem
+          PORT: "8765"
+          CAPTURES: ${{ github.workspace }}/docs/screenshots
+        run: |
+          mkdir -p docs/screenshots
+          timeout 240 "$GODOT" --headless --path launcher --import 2>&1 | tail -3
+          timeout 240 "$GODOT" --headless --path game --import 2>&1 | tail -3
+          timeout -k 5 180 "$GODOT" --headless --path launcher res://tests/FixtureBuilder.tscn -- \
+              --game-dir="$PWD/game" --out=/tmp/rt_fixtures 2>&1 | tail -5
+          python3 tools/testserver.py --root /tmp/rt_fixtures --port $PORT >/tmp/cap_server.log 2>&1 &
+          SRV=$!
+          sleep 2
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path launcher --resolution 1280x720 \
+            res://tests/TestRunner.tscn -- --scenario=capture --data-root=user://t_capture \
+            --budget=120 --manifest=http://127.0.0.1:$PORT/slow.json \
+            --captures="$GITHUB_WORKSPACE/docs/screenshots" 2>&1 | tee /tmp/capture.log | tail -40
+          kill $SRV 2>/dev/null || true
+          # the screen the player actually lands on after tapping MAIN
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            -- --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=08_diorama \
+            2>&1 | tee -a /tmp/capture.log | tail -20
+          ls -la docs/screenshots
+
+      - name: Publish capture log to the PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          [ -z "$PR" ] && exit 0
+          { echo "### capture log"; echo '```'; tail -c 20000 /tmp/capture.log 2>/dev/null || echo "(empty)"; echo '```'; } > /tmp/cap.md
+          gh pr comment "$PR" --body-file /tmp/cap.md --repo "$GITHUB_REPOSITORY" || true
+
+      - name: Commit screenshots
+        # The branch is also pushed to by whoever is working; a rejected push
+        # here must not turn a good capture into a red build.
+        continue-on-error: true
+        run: |
+          set +e
+          git config user.name "arena-ci"
+          git config user.email "ci@arena.ai"
+          git add -A docs/screenshots
+          if git diff --cached --quiet; then
+            echo "screenshots unchanged"
+            exit 0
+          fi
+          git commit -m "docs: tangkapan layar launcher (CI) [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin "$GITHUB_REF_NAME" && git push && {
+              echo "screenshots committed on attempt $attempt"; exit 0; }
+            echo "push attempt $attempt rejected, retrying"; sleep 10
+          done
+          echo "could not push screenshots; they are still in the artifact"
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launcher-screenshots
+          path: docs/screenshots/*.png
+          if-no-files-found: warn
+
+  # ----------------------------------------------------------------- apk ----
+  android-apk:
+    name: build launcher APK
+    runs-on: ubuntu-latest
+    needs: [launcher-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tools"
+          curl -sSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/.tools"
+          mv "$GITHUB_WORKSPACE/.tools/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GITHUB_WORKSPACE/.tools/godot"
+          chmod +x "$GITHUB_WORKSPACE/.tools/godot"
+          echo "$GITHUB_WORKSPACE/.tools" >> "$GITHUB_PATH"
+
+      - name: Install export templates
+        run: |
+          mkdir -p /tmp/tpl
+          curl -sSL -o /tmp/tpl.tpz \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/tpl.tpz -d /tmp/tpl
+          DEST="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$DEST"
+          cp -r /tmp/tpl/templates/* "$DEST"/
+          ls "$DEST" | head
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK (use the runner image's preinstalled SDK)
+        continue-on-error: true
+        run: |
+          set +e
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          SDK=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          ls "$SDK" || true
+          echo "--- build-tools ---"; ls "$SDK/build-tools" || true
+          echo "--- platforms ---"; ls "$SDK/platforms" || true
+          which apksigner || ls "$SDK"/build-tools/*/apksigner || true
+          which zipalign || ls "$SDK"/build-tools/*/zipalign || true
+
+      - name: Debug keystore
+        run: |
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey \
+            -keypass android -keystore /tmp/debug.keystore -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+
+      - name: Point Godot at the SDK (editor settings)
+        run: |
+          SDK=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$SDK"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "/tmp/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          export/android/force_system_user = false
+          export/android/shutdown_adb_on_exit = true
+          EOF
+          # strip the heredoc indentation so the .tres parses
+          sed -i 's/^          //' "$HOME/.config/godot/editor_settings-4.7.tres"
+          cat "$HOME/.config/godot/editor_settings-4.7.tres"
+
+      - name: Export APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Godot resolves the release keystore from the environment first
+          # (EditorExportPreset::get_or_env), so the preset file stays clean.
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /tmp/debug.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: android
+        run: |
+          set +e
+          : > /tmp/apk.log
+          timeout 240 godot --headless --path launcher --import >> /tmp/apk.log 2>&1
+          mkdir -p dist
+          godot --headless --path launcher --export-debug "Android" \
+            "$PWD/dist/re-traveller-launcher-debug.apk" >> /tmp/apk.log 2>&1
+          godot --headless --path launcher --export-release "Android" \
+            "$PWD/dist/re-traveller-launcher.apk" >> /tmp/apk.log 2>&1
+          code=$?
+          APKSIGNER=$(ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/build-tools/*/apksigner 2>/dev/null | tail -1)
+          for apk in dist/re-traveller-launcher-debug.apk dist/re-traveller-launcher.apk; do
+            if [ ! -f "$apk" ]; then echo "MISSING $apk" >> /tmp/apk.log; code=1; continue; fi
+            if [ -n "$APKSIGNER" ]; then
+              "$APKSIGNER" verify --print-certs "$apk" >> /tmp/apk.log 2>&1
+              v=$?
+              echo "apksigner verify $apk exit=$v" >> /tmp/apk.log
+              [ $v -ne 0 ] && code=1
+            fi
+          done
+          tail -60 /tmp/apk.log
+          ls -la dist >> /tmp/apk.log
+
+          # Prove the APK was built from this commit: build_id lives in
+          # project.godot and ends up inside assets/project.binary, so a stale
+          # or wrong artifact fails here instead of being published.
+          python3 - <<'PYEOF' 2>&1 | tee -a /tmp/apk.log
+          import glob, re, sys, zipfile
+          src = open("launcher/project.godot", encoding="utf-8").read()
+          m = re.search(r'^build_id="([^"]+)"', src, re.M)
+          if not m:
+              sys.exit("project.godot has no [re_traveller] build_id")
+          marker = m.group(1).encode()
+          apks = sorted(glob.glob("dist/*.apk"))
+          if not apks:
+              sys.exit("no APK produced")
+          failed = False
+          for apk in apks:
+              hit = False
+              where = ""
+              with zipfile.ZipFile(apk) as z:
+                  for info in z.infolist():
+                      if hit or info.file_size > 80 * 1024 * 1024:
+                          continue
+                      try:
+                          if marker in z.read(info):
+                              hit = True
+                              where = info.filename
+                      except Exception:
+                          pass
+              print("BUILD_ID %s in %s: %s %s" % (marker.decode(), apk, hit, where))
+              failed = failed or not hit
+          sys.exit(1 if failed else 0)
+          PYEOF
+          [ ${PIPESTATUS[0]} -ne 0 ] && code=1
+
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### APK export log (exit $code)"; echo '```'; tail -c 60000 /tmp/apk.log; echo '```'; } > /tmp/apk.md
+            gh pr comment "$PR" --body-file /tmp/apk.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+
+      - name: Publish APK log to the PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          [ -z "$PR" ] && exit 0
+          { echo "### APK job log"; echo '```'; tail -c 40000 /tmp/apk.log 2>/dev/null || echo "(no export log)"; echo '```'; } > /tmp/apk2.md
+          gh pr comment "$PR" --body-file /tmp/apk2.md --repo "$GITHUB_REPOSITORY" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: re-traveller-launcher-apk
+          path: dist/*.apk
+          if-no-files-found: warn
