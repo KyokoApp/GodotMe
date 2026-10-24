@@ -7,7 +7,7 @@ Repo ini punya **dua proyek terpisah**, persis seperti arsitektur yang diminta:
 
 | Folder | Proyek | Keluaran | Isi |
 | --- | --- | --- | --- |
-| `launcher/` | **A — Peluncur** | APK (± 31 MB) | splash, layar update bertema, pengunduh, verifikasi SHA-256, pemuat paket, rollback. Tidak berisi logika atau aset game. |
+| `launcher/` | **A — Peluncur** | APK (± 29 MB) | splash, layar update bertema, pengunduh, verifikasi SHA-256, pemuat paket, rollback. Tidak berisi logika atau aset game. |
 | `game/` | **B — Game** | `.pck` per modul | seluruh game. Diunduh launcher; APK tidak pernah diganti untuk update konten. |
 
 Pemain memasang APK **sekali**. Setelah itu semua update — kode, karakter,
@@ -19,7 +19,9 @@ dunia, UI, audio — datang sebagai paket yang diunduh, diperiksa, lalu dimuat.
 
 **Pemain / uji di HP**
 
-1. Unduh `re-traveller-launcher.apk` dari **Releases** repo ini.
+1. Unduh `re-traveller-launcher.apk` dari
+   [rilis demo `demo-v0.1.0`](https://github.com/KyokoApp/GodotMe/releases/tag/demo-v0.1.0)
+   (manifest-nya sudah publik, jadi langsung jalan tanpa hosting sendiri).
 2. Pasang (izinkan "instal dari sumber tidak dikenal"), buka.
 3. Launcher membaca `version.json`, mengunduh paket, lalu tombol **MAIN** aktif.
 
@@ -70,6 +72,7 @@ tools/                     generator seni/UI, make_release.py, testserver.py, dr
 docs/                      DESIGN_NOTES, CREDITS, GAME_CONTRACT, BUILD_AND_RELEASE,
                            TEST_PLAN, screenshots/
 .github/workflows/ci.yml   parse check + 11 skenario uji + screenshot + APK
+.github/workflows/release-demo.yml   paket + APK + GitHub Release + verifikasi URL
 ```
 
 ---
@@ -84,6 +87,8 @@ docs/                      DESIGN_NOTES, CREDITS, GAME_CONTRACT, BUILD_AND_RELEA
 * [`docs/BUILD_AND_RELEASE.md`](docs/BUILD_AND_RELEASE.md) — ekspor PCK, manifest,
   tanda tangan, hosting, APK, kebijakan distribusi.
 * [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md) — 11 skenario uji + hasilnya.
+* [`docs/PHASE1_REPORT.md`](docs/PHASE1_REPORT.md) — laporan Fase 1 lengkap
+  (arsitektur, ukuran APK/paket, tabel hasil uji, cara menjalankan, risiko).
 
 ---
 

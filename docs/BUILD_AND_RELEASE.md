@@ -201,16 +201,34 @@ Termux).
 python3 tools/make_release.py --version 1.2.0 --packs ... --out dist/v1.2.0 \
         --sign-key ~/retraveller_manifest_private.pem
 
-# 2. buat rilis + unggah semua isi folder (manifest harus ikut)
+# 2. buat rilis + unggah seluruh isi folder (manifest harus ikut)
 gh release create game-v1.2.0 dist/v1.2.0/version.json dist/v1.2.0/version.json.sig \
         dist/v1.2.0/packs/*.pck -t "Game 1.2.0" -n "Catatan rilis"
 
-# 3. pastikan manifest bisa diakses
+# 3. pastikan manifest bisa diakses dan tiap paket menjawab Range
 curl -sL https://github.com/<owner>/<repo>/releases/latest/download/version.json | head
+curl -sI -H "Range: bytes=0-63" \
+     https://github.com/<owner>/<repo>/releases/latest/download/<nama_paket>.pck | grep -i "206\|content-range"
 ```
 
 Launcher akan otomatis melihat `version.json` terbaru pada peluncuran
 berikutnya dan hanya mengunduh paket yang `sha256`-nya berubah.
+
+> **Aset GitHub Release itu datar** — tidak ada sub-folder. Karena
+> `MANIFEST_URL` default memakai `releases/latest/download/<url>`, kolom `url`
+> di manifest harus berupa nama berkas saja (`core_100.pck`), bukan
+> `packs/core_100.pck`. Kalau memakai `tools/make_release.py` yang menulis
+> `packs/<file>`, ubah `url` menjadi nama berkas saat mengunggah ke GitHub
+> Release, atau pakai `tools/publish_release.sh` yang sudah menangani ini:
+>
+> ```bash
+> # folder datar: version.json + <paket>.pck + APK launcher
+> REL=dist/v1.2.0-flat TAG=game-v1.2.0 REPO=<owner>/<repo> tools/publish_release.sh
+> ```
+>
+> Skrip itu menolak menerbitkan bila daftar paket di manifest dan berkas di
+> folder tidak sama persis, dan menghapus aset lama sebelum mengunggah ulang
+> supaya paket yang sudah tidak dipakai tidak tertinggal.
 
 ---
 
@@ -227,6 +245,28 @@ godot --headless --path launcher --export-debug "Android" dist/re-traveller-laun
 # untuk rilis (APK bertanda tangan kunci rilis)
 godot --headless --path launcher --export-release "Android" dist/re-traveller-launcher.apk
 ```
+
+### Kunci tanda tangan: pakai variabel lingkungan
+
+Godot membaca kunci dari **variabel lingkungan lebih dulu** daripada preset
+(`EditorExportPreset::get_or_env`), jadi tidak perlu menyunting
+`export_presets.cfg` — dan kunci pribadi tidak pernah masuk repo:
+
+```bash
+export GODOT_ANDROID_KEYSTORE_RELEASE_PATH=/path/keystore.jks
+export GODOT_ANDROID_KEYSTORE_RELEASE_USER=nama_alias
+export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=rahasia
+godot --headless --path launcher --export-release "Android" dist/re-traveller-launcher.apk
+
+# selalu periksa hasilnya: ekspor bisa "berhasil" menulis APK tanpa tanda tangan
+$ANDROID_HOME/build-tools/<ver>/apksigner verify --print-certs dist/re-traveller-launcher.apk
+```
+
+Di GitHub Actions, isi ketiganya dari repository secret
+(`env: GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ...`). Yang penting: nama variabel
+password adalah `..._PASSWORD`, bukan `..._PASS`. Kalau hanya sebagian yang
+diisi, Godot menolak ekspor dengan pesan *"Either Release Keystore, Release User
+AND Release Password settings must be configured OR none of them."*
 
 Preset `Android` sudah disetel di `launcher/export_presets.cfg`:
 `arm64-v8a` saja (APK kecil), landscape, `permissions/internet=true`,

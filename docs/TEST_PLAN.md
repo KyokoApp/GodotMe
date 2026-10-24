@@ -44,6 +44,16 @@ nama paket ganda, `sha256` salah, path tidak aman).
 * **APK**: diekspor setiap push (debug + release template) dan diunggah sebagai
   artefak.
 
+## Verifikasi end-to-end di rilis sungguhan
+
+Job `release-demo` (`.github/workflows/release-demo.yml`) tidak berhenti pada
+"APK berhasil diekspor". Setelah rilis terbit, ia mengambil
+`https://github.com/<repo>/releases/latest/download/version.json` persis seperti
+launcher, lalu meminta 64 byte pertama setiap paket dengan header
+`Range: bytes=0-63` untuk memastikan aset benar-benar bisa diunduh dan mendukung
+resume. Hasil terakhir: 6/6 paket menjawab `200/206`, rilis `demo-v0.1.0`
+berisi `version.json` + 6 `.pck` + `re-traveller-launcher.apk` (29.423.721 byte).
+
 ## Uji manual di HP (yang tidak bisa diotomasi di sini)
 
 | Uji | Langkah | Yang harus terlihat |
