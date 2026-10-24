@@ -1,4 +1,8 @@
-class_name Diorama
+## No `class_name`: the game runs inside the launcher's project, whose global
+## class cache knows nothing about scripts that arrive later inside a .pck. A
+## `class_name` reference (e.g. `Diorama.AREA_NAME`) therefore failed to parse
+## on the phone - black screen, no boot_ok, watchdog rollback. Everything this
+## script needs from its own pack is reached through preload constants.
 extends Node3D
 ## The first HD-2D diorama: a small glade on the edge of the vale.
 ##
@@ -11,6 +15,9 @@ extends Node3D
 
 const WORLD_DIR := "res://game/world/"
 const TEX_DIR := WORLD_DIR + "textures/"
+
+const ART := preload("res://game/world/WorldArt.gd")
+const CAMERA_RIG := preload("res://game/world/DioramaCamera.gd")
 
 const AREA_NAME := "Lembah Senja"
 const AREA_SUBTITLE := "Yaros, awal perjalanan"
@@ -94,7 +101,7 @@ const PATH_WIDTH := 1.6
 const GROUND_SIZE := Vector2(26.0, 20.0)
 
 var _sun: DirectionalLight3D
-var _camera: DioramaCamera
+var _camera: Node3D
 
 
 func _ready() -> void:
@@ -158,8 +165,8 @@ func _build_ground() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Ground"
 	mi.mesh = plane
-	var grass := WorldArt.tex(TEX_DIR + "grass_tile.png")
-	mi.material_override = WorldArt.ground_material(
+	var grass := ART.tex(TEX_DIR + "grass_tile.png")
+	mi.material_override = ART.ground_material(
 		grass, GROUND_SIZE.x / 2.0, GROUND_SIZE.y / 2.0)
 	add_child(mi)
 
@@ -184,8 +191,8 @@ func _build_path() -> void:
 	var root := Node3D.new()
 	root.name = "Path"
 	add_child(root)
-	var dirt := WorldArt.tex(TEX_DIR + "path_tile.png")
-	var grass_tex := WorldArt.tex(TEX_DIR + "grass_tile.png")
+	var dirt := ART.tex(TEX_DIR + "path_tile.png")
+	var grass_tex := ART.tex(TEX_DIR + "grass_tile.png")
 	var mat := ShaderMaterial.new()
 	var shader_ok := ResourceLoader.exists(WORLD_DIR + "path.gdshader")
 	if shader_ok:
@@ -261,7 +268,7 @@ func _build_props() -> void:
 
 func _make_prop(kind: String, s: float, flip: bool) -> Node3D:
 	var size: Vector2 = PROP_SIZE[kind]
-	var texture := WorldArt.tex(TEX_DIR + String(PROP_TEXTURE[kind]))
+	var texture := ART.tex(TEX_DIR + String(PROP_TEXTURE[kind]))
 	if texture == null:
 		return null
 	var quad := QuadMesh.new()
@@ -272,7 +279,7 @@ func _make_prop(kind: String, s: float, flip: bool) -> Node3D:
 	var tint := Color.WHITE
 	if kind == "tuft":
 		tint = Color(0.92, 0.98, 0.88)
-	mi.material_override = WorldArt.sprite_material(texture, tint)
+	mi.material_override = ART.sprite_material(texture, tint)
 	# stand the sprite on the ground: the quad is centred on its origin
 	mi.position.y = size.y * 0.5
 	mi.scale = Vector3(s * (-1.0 if flip else 1.0), s, s)
@@ -286,7 +293,7 @@ func _build_camera() -> void:
 	# Build the rig as a self-contained scene: the camera must be a child BEFORE
 	# the rig enters the tree, otherwise its @onready lookup runs too early and
 	# pan/zoom silently do nothing (this happened, and only the log showed it).
-	_camera = DioramaCamera.new()
+	_camera = CAMERA_RIG.new()
 	_camera.name = "CameraRig"
 	_camera.bounds = Vector2(GROUND_SIZE.x * 0.5 - 4.0, GROUND_SIZE.y * 0.5 - 3.5)
 	_camera.start_zoom = 19.0

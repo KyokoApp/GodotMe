@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.2.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.2.1' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,6 +70,7 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
+              "Perbaikan penting: game kini benar-benar bisa dimuat dari paket di HP (skrip tidak lagi memakai nama kelas global).",
               "Tahap sprite: ksatria, penjaga, dan tiga orc hidup di lembah.",
               "Kontrol sentuh: stik jalan/lari, serang, tahan blok, bicara dengan penjaga.",
               "Dialog perkamen: 3 halaman + satu cabang dua pilihan.",

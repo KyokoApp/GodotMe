@@ -1,4 +1,5 @@
-class_name DioramaCamera
+## No `class_name` on purpose - see WorldArt.gd. Same pack, so `preload` is
+## enough and the script also parses when the game is loaded from .pck files.
 extends Node3D
 ## HD-2D camera rig: a fixed oblique angle (like a miniature diorama), player
 ## pan with one finger / left mouse, pinch or wheel to zoom.

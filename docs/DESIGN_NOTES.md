@@ -332,3 +332,47 @@ Yang diubah setelah melihat hasil CI, bukan setelah "kira-kira":
 Tangkapan layar yang menjadi bukti: `09_karakter.png` (tiga karakter + penggaris
 + penanda pivot), `10_visual_siang.png`, `11_visual_malam.png`, `12_dialog.png`
 (satu halaman dialog), `13_pilihan.png` (dua cabang).
+
+## 10. Kenapa game tidak pernah boot di HP (25 Okt 2026) — dan aturannya
+
+Gejala di perangkat: tekan **MAIN** → layar hitam → launcher kembali dengan
+"Versi 0.2.0 ditahan". Versi 0.1.0 juga pernah gagal dengan cara yang sama.
+
+Penyebab pastinya ditemukan dari CI, bukan dari perangkat. Skenario uji baru
+`boot_packs` (memuat `res://game/Main.tscn` dari paket `.pck` yang benar-benar
+dipasang, persis seperti HP):
+
+```
+SCRIPT ERROR: Parse Error: Identifier "Diorama" not declared in the current scope.
+          at: GDScript::reload (res://game/Main.gd:121)
+ERROR: Failed to load script "res://game/Main.gd" with error "Parse error".
+```
+
+`Main.gd` memakai `Diorama.AREA_NAME` — nama kelas **global** dari
+`world/Diorama.gd` (`class_name Diorama`). Nama global hanya dikenal oleh
+*cache kelas* proyek tempat skrip itu didaftarkan. Game kita dimuat ke dalam
+proses launcher, yang cache-nya tidak pernah melihat skrip dari `.pck`. Akibatnya
+`Main.gd` gagal **di-parse** → scene tetap ter-instantiate tapi tanpa skrip →
+tidak ada `_ready()`, tidak ada `boot_ok.json` → layar hitam → watchdog 25 detik
+→ rollback + "versi ditahan". Semua job CI hijau karena semuanya menjalankan
+proyek `game/` langsung, bukan dari paket.
+
+**Aturan yang sekarang berlaku untuk semua skrip game:**
+
+1. **Dilarang memakai `class_name` sebagai tipe atau akses statis di skrip game.**
+   Ketiga `class_name` di paket dunia (`Diorama`, `DioramaCamera`, `WorldArt`)
+   dihapus.
+2. Untuk helper di **paket yang sama**, gunakan `preload` sebagai konstanta:
+   `const ART := preload("res://game/world/WorldArt.gd")`, lalu `ART.tex(...)`.
+   Paketnya sudah ter-mount sebelum skripnya di-parse, jadi ini aman.
+3. Untuk data dari **paket lain** (core ↔ world), jangan `preload` (paket lain
+   boleh tidak ada) dan jangan nama global. Ambil saat runtime:
+   `(node.get_script() as Script).get_script_constant_map()` — dipakai
+   `Main._area_constant()` untuk `AREA_NAME`/`AREA_SUBTITLE`.
+4. Isi paket boleh berubah, jadi `.pck` lama tetap kompatibel: aturan ini hanya
+   soal cara skrip saling menemukan.
+
+Uji regresi: `boot_packs` di `tools/run_launcher_tests.sh` (matrix CI) yang
+memeriksa skrip menempel & terkompilasi, `boot_ok.json` menyebut versi aktif,
+node `Diorama`, `HUD`, dan `Diorama/Characters` benar-benar terbangun, plus
+tangkapan layar `docs/screenshots/14_game_dari_paket.png`.

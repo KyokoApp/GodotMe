@@ -1,4 +1,6 @@
-class_name WorldArt
+## No `class_name`: the game never knows the launcher's global class cache, and
+## a script loaded out of a .pck cannot use class names that cache never saw.
+## Refer to this file with `ART = preload(...)` from its own pack instead.
 extends RefCounted
 ## Runtime texture loading for world content.
 ##

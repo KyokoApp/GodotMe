@@ -88,6 +88,18 @@ func _add_cast() -> void:
 	print("[GAME] penghuni dimuat dari paket karakter")
 
 
+## Read a constant off the diorama's own script, at runtime.
+##
+## `Diorama.AREA_NAME` (a global class name) parses only inside the game's own
+## project. The shipped game is loaded from .pck inside the launcher's project,
+## where that name does not exist - it made this whole script fail to parse.
+func _area_constant(key: String, fallback: String) -> String:
+	if _diorama == null or _diorama.get_script() == null:
+		return fallback
+	var consts: Dictionary = (_diorama.get_script() as Script).get_script_constant_map()
+	return String(consts.get(key, fallback))
+
+
 # -------------------------------------------------------------------- hud ----
 func _build_hud() -> void:
 	_hud = CanvasLayer.new()
@@ -118,14 +130,14 @@ func _build_hud() -> void:
 	plaque.add_child(box)
 
 	var name_label := Label.new()
-	name_label.text = Diorama.AREA_NAME if _diorama != null else "Dunia tidak termuat"
+	name_label.text = _area_constant("AREA_NAME", "Dunia tidak termuat")
 	name_label.add_theme_font_override("font", _font_title)
 	name_label.add_theme_font_size_override("font_size", 30)
 	name_label.add_theme_color_override("font_color", INK)
 	box.add_child(name_label)
 
 	var sub_label := Label.new()
-	sub_label.text = (Diorama.AREA_SUBTITLE if _diorama != null
+	sub_label.text = (_area_constant("AREA_SUBTITLE", "") if _diorama != null
 		else "Paket dunia tidak ditemukan — kembali dan periksa pembaruan.")
 	sub_label.add_theme_font_override("font", _font_body)
 	sub_label.add_theme_font_size_override("font_size", 16)
