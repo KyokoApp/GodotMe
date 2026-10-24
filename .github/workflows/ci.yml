@@ -270,6 +270,13 @@ jobs:
           cat "$HOME/.config/godot/editor_settings-4.7.tres"
 
       - name: Export APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Godot resolves the release keystore from the environment first
+          # (EditorExportPreset::get_or_env), so the preset file stays clean.
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /tmp/debug.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASS: android
         run: |
           set +e
           : > /tmp/apk.log
@@ -277,16 +284,19 @@ jobs:
           mkdir -p dist
           godot --headless --path launcher --export-debug "Android" \
             "$PWD/dist/re-traveller-launcher-debug.apk" >> /tmp/apk.log 2>&1
-          # release signing keys are per-preset (never committed): patch a copy
-          cp launcher/export_presets.cfg /tmp/preset.bak
-          sed -i 's|^keystore/release=".*"|keystore/release="/tmp/debug.keystore"|; \
-                  s|^keystore/release_user=".*"|keystore/release_user="androiddebugkey"|; \
-                  s|^keystore/release_password=".*"|keystore/release_password="android"|' \
-            launcher/export_presets.cfg
           godot --headless --path launcher --export-release "Android" \
             "$PWD/dist/re-traveller-launcher.apk" >> /tmp/apk.log 2>&1
-          cp /tmp/preset.bak launcher/export_presets.cfg
           code=$?
+          APKSIGNER=$(ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/build-tools/*/apksigner 2>/dev/null | tail -1)
+          for apk in dist/re-traveller-launcher-debug.apk dist/re-traveller-launcher.apk; do
+            if [ ! -f "$apk" ]; then echo "MISSING $apk" >> /tmp/apk.log; code=1; continue; fi
+            if [ -n "$APKSIGNER" ]; then
+              "$APKSIGNER" verify --print-certs "$apk" >> /tmp/apk.log 2>&1
+              v=$?
+              echo "apksigner verify $apk exit=$v" >> /tmp/apk.log
+              [ $v -ne 0 ] && code=1
+            fi
+          done
           tail -60 /tmp/apk.log
           ls -la dist >> /tmp/apk.log
           PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
@@ -295,8 +305,6 @@ jobs:
             gh pr comment "$PR" --body-file /tmp/apk.md --repo "$GITHUB_REPOSITORY" || true
           fi
           exit $code
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Publish APK log to the PR
         if: always()

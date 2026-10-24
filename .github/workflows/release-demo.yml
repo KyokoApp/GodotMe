@@ -128,23 +128,36 @@ jobs:
           sed -i 's/^          //' "$HOME/.config/godot/editor_settings-4.7.tres"
 
       - name: Export APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Godot reads keystore from the environment *before* the preset
+          # (EditorExportPreset::get_or_env), so no preset patching is needed.
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /tmp/debug.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASS: android
         run: |
           set +e
           : > /tmp/apk.log
-          sed -i 's|^keystore/release=".*"|keystore/release="/tmp/debug.keystore"|; \
-                  s|^keystore/release_user=".*"|keystore/release_user="androiddebugkey"|; \
-                  s|^keystore/release_password=".*"|keystore/release_password="android"|' \
-            launcher/export_presets.cfg
-          echo "--- keystore lines after patch ---"
-          grep '^keystore' launcher/export_presets.cfg
-          ls -l /tmp/debug.keystore || echo "KEYSTORE MISSING"
-          echo "--- editor settings ---"
-          cat "$HOME/.config/godot/editor_settings-4.7.tres" || true
+          echo "keystore: $GODOT_ANDROID_KEYSTORE_RELEASE_PATH"
+          ls -l "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH" || echo "KEYSTORE MISSING"
           mkdir -p dist
           godot --headless --path launcher --export-release "Android" \
             "$PWD/dist/re-traveller-launcher.apk" >> /tmp/apk.log 2>&1
           code=$?
           tail -40 /tmp/apk.log
+          ls -la dist >> /tmp/apk.log
+          APKSIGNER=$(ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/build-tools/*/apksigner 2>/dev/null | tail -1)
+          if [ -f dist/re-traveller-launcher.apk ]; then
+            if [ -n "$APKSIGNER" ]; then
+              "$APKSIGNER" verify --print-certs dist/re-traveller-launcher.apk \
+                >> /tmp/apk.log 2>&1
+              vcode=$?
+              echo "apksigner verify exit=$vcode" | tee -a /tmp/apk.log
+              [ $vcode -ne 0 ] && code=1
+            fi
+          else
+            code=1
+          fi
           cp dist/re-traveller-launcher.apk /tmp/rel/ 2>/dev/null || true
           ls -la /tmp/rel/re-traveller-launcher.apk || true
           if [ $code -ne 0 ]; then
@@ -155,8 +168,6 @@ jobs:
             fi
           fi
           exit $code
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Publish export log
         if: always()
