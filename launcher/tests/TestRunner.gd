@@ -421,12 +421,15 @@ func _scenario_boot_packs() -> void:
 	# The contract path is fixed: the game has no idea about the launcher's
 	# --data-root sandbox, so on a phone both of these are the same file
 	# (user://retraveller is the default data root).
+	# PackLoader hands the game RT_DATA_ROOT + RT_ACTIVE_VERSION, so in a sandbox
+	# the boot file lands in the sandbox too; on a phone it is user://retraveller.
 	var contract := "user://retraveller/boot_ok.json"
+	var boot_path := Cfg.boot_ok_file() if FileAccess.file_exists(Cfg.boot_ok_file()) \
+		else contract
 	var ok := await _wait_until(func() -> bool:
-		return FileAccess.file_exists(contract) or FileAccess.file_exists(Cfg.boot_ok_file()), 8.0)
-	_check(ok, "game menulis boot_ok dari dalam paket", contract)
-	var boot: Dictionary = Util.read_json(contract if FileAccess.file_exists(contract)
-		else Cfg.boot_ok_file())
+		return FileAccess.file_exists(Cfg.boot_ok_file()), 8.0)
+	_check(ok, "game menulis boot_ok dari dalam paket", Cfg.boot_ok_file())
+	var boot: Dictionary = Util.read_json(boot_path)
 	_check(String(boot.get("version", "")) == Store.active_version(),
 		"boot_ok menyebut versi aktif",
 		"%s vs %s" % [String(boot.get("version", "")), Store.active_version()])

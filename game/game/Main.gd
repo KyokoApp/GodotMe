@@ -261,14 +261,23 @@ func _make_curtain() -> ColorRect:
 
 # --------------------------------------------------------------- contract ----
 func _report_healthy_boot() -> void:
-	var version := "0.1.0"
-	var active := "user://retraveller/active.json"
-	if FileAccess.file_exists(active):
-		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(active))
-		if typeof(parsed) == TYPE_DICTIONARY:
-			version = String((parsed as Dictionary).get("version", version))
-	DirAccess.make_dir_recursive_absolute("user://retraveller")
-	var f := FileAccess.open("user://retraveller/boot_ok.json", FileAccess.WRITE)
+	# The launcher exports these before changing scene (PackLoader.boot_version).
+	# On a phone the fallbacks below are the real paths; they exist so the scene
+	# still runs when it is opened directly from the editor or a test.
+	var root := OS.get_environment("RT_DATA_ROOT")
+	if root == "":
+		root = "user://retraveller"
+	var version := OS.get_environment("RT_ACTIVE_VERSION")
+	if version == "":
+		var active := root.path_join("active.json")
+		if FileAccess.file_exists(active):
+			var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(active))
+			if typeof(parsed) == TYPE_DICTIONARY:
+				version = String((parsed as Dictionary).get("version", ""))
+	if version == "":
+		version = "belum ada"
+	DirAccess.make_dir_recursive_absolute(root)
+	var f := FileAccess.open(root.path_join("boot_ok.json"), FileAccess.WRITE)
 	if f != null:
 		f.store_string(JSON.stringify({
 			"version": version,

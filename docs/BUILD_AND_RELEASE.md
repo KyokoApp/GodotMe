@@ -464,3 +464,19 @@ Kalau setelah itu layar kembali ke launcher dengan pesan yang sama, berarti
 paketnya benar-benar gagal boot di perangkat (bukan masalah jaringan): kirim
 dua baris jurnal di kiri bawah + `user://retraveller/logs/`. Perbaikan pada
 paket game bisa dikirim sebagai paket baru tanpa memasang ulang APK.
+
+### Kontrak game ↔ launcher: `RT_ACTIVE_VERSION` dan `RT_DATA_ROOT`
+
+`PackLoader.boot_version()` mengekspor dua environment variable sebelum
+`change_scene_to_file`:
+
+| Variabel | Isi | Dipakai game untuk |
+| --- | --- | --- |
+| `RT_ACTIVE_VERSION` | versi yang sedang aktif (`meta.version`) | menulis `boot_ok.json` dengan versi yang **sama** dengan yang diharapkan `Guard` |
+| `RT_DATA_ROOT` | `Cfg.data_root()` | tempat menulis `boot_ok.json` (sama dengan `active.json` launcher) |
+
+Sebelum ini game menebak: ia membaca `user://retraveller/active.json` dan, kalau
+tidak ada, memakai `"0.1.0"`. Di HP hasilnya kebetulan benar; di sandbox uji
+hasilnya salah, dan kalau path itu bergeser, `Guard` akan menjatuhkan versi yang
+sebenarnya sehat (layar hitam + "versi ditahan"). Sekarang kedua sisi memakai
+nilai yang sama tanpa menebak.

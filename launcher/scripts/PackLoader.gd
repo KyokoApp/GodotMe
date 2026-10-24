@@ -42,6 +42,12 @@ func boot_version(meta: Dictionary) -> Dictionary:
 	var res := load_version(meta)
 	if not res["ok"]:
 		return res
+	# The game runs inside this process, so an environment variable is a channel
+	# that needs no file and no parsing. Without it the game had to *guess* the
+	# installed version from a hardcoded path - and guess a default when that
+	# file lived somewhere else. Both ends now agree by construction.
+	OS.set_environment("RT_ACTIVE_VERSION", String(meta.get("version", "")))
+	OS.set_environment("RT_DATA_ROOT", Cfg.data_root())
 	var tree := Engine.get_main_loop() as SceneTree
 	var err := tree.change_scene_to_file(String(res["main_scene"]))
 	if err != OK:
