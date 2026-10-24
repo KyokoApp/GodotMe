@@ -262,6 +262,9 @@ jobs:
           export/android/debug_keystore = "/tmp/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
+          export/android/release_keystore = "/tmp/debug.keystore"
+          export/android/release_keystore_user = "androiddebugkey"
+          export/android/release_keystore_pass = "android"
           export/android/force_system_user = false
           export/android/shutdown_adb_on_exit = true
           EOF
@@ -276,6 +279,8 @@ jobs:
           timeout 240 godot --headless --path launcher --import >> /tmp/apk.log 2>&1
           mkdir -p dist
           godot --headless --path launcher --export-debug "Android" \
+            "$PWD/dist/re-traveller-launcher-debug.apk" >> /tmp/apk.log 2>&1
+          godot --headless --path launcher --export-release "Android" \
             "$PWD/dist/re-traveller-launcher.apk" >> /tmp/apk.log 2>&1
           code=$?
           tail -60 /tmp/apk.log

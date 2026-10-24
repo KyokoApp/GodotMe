@@ -177,7 +177,10 @@ func _on_state_changed(state: int, ctx: Dictionary) -> void:
 	_detail.text = detail
 	_version_pill.text = ("v" + version) if version != "" else "v—"
 	_play_button.disabled = not can_play
-	_retry_button.disabled = not can_retry or not _is_idle_enough()
+	if state == Updater.State.DOWNLOADING:
+		_retry_button.disabled = false        # pausing is always allowed
+	else:
+		_retry_button.disabled = not can_retry
 
 	_state_title.remove_theme_color_override("font_color")
 	_state_title.remove_theme_color_override("font_shadow_color")
@@ -233,10 +236,6 @@ func _on_state_changed(state: int, ctx: Dictionary) -> void:
 		Log.info("Autoplay: membuka game.")
 		await get_tree().create_timer(0.4).timeout
 		Updater.play()
-
-
-func _is_idle_enough() -> bool:
-	return Updater.state != Updater.State.DOWNLOADING
 
 
 func _show_progress(show_it: bool, indeterminate: bool = false) -> void:
