@@ -37,7 +37,7 @@ func _ready() -> void:
 		var walk_speed := float(def.call("locomotion_speed", "walk"))
 		var walk_entry: Dictionary = def.call("anim_entry", "walk")
 		var cycle := 0.0
-		if walk_entry != null:
+		if not walk_entry.is_empty():
 			cycle = float(walk_entry.get("frames", 1)) / maxf(1.0, float(walk_entry.get("fps", 10.0)))
 		var slip := 0.0
 		if cycle > 0.0:

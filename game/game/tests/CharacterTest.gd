@@ -211,7 +211,7 @@ func _update_labels() -> void:
 		var entry: Dictionary = def.call("anim_entry", anim)
 		var fps := 10.0
 		var frames_n := 0
-		if entry != null:
+		if not entry.is_empty():
 			fps = float(entry.get("fps", 10.0))
 			frames_n = int(entry.get("frames", 0))
 		var label: Label = labels[i]

@@ -60,6 +60,8 @@ var _controls: Node
 var _dialogue: Node
 var _toast: Label
 var _hint: Label
+var _blocker_list: Array = []
+var _bounds_rect := Rect2(-12.0, -9.0, 24.0, 18.0)
 var _shake := 0.0
 var _shake_base := Vector3.ZERO
 var _toast_time := 0.0
@@ -97,18 +99,23 @@ func _load_defs() -> Dictionary:
 		if res == null:
 			push_error("[CHAR] definisi gagal dimuat: %s" % path)
 			continue
+		if res.get_script() == null:
+			push_error("[CHAR] %s kehilangan skrip CharacterDef (skrip gagal di-parse?)" % path)
+			continue
 		out[key] = res
 	return out
 
 
 func _wire_ground() -> void:
-	# the diorama knows where its trees and rocks are; ask it, do not copy it
+	# the diorama knows where its trees and rocks are; ask it, do not copy it.
+	# This has to run before the cast is spawned so each actor is born with its
+	# blockers already in place.
 	var world := get_parent()
 	if world != null and world.has_method("blockers"):
-		_set_blockers(world.call("blockers"))
+		_blocker_list = world.call("blockers")
 	if world != null and world.has_method("ground_rect"):
 		var rect: Rect2 = world.call("ground_rect")
-		_set_bounds(rect.grow(-1.2))
+		_bounds_rect = rect.grow(-1.2)
 
 
 func _spawn_cast() -> void:
@@ -146,28 +153,15 @@ func _spawn(def_key: String, script_path: String, at: Vector2) -> Node3D:
 		return null
 	var actor: Node3D = script.new()
 	actor.call("setup", _defs[def_key])
+	actor.set("blockers", _blocker_list)
+	actor.set("bounds", _bounds_rect)
 	actor.position = Vector3(at.x, 0.0, at.y)
 	add_child(actor)
 	return actor
 
 
-func _set_blockers(list: Array) -> void:
-	for actor in [_player, _npc] + _orcs:
-		if actor != null:
-			actor.set("blockers", list)
-
-
-func _set_bounds(rect: Rect2) -> void:
-	for actor in [_player, _npc] + _orcs:
-		if actor != null:
-			actor.set("bounds", rect)
-
-
 func _blockers_count() -> int:
-	if _player == null:
-		return 0
-	var list: Array = _player.get("blockers")
-	return list.size() if list != null else 0
+	return _blocker_list.size()
 
 
 # --------------------------------------------------------------------- ui ----

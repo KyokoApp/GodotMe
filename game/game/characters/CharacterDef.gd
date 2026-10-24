@@ -36,14 +36,15 @@ extends Resource
 
 
 func has_anim(anim: String) -> bool:
-	return anim_entry(anim) != null
+	return not anim_entry(anim).is_empty()
 
 
+## Empty dictionary when the animation is not in this character's set.
 func anim_entry(anim: String) -> Dictionary:
 	for a in animations:
 		if typeof(a) == TYPE_DICTIONARY and String((a as Dictionary).get("name", "")) == anim:
 			return a as Dictionary
-	return null
+	return {}
 
 
 func anim_names() -> Array:
@@ -70,7 +71,7 @@ func blob_size() -> Vector2:
 ## Nominal speed of a locomotion animation, in metres per second.
 func locomotion_speed(anim: String) -> float:
 	var entry := anim_entry(anim)
-	if entry == null:
+	if entry.is_empty():
 		return 0.0
 	var frames := float(entry.get("frames", 1))
 	var fps := float(entry.get("fps", 10.0))
