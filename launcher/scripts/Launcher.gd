@@ -4,8 +4,6 @@ extends Control
 ## Pure presentation: it renders Updater's state and forwards button presses.
 ## No networking, no file juggling, no game logic lives here.
 
-const MODAL_OK := preload("res://ui/textures/icon_check.png")
-
 @onready var _background: TextureRect = $Background
 @onready var _crest_stack: Control = $SafeArea/Columns/Left/CrestStack
 @onready var _title: Label = $SafeArea/Columns/Left/TitleBlock/Title

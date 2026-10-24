@@ -135,6 +135,12 @@ func _scenario_unit() -> void:
 	_check(not Util.is_hex64("a".repeat(63)), "is_hex64 invalid")
 	_check(Util.resolve_url("http://h/m/version.json", "packs/x.pck") == "http://h/m/packs/x.pck",
 		"resolve relative", Util.resolve_url("http://h/m/version.json", "packs/x.pck"))
+	_check(Util.resolve_url("http://127.0.0.1:8765/manifests/v100.json", "packs/core.pck")
+		== "http://127.0.0.1:8765/manifests/packs/core.pck", "resolve relative with port",
+		Util.resolve_url("http://127.0.0.1:8765/manifests/v100.json", "packs/core.pck"))
+	_check(Util.resolve_url("https://x/releases/latest/download/version.json", "packs/a.pck")
+		== "https://x/releases/latest/download/packs/a.pck", "resolve github-release style",
+		Util.resolve_url("https://x/releases/latest/download/version.json", "packs/a.pck"))
 	_check(Util.resolve_url("http://h/m/version.json", "/packs/x.pck") == "http://h/packs/x.pck",
 		"resolve root-absolute", Util.resolve_url("http://h/m/version.json", "/packs/x.pck"))
 	_check(Util.resolve_url("http://h/m/version.json", "https://cdn/y.pck") == "https://cdn/y.pck",

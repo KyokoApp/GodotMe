@@ -109,7 +109,13 @@ static func resolve_url(base_url: String, maybe_relative: String) -> String:
 			var authority_end := base_url.find("/", scheme_end + 3)
 			if authority_end > 0:
 				return base_url.substr(0, authority_end) + maybe_relative
-	return maybe_relative
+		return maybe_relative
+	# plain relative path: resolve against the manifest's own directory
+	var slash := base_url.rfind("/")
+	var scheme_pos := base_url.find("://")
+	if slash <= scheme_pos + 2:
+		return maybe_relative
+	return base_url.substr(0, slash + 1) + maybe_relative
 
 
 static func file_size(path: String) -> int:
