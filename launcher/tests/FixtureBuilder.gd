@@ -13,6 +13,8 @@ const PACK_FILES := {
 			"game/Main.tscn",
 			"game/Main.gd",
 			"game/assets/crest.png",
+			"game/assets/PixelifySans-SemiBold.woff2",
+			"game/assets/parchment.png",
 		],
 	},
 	"characters": {
@@ -25,7 +27,22 @@ const PACK_FILES := {
 	},
 	"world": {
 		"order": 40,
-		"files": ["game/assets/bg.png"],
+		# the whole diorama lives in this pack: scene, camera and every texture.
+		"files": [
+			"game/assets/bg.png",
+			"game/world/Diorama.tscn",
+			"game/world/Diorama.gd",
+			"game/world/DioramaCamera.gd",
+			"game/world/WorldArt.gd",
+			"game/world/tiltshift.gdshader",
+			"game/world/textures/tree_pine.png",
+			"game/world/textures/tree_oak.png",
+			"game/world/textures/cottage.png",
+			"game/world/textures/bush.png",
+			"game/world/textures/rock.png",
+			"game/world/textures/grass_tile.png",
+			"game/world/textures/path_tile.png",
+		],
 	},
 	"ui": {
 		"order": 50,

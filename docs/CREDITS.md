@@ -30,6 +30,7 @@ membuat kata "TRAVELLER" terbaca "TKAVELLEK", jadi tidak layak untuk UI.
 | `launcher/icon/icon.png`, `icon_bg.png` | Turunan crest untuk Android adaptive icon (foreground + background plate) | Safe zone ikon adaptif dijaga di 75% area tengah. |
 | Panel, tombol, progress bar, ikon 24×24, divider, sudut ornamen, partikel | Digambar per piksel oleh `tools/gen_ui_kit.py` (palet tetap, outline 1px, hard edge, tanpa anti-alias) | Skrip = sumber kebenaran; PNG di-commit supaya build tidak butuh Python. |
 | Latar vignette, scrim, glow, mote | `tools/gen_ui_kit.py` / `tools/gen_backdrop.py` | Semua bitmap PNG, filter Nearest saat runtime. |
+| Dunia Fase 2: `tree_pine`, `tree_oak`, `cottage`, `bush`, `rock`, `grass_tile`, `path_tile` | Gambar orisinal dibuat khusus untuk proyek ini dengan model gambar AI (24 Okt 2026), sumber di `assets_src/world/`, lalu diolah `tools/process_world_assets.py`: chroma-key magenta, crop, downscale LANCZOS, kuantisasi palet 22–32 warna, alpha keras, dan edge-blend agar tile mulus | Satu gaya dan satu palet hangat untuk semua properti. Ukuran akhir: pinus 192×320, oak 320×240, cottage 352×264, semak 112×88, batu 144×96, tile 256×256. Tidak meniru aset game mana pun. |
 
 Semua gambar diproses menjadi **bitmap PNG sungguhan** sebelum masuk game.
 Tidak ada sprite/UI yang digambar lewat kode saat runtime (`draw_rect`,

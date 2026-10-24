@@ -83,6 +83,13 @@ kembali ke versi sebelumnya dan menandai versi rusak agar tidak dipasang ulang.
   dengan engine launcher. Ekspor APK tidak dipakai untuk game.
 * Jangan menyentuh `res://` di luar `res://game/`.
 * Jangan menulis ke `res://` (hanya baca). Data yang berubah → `user://`.
+* **Renderer mengikuti APK launcher** (`gl_compatibility`). Game tidak bisa
+  menggantinya saat runtime, jadi efek yang tidak tersedia di Compatibility
+  (mis. depth of field) harus dikerjakan dengan shader layar penuh. Diorama
+  memakai tilt-shift (`game/world/tiltshift.gdshader`) untuk itu.
+* **Tekstur dibaca sebagai byte, bukan lewat `load()`**: paket berisi PNG mentah
+  tanpa berkas `.import`, jadi pakai helper `WorldArt.tex()` (ImageTexture dari
+  buffer). Melanggar ini akan menghasilkan tekstur kosong di HP.
 
 ## 5. Data simpanan pemain
 
