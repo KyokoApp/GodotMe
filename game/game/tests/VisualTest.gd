@@ -15,17 +15,29 @@ var _cam_rig: Node3D
 var _night := false
 var _elapsed := 0.0
 var _walk_seconds := 6.0
+## "" = the walking shot, "page" = a dialogue page, "choices" = the branch fork.
+var _dialog_mode := ""
+var _dialog_done := false
 
 
 func _ready() -> void:
 	_night = HARNESS.arg("--time=", "day") == "night"
+	_dialog_mode = HARNESS.arg("--dialog=", "")
 	_build()
 	await _run()
 
 
 func _run() -> void:
 	var default_name := "11_visual_malam" if _night else "10_visual_siang"
-	await HARNESS.capture(self, default_name, 3.4)
+	var delay := 3.4
+	if _dialog_mode == "choices":
+		default_name = "13_pilihan"
+		delay = 3.2
+	elif _dialog_mode != "":
+		default_name = "12_dialog"
+		# the typewriter runs at 42 characters a second; one page needs ~2.5 s
+		delay = 4.6
+	await HARNESS.capture(self, default_name, delay)
 	await HARNESS.quit_after(self, 45.0)
 
 
@@ -57,6 +69,12 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	if _cast == null:
 		return
+	if _dialog_mode != "":
+		_cast.call("set_virtual_stick", Vector2.ZERO)
+		if not _dialog_done and _elapsed > 1.0:
+			_dialog_done = true
+			_open_dialogue()
+		return
 	if _elapsed < _walk_seconds:
 		# pushed up-left: the knight walks the path towards the cottage, which
 		# puts the guard in frame and moves the feet across the grass
@@ -67,3 +85,23 @@ func _process(delta: float) -> void:
 		# slow zoom so a single capture proves the sprite stays crisp and the
 		# billboard keeps facing the camera at a non-default distance
 		_cam_rig.call("set_zoom", 15.0 + 2.5 * sin(_elapsed * 0.55))
+
+
+## Walk the knight up to the guard and press Bicara for him. Everything here is
+## the same path a thumb takes - it just has no thumb.
+func _open_dialogue() -> void:
+	_cast.call("teleport_player", Vector2(1.8, 5.4))
+	_cast.call("press_interact")
+	var dlg: Node = _cast.call("dialogue")
+	if dlg == null:
+		push_error("[TEST] kotak dialog tidak ada")
+		return
+	var open := bool(dlg.get("is_open"))
+	if not open:
+		push_error("[TEST] dialog tidak terbuka - penjaga di luar jangkauan?")
+		return
+	if _dialog_mode == "choices":
+		dlg.call("jump_to_choices")
+	var opts: Array = dlg.get("_options")
+	print("[TEST] dialog terbuka=%s teks=%d aksara pilihan=%d" % [
+		open, String(dlg.call("current_text")).length(), opts.size()])

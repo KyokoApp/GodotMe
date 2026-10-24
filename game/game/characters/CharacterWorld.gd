@@ -22,7 +22,9 @@ const DIALOGUE_SCRIPT := "res://game/characters/DialogueBox.gd"
 const FONT_BODY := "res://game/assets/PixelifySans.woff2"
 
 const PLAYER_START := Vector2(3.6, 7.2)
-const NPC_START := Vector2(-6.6, 1.4)
+## The guard stands beside the first bend of the path, two steps from where the
+## knight starts: the player must be able to tap Bicara without hunting for him.
+const NPC_START := Vector2(2.4, 4.2)
 
 ## Patrol routes for the three orcs: they are placed away from the path start so
 ## the first thing the player sees is not a fight.
@@ -438,6 +440,20 @@ func set_time_of_day(night: bool) -> void:
 
 ## Test hook: push the virtual stick without a finger. Used by VisualTest so the
 ## knight really walks (same code path as the player) instead of being teleported.
+## Hooks for the visual test: drive the cast without a fingertip.
+func press_interact() -> void:
+	_on_interact_pressed()
+
+
+func teleport_player(to: Vector2) -> void:
+	if _player != null:
+		_player.position = Vector3(to.x, 0.0, to.y)
+
+
+func dialogue() -> Node:
+	return _dialogue
+
+
 func set_virtual_stick(v: Vector2) -> void:
 	if _controls != null:
 		_controls.set("stick_vector", v.limit_length(1.0))

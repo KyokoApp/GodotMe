@@ -222,6 +222,15 @@ jobs:
               --time="$1" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
               --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
           done
+          # --- character stage: the guard's parchment dialogue, and its fork --
+          for variant in "page 12_dialog" "choices 13_pilihan"; do
+            set -- $variant
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              res://game/tests/VisualTest.tscn -- \
+              --dialog="$1" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
+          done
           ls -la docs/screenshots
 
       - name: Publish capture log to the PR

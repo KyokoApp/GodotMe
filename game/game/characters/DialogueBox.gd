@@ -195,6 +195,31 @@ func _on_advance() -> void:
 	_close()
 
 
+## Public advance, so a test (or a future keyboard binding) steps the page the
+## same way a tap on the parchment does.
+func advance() -> void:
+	_on_advance()
+
+
+## Jump to the end of the conversation where the branches are offered, so a
+## single screenshot can prove the fork exists without scripting taps.
+func jump_to_choices() -> void:
+	if _pages.is_empty() or _options.is_empty():
+		return
+	_index = _pages.size() - 1
+	_type_page()
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	_text.visible_ratio = 1.0
+	_typing = false
+	_refresh_footer()
+
+
+## What the player currently reads, for tests and for the capture log.
+func current_text() -> String:
+	return _text.text if _text != null else ""
+
+
 func _close() -> void:
 	if not is_open:
 		return

@@ -194,7 +194,7 @@ func _build_path() -> void:
 	mat.set_shader_parameter("grass_tex", grass_tex)
 	mat.set_shader_parameter("half_width", PATH_WIDTH * 0.5)
 	mat.set_shader_parameter("feather", 0.26)
-	mat.set_shader_parameter("dirt_tint", Color(1.08, 1.00, 0.88))
+	mat.set_shader_parameter("dirt_tint", Color(0.94, 0.90, 0.84))
 	print("[WORLD] path shader exists=%s loaded=%s dirt=%s grass=%s legs=%d" % [
 		shader_ok, mat.shader != null, dirt != null, grass_tex != null,
 		PATH.size() - 1])
