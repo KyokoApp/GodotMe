@@ -127,15 +127,28 @@ jobs:
 
       - name: Export APK
         run: |
-          set -euo pipefail
+          set +e
+          : > /tmp/apk.log
           sed -i 's|^keystore/release=".*"|keystore/release="/tmp/debug.keystore"|; \
                   s|^keystore/release_user=".*"|keystore/release_user="androiddebugkey"|; \
                   s|^keystore/release_password=".*"|keystore/release_password="android"|' \
             launcher/export_presets.cfg
           mkdir -p /tmp/rel
           godot --headless --path launcher --export-release "Android" \
-            /tmp/rel/re-traveller-launcher.apk 2>&1 | tail -20
-          ls -la /tmp/rel/re-traveller-launcher.apk
+            /tmp/rel/re-traveller-launcher.apk >> /tmp/apk.log 2>&1
+          code=$?
+          tail -40 /tmp/apk.log
+          ls -la /tmp/rel/re-traveller-launcher.apk || true
+          if [ $code -ne 0 ]; then
+            PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+            if [ -n "$PR" ]; then
+              { echo "### release-demo APK log"; echo '```'; tail -c 30000 /tmp/apk.log; echo '```'; } > /tmp/rel_apk.md
+              gh pr comment "$PR" --body-file /tmp/rel_apk.md --repo "$GITHUB_REPOSITORY" || true
+            fi
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       # --------------------------------------------------------- release ----
       - name: Publish GitHub Release
