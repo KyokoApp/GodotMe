@@ -10,7 +10,7 @@
 # one line here.
 #
 # Release tag: demo-v0.1.0
-# Pack version written into version.json: 0.1.0
+# Pack version written into version.json: 0.2.0
 # re-run 13:29:17
 # re-run 13:34:33
 # re-run 13:39:41
@@ -29,3 +29,4 @@
 # re-run 15:12:29
 # re-run 18:50:39
 # re-run 19:49:30
+# re-run 20:62 tahap sprite: characters.pck berisi ksatria/penjaga/orc; core berubah (kontrol+dialog)
