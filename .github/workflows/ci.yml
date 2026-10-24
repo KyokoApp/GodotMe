@@ -66,6 +66,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Play rules (flinch hands control back, props stand on the ground)
+        # Headless, no GPU: these are rules about the state machine and about
+        # geometry, and both of them failed on a real phone while every static
+        # check stayed green.
+        run: |
+          set -o pipefail
+          godot --headless --path game res://game/tests/PlayTest.tscn 2>&1 | tee /tmp/play.log
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### play rules"; echo '```'; tail -c 20000 /tmp/play.log; echo '```'; } > /tmp/play.md
+            gh pr comment "$PR" --body-file /tmp/play.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Character sprite contract (strips + SpriteFrames)
         # Fails the build, it does not guess: a strip whose width is not
         # frames x frame_width, a stale pivot or an empty animation stops here.
