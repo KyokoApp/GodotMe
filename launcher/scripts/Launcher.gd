@@ -184,6 +184,7 @@ func _on_state_changed(state: int, ctx: Dictionary) -> void:
 	_detail.text = detail
 	_version_pill.text = ("v" + version) if version != "" else "v—"
 	_play_button.disabled = not can_play
+	_play_button.text = "  MAIN"     # undo the "MEMUAT…" shown on tap
 	if state == Updater.State.DOWNLOADING:
 		_retry_button.disabled = false        # pausing is always allowed
 	else:
@@ -351,7 +352,7 @@ func _refresh_status_line() -> void:
 	var v := Store.active_version()
 	var parts := PackedStringArray()
 	parts.append("versi %s" % (v if v != "" else "belum ada"))
-	parts.append("launcher v%d" % Cfg.LAUNCHER_VERSION)
+	parts.append("launcher v%d · %s" % [Cfg.LAUNCHER_VERSION, Cfg.build_id()])
 	var used := Store.disk_usage()
 	parts.append("%s tersimpan" % Util.human_size(used))
 	_status_line.text = "  •  ".join(parts)
@@ -380,7 +381,11 @@ func _render_log_tail() -> void:
 # ------------------------------------------------------------------ actions --
 func _on_play_pressed() -> void:
 	_pulse_play_button(false)
-	Log.info("Pemain menekan Main.")
+	Log.info("Pemain menekan Main. Membuka dunia…")
+	# Immediate, visible feedback: a tap must never look like nothing happened,
+	# even if loading the packs takes a moment on a slow phone.
+	_play_button.disabled = true
+	_play_button.text = "  MEMUAT…"
 	Updater.play()
 
 
