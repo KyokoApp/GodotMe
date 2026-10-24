@@ -202,6 +202,13 @@ jobs:
             res://tests/TestRunner.tscn -- --scenario=capture --data-root=user://t_capture \
             --budget=120 --manifest=http://127.0.0.1:$PORT/slow.json \
             --captures="$GITHUB_WORKSPACE/docs/screenshots" 2>&1 | tee /tmp/capture.log | tail -40
+          # --- the phone's own path: the real game loaded out of the six packs --
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path launcher --resolution 1280x720 \
+            res://tests/TestRunner.tscn -- --scenario=boot_packs --budget=120 \
+            --data-root=user://t_bootshot --manifest=http://127.0.0.1:$PORT/manifests/v100.json \
+            --captures="$GITHUB_WORKSPACE/docs/screenshots" \
+            2>&1 | tee -a /tmp/capture.log | tail -30
           kill $SRV 2>/dev/null || true
           # the screen the player actually lands on after tapping MAIN
           xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
@@ -232,13 +239,6 @@ jobs:
               --dialog="$1" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
               --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
           done
-          # --- the phone's own path: the real game loaded out of the six packs --
-          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
-            "$GITHUB_WORKSPACE/.tools/godot" --path launcher --resolution 1280x720 \
-            res://tests/TestRunner.tscn -- --scenario=boot_packs --budget=120 \
-            --data-root=user://t_bootshot --manifest=http://127.0.0.1:$PORT/manifests/v100.json \
-            --captures="$GITHUB_WORKSPACE/docs/screenshots" \
-            2>&1 | tee -a /tmp/capture.log | tail -30
           ls -la docs/screenshots
 
       - name: Publish capture log to the PR
