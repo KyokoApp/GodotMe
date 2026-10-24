@@ -207,7 +207,7 @@ karakter = tambah PNG + satu entri di `tools/import_character_sprites.py`.
 | Karakter | Kanvas | Animasi (frame) | fps awal | Tinggi dunia |
 | --- | --- | --- | --- | --- |
 | Ksatria | 112×96 | idle 14, walk 8, run 8, attack_1 8, attack_2 9, attack_3 11, block 6, hurt 8, death 15, jump_start/transition/fall 3/3/3 (disimpan, belum dipakai) | 9 / 11 / 13 / 14 / 14 / 15 / 10 / 12 / 11 | 1,80 m |
-| Penjaga | 100×100 | idle 6, walk 8, attack_1 6, attack_2 6, attack_3 9, hurt 4, death 4 (+ arrow 100×100 & 32×32 disimpan) | 8 / 10 / 13 / 13 / 14 / 12 / 11 | 1,65 m |
+| Penjaga | 100×100 | idle 6, walk 8, attack_1 6, attack_2 6, attack_3 9, hurt 4, death 4 (+ arrow 100×100 & 32×32 disimpan) | 8 / 10 / 13 / 13 / 14 / 12 / 11 | 1,61 m |
 | Orc | 100×100 | idle 6, walk 8, attack_1 6, attack_2 6, hurt 4, death 4 | 9 / 10 / 13 / 13 / 12 / 11 | 1,40 m |
 
 `tools/import_character_sprites.py --check` menghitung ulang
@@ -218,7 +218,7 @@ runtime (`CharacterAssets.problems_for`) dan di `ValidateCharacters.tscn`.
 **Pivot kaki, bukan tengah kanvas**
 
 Pivot = `(tengah bbox IDLE horizontal, bawah bbox IDLE)` dalam piksel sumber:
-Ksatria `(53, 85)`, Penjaga `(49.5, 60)`, Orc `(55, 57)`. Node aktor berdiri di
+Ksatria `(53, 85)`, Penjaga `(48.5, 57)`, Orc `(55, 57)`. Node aktor berdiri di
 titik itu, jadi karakter menapak di tanah. Kuad sprite digeser sebesar
 `(w/2 − pivot.x, pivot.y − h/2) × pixel_world`; saat `flip_h` aktif, komponen X
 dibalik supaya kaki tidak bergeser saat menghadap kiri.
@@ -226,10 +226,18 @@ dibalik supaya kaki tidak bergeser saat menghadap kiri.
 **Satu `pixel_size` dunia, pengali per karakter (dicatat, disengaja)**
 
 `world_pixel_size = 0,05 m/piksel`. Ketiga pack digambar pada resolusi berbeda
-(tinggi badan: Ksatria 36 px, Penjaga 22 px, Orc 16 px), jadi `pixel_scale`
-per karakter 1,0 / 1,5 / 1,75 menghasilkan 1,80 / 1,65 / 1,40 m. Tanpa pengali,
-penjaga akan setinggi anak-anak. Pengali 1,5 dan 1,75 dipilih (bukan angka
-aneh) supaya grid piksel tetap berkelipatan rapi.
+(tinggi badan: Ksatria 36 px, Penjaga 19 px setelah bayangan bake dihapus,
+Orc 16 px), jadi `pixel_scale` per karakter 1,0 / 1,7 / 1,75 menghasilkan
+1,80 / 1,61 / 1,40 m. Tanpa pengali, penjaga akan setinggi anak-anak.
+
+**Bayangan bake dihapus di pipeline, bukan ditambal di engine.** Lembar Penjaga
+dari pack membawa bayangan jatuh sendiri: satu warna datar `(83, 69, 69)` yang
+hanya muncul di lima baris di bawah kaki, di **setiap** frame (termasuk death),
+berbentuk elips mengelilingi sepatu. `tools/import_character_sprites.py` membuat
+warna itu transparan (`erase_colors`), sehingga (a) tidak ada bayangan ganda,
+(b) blob shadow engine sama untuk ketiga karakter, (c) pivot kaki jatuh di sepatu
+(y=57), bukan di bayangan (y=60). Ksatria dan Orc tidak punya bayangan bake.
+Jumlah piksel yang dihapus dicetak saat `--import` (mis. idle 276 px).
 
 > **Risiko visual yang harus disebut jujur:** Ksatria dan Penjaga/Orc berasal
 > dari dua pack dengan gaya, kerapatan piksel, dan palet berbeda. Ini arahan
@@ -296,3 +304,31 @@ kanan bawah: **Serang** 140 px, **Tahan** 120 px, **Bicara** 120 px. Semua
 ≥96 px agar nyaman dijempol. Saat salah satu disentuh, kamera tidak ikut
 menggeser (`DioramaCamera.touch_blockers`); kamera juga mengikuti pemain dengan
 redaman dan berhenti mengikuti 2,5 s setelah pengguna menggeser sendiri.
+
+**Penyempurnaan setelah tangkapan layar pertama (25 Okt 2026)**
+
+Yang diubah setelah melihat hasil CI, bukan setelah "kira-kira":
+
+- **Jalur tanah.** Tile tanah yang dipakai apa adanya terbaca sebagai pita emas
+  di atas padang rumput. `path.gdshader` sekarang menariknya 34% ke arah
+  luminansinya sendiri lalu mengalikannya 0,82, dan `dirt_tint` turun dari
+  (1,08; 1,00; 0,88) ke (0,94; 0,90; 0,84). Hasilnya tanah kecokelatan yang
+  menyatu, bukan garis menyala.
+- **Posisi penjaga.** Dari (-6,6; 1,4) — di luar bingkai kamera pemain — ke
+  (2,4; 4,2): dua langkah dari titik awal ksatria, di tepi jalur, jadi tombol
+  Bicara menyala tanpa pemain harus mencari. Ia berdiri *di samping* jalur,
+  bukan menghalanginya (`body_radius_m` 0,28 dan ia bukan blocker).
+- **Panel dialog.** Tinggi panel dulu dipaku 210 px, sehingga pilihan kedua
+  terpotong tepi bawah layar. Panel kini tumbuh **ke atas** dari margin bawah
+  (`grow_vertical = GROW_DIRECTION_BEGIN`), jadi berapa pun panjang teks dan
+  pilihan, semuanya masuk layar.
+- **Kontrol sentuh saat bicara.** Stik dan tiga tombol disembunyikan selama
+  dialog terbuka (signal `closed` dari `DialogueBox` mengembalikannya), karena
+  panel perkamen menutupi ibu jari kanan dan gerakan memang dikunci.
+- **Bayangan ganda penjaga.** Lihat §9: bayangan bake dihapus di pipeline.
+- **`root.sort_children = true` di `Diorama`** dihapus: properti itu milik
+  `SpriteBase3D`, bukan `Node3D`, dan setiap frame mencetak SCRIPT ERROR di CI.
+
+Tangkapan layar yang menjadi bukti: `09_karakter.png` (tiga karakter + penggaris
++ penanda pivot), `10_visual_siang.png`, `11_visual_malam.png`, `12_dialog.png`
+(satu halaman dialog), `13_pilihan.png` (dua cabang).

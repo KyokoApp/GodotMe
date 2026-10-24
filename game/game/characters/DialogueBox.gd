@@ -56,8 +56,11 @@ func _build() -> void:
 	_panel.anchor_bottom = 1.0
 	_panel.offset_left = -450.0
 	_panel.offset_right = 450.0
-	_panel.offset_top = -236.0
+	# Height comes from the content, and the panel grows *upwards* from the
+	# bottom margin: a fixed height cut the second answer off the screen.
+	_panel.offset_top = -26.0
 	_panel.offset_bottom = -26.0
+	_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_root.add_child(_panel)
 
 	var box := VBoxContainer.new()

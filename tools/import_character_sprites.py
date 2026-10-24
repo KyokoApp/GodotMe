@@ -78,11 +78,21 @@ SPEC = {
         "display_name": "Penjaga Bram",
         "role": "npc",
         "frame_size": (100, 100),
-        "pixel_scale": 1.5,
+        # 19 px of body once the baked shadow is removed -> 1.62 m, a head
+        # shorter than the knight. The chibi pack is drawn at a coarser pixel
+        # size than the knight pack; the multiplier is deliberate (DESIGN_NOTES).
+        "pixel_scale": 1.7,
         "walk_stride_m": 0.75,
         "run_stride_m": 0.0,
         "body_radius_m": 0.28,
         "idle_anim": "idle",
+        # This sheet ships with its own flat drop shadow: the exact colour below
+        # appears only in the five rows under the feet, in every frame (death
+        # included), as a solid ellipse around the boots. Erasing that one
+        # colour leaves the art untouched and lets the engine draw the single
+        # uniform blob shadow every character uses - and puts the feet pivot on
+        # the boots instead of on the shadow.
+        "erase_colors": [(83, 69, 69)],
         "anims": [
             ("idle", "idle.png", 6, 8.0, True, False),
             ("walk", "walk.png", 8, 10.0, True, False),
@@ -121,6 +131,23 @@ EXTRAS = {
 }
 
 
+def erase_colors(img: Image.Image, colours: list) -> int:
+    """Make the given flat colours transparent, in place. Returns pixel count."""
+    if not colours:
+        return 0
+    targets = set(tuple(c) for c in colours)
+    px = img.load()
+    w, h = img.size
+    erased = 0
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a > 8 and (r, g, b) in targets:
+                px[x, y] = (r, g, b, 0)
+                erased += 1
+    return erased
+
+
 def bbox_union(img: Image.Image, fw: int, fh: int) -> tuple[int, int, int, int]:
     """Union of the non-transparent pixel bounds over every frame of a strip."""
     box = None
@@ -150,6 +177,7 @@ def measure(cid: str) -> dict:
             continue
         with Image.open(path) as im:
             im = im.convert("RGBA")
+            erase_colors(im, spec.get("erase_colors", []))
             if im.height != fh:
                 problems.append("%s/%s: height %d, expected %d"
                                 % (cid, file, im.height, fh))
@@ -277,8 +305,17 @@ def do_import() -> int:
         os.makedirs(dst, exist_ok=True)
         os.makedirs(RES, exist_ok=True)
         for a in info["anims"]:
-            shutil.copyfile(os.path.join(SRC, cid, a["file"]),
-                            os.path.join(dst, a["file"]))
+            src_png = os.path.join(SRC, cid, a["file"])
+            dst_png = os.path.join(dst, a["file"])
+            drop = SPEC[cid].get("erase_colors", [])
+            if drop:
+                with Image.open(src_png) as im:
+                    out = im.convert("RGBA")
+                    n = erase_colors(out, drop)
+                    out.save(dst_png)
+                print("[%s] %s: %d px bayangan bake dihapus" % (cid, a["file"], n))
+            else:
+                shutil.copyfile(src_png, dst_png)
         for extra in EXTRAS.get(cid, []):
             src = os.path.join(SRC, cid, extra)
             if os.path.isfile(src):

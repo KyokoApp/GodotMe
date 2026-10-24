@@ -213,6 +213,7 @@ func _build_ui() -> void:
 	_dialogue = (load(DIALOGUE_SCRIPT) as Script).new()
 	_dialogue.name = "Dialogue"
 	add_child(_dialogue)
+	_dialogue.connect("closed", Callable(self, "_on_dialogue_closed"))
 
 	var layer := CanvasLayer.new()
 	layer.name = "Notices"
@@ -346,6 +347,14 @@ func _on_interact_pressed() -> void:
 		return
 	_dialogue.call("open", String(DIALOGUE["speaker"]), DIALOGUE["pages"],
 		DIALOGUE["options"])
+	# the parchment covers the right thumb; controls come back when it closes
+	if _controls != null:
+		_controls.visible = false
+
+
+func _on_dialogue_closed() -> void:
+	if _controls != null:
+		_controls.visible = true
 
 
 func _on_attacked(actor: Node3D) -> void:

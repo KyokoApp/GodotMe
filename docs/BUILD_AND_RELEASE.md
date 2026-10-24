@@ -374,6 +374,8 @@ godot --headless --path game res://game/tests/ValidateCharacters.tscn
 # 3. dua scene uji visual
 godot --path game res://game/tests/CharacterTest.tscn
 godot --path game res://game/tests/VisualTest.tscn -- --time=night
+godot --path game res://game/tests/VisualTest.tscn -- --dialog=page     # 12_dialog
+godot --path game res://game/tests/VisualTest.tscn -- --dialog=choices  # 13_pilihan
 ```
 
 Kalau `--check` gagal, **jangan** mengakali dengan memotong gambar: perbaiki
