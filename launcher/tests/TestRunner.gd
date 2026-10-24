@@ -219,7 +219,7 @@ func _scenario_first_install() -> void:
 
 func _scenario_partial_update() -> void:
 	# phase 1: fresh install of 1.0.0
-	var r1 := await _install(_base() + "/manifests/v100.json")
+	var r1 := await _install(_base() + "/v100.json")
 	_check(r1["state"] == Updater.State.READY, "instalasi 1.0.0 selesai", str(r1))
 	var before := _pack_count()
 	_check(before == 6, "enam paket setelah instalasi awal", str(before))
@@ -230,7 +230,7 @@ func _scenario_partial_update() -> void:
 	sf = null
 
 	# phase 2: delta update to 1.1.0 (only characters.pck differs)
-	var r2 := await _install(_base() + "/manifests/v110.json")
+	var r2 := await _install(_base() + "/v110.json")
 	_check(r2["state"] == Updater.State.READY, "naik ke 1.1.0", str(r2))
 	_check(Store.active_version() == "1.1.0", "versi aktif 1.1.0", Store.active_version())
 	_check(_pack_count() == before + 1, "hanya satu paket baru diunduh",
@@ -288,7 +288,7 @@ func _scenario_bad_hash() -> void:
 
 
 func _scenario_offline() -> void:
-	var r1 := await _install(_base() + "/manifests/v100.json")
+	var r1 := await _install(_base() + "/v100.json")
 	_check(r1["state"] == Updater.State.READY, "pasang 1.0.0 dulu", str(r1))
 	var r := await _install("http://127.0.0.1:1/version.json", 30.0)
 	_check(r["state"] == Updater.State.OFFLINE_READY, "state OFFLINE_READY", str(r))
@@ -306,10 +306,10 @@ func _scenario_launcher_too_old() -> void:
 
 
 func _scenario_blocked() -> void:
-	var r1 := await _install(_base() + "/manifests/v100.json")
+	var r1 := await _install(_base() + "/v100.json")
 	_check(r1["state"] == Updater.State.READY, "pasang 1.0.0 dulu", str(r1))
 	Store.block("1.1.0")
-	var r := await _install(_base() + "/manifests/v110.json")
+	var r := await _install(_base() + "/v110.json")
 	_check(r["state"] == Updater.State.ERROR, "versi yang ditahan tidak dipasang", str(r))
 	_check(String(r["ctx"].get("kind", "")) == "blocked", "jenis kesalahan blocked",
 		String(r["ctx"].get("kind", "")))
@@ -321,9 +321,9 @@ func _scenario_blocked() -> void:
 
 func _scenario_startup_rollback() -> void:
 	# in-process flavour: healthy 1.0.0 -> broken 1.2.0 "dies" on boot
-	var r1 := await _install(_base() + "/manifests/v110.json")
+	var r1 := await _install(_base() + "/v110.json")
 	_check(r1["state"] == Updater.State.READY, "pasang 1.1.0 dulu", str(r1))
-	var r2 := await _install(_base() + "/manifests/v120_broken.json")
+	var r2 := await _install(_base() + "/v120_broken.json")
 	_check(r2["state"] == Updater.State.READY, "paket rusak terpasang (rusak saat boot, bukan saat unduh)",
 		str(r2))
 	_check(Store.active_version() == "1.2.0", "1.2.0 aktif", Store.active_version())
