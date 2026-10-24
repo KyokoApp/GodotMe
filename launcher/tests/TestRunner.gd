@@ -418,19 +418,26 @@ func _scenario_boot_packs() -> void:
 	add_child(root)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	# The contract path is fixed: the game has no idea about the launcher's
+	# --data-root sandbox, so on a phone both of these are the same file
+	# (user://retraveller is the default data root).
+	var contract := "user://retraveller/boot_ok.json"
 	var ok := await _wait_until(func() -> bool:
-		return FileAccess.file_exists(Cfg.boot_ok_file()), 8.0)
-	_check(ok, "game menulis boot_ok dari dalam paket")
-	_check(Store.boot_ok_version() == Store.active_version(),
+		return FileAccess.file_exists(contract) or FileAccess.file_exists(Cfg.boot_ok_file()), 8.0)
+	_check(ok, "game menulis boot_ok dari dalam paket", contract)
+	var boot: Dictionary = Util.read_json(contract if FileAccess.file_exists(contract)
+		else Cfg.boot_ok_file())
+	_check(String(boot.get("version", "")) == Store.active_version(),
 		"boot_ok menyebut versi aktif",
-		"%s vs %s" % [Store.boot_ok_version(), Store.active_version()])
+		"%s vs %s" % [String(boot.get("version", "")), Store.active_version()])
 	_check(root.get_node_or_null("Diorama") != null, "diorama dibangun dari world.pck")
 	_check(root.get_node_or_null("HUD") != null, "HUD dibangun dari core.pck")
 	var cast := root.get_node_or_null("Diorama/Characters")
 	_check(cast != null, "karakter dibangun dari characters.pck")
 	# wait for the fade-in curtain so the capture is not a black frame
 	await get_tree().create_timer(1.6).timeout
-	await RenderingServer.frame_post_draw
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
 	var dir := ""
 	for arg in OS.get_cmdline_user_args():
 		if String(arg).begins_with("--captures="):
