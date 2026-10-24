@@ -97,6 +97,7 @@ static func download_to_file(url: String, dest_path: String, expected_size: int 
 			target = Util.resolve_url(target, String(res["redirect"]))
 			continue
 		return res
+	return _err("Pengalihan berlebihan.")
 
 
 static func _copy_local(url: String, dest_path: String, expected_size: int, resume: bool,

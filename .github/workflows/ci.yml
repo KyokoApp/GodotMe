@@ -14,6 +14,47 @@ env:
   GODOT_VERSION: "4.7.2"
 
 jobs:
+  # ------------------------------------------------------------ lint/parse ---
+  lint:
+    name: parse check (all scripts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tools"
+          curl -sSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/.tools"
+          mv "$GITHUB_WORKSPACE/.tools/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GITHUB_WORKSPACE/.tools/godot"
+          chmod +x "$GITHUB_WORKSPACE/.tools/godot"
+          echo "$GITHUB_WORKSPACE/.tools" >> "$GITHUB_PATH"
+
+      - name: Check every script
+        run: |
+          set +e
+          : > /tmp/lint.log
+          godot --headless --path launcher --import >/dev/null 2>&1
+          godot --headless --path game --import >/dev/null 2>&1
+          for f in $(cd launcher && find . -name "*.gd" | sed 's|^\./||'); do
+            echo "--- launcher/$f" >> /tmp/lint.log
+            godot --headless --path launcher --check-only --script "res://$f" 2>&1 | grep -v "^Godot Engine" >> /tmp/lint.log
+          done
+          for f in $(cd game && find . -name "*.gd" | sed 's|^\./||'); do
+            echo "--- game/$f" >> /tmp/lint.log
+            godot --headless --path game --check-only --script "res://$f" 2>&1 | grep -v "^Godot Engine" >> /tmp/lint.log
+          done
+          cat /tmp/lint.log
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### parse check"; echo '```'; tail -c 60000 /tmp/lint.log; echo '```'; } > /tmp/lint.md
+            gh pr comment "$PR" --body-file /tmp/lint.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   # ------------------------------------------------- one job per test case ---
   launcher-tests:
     name: test / ${{ matrix.case }}
