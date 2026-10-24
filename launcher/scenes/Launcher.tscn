@@ -1,0 +1,389 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scripts/Launcher.gd" id="1_launcher"]
+[ext_resource type="Texture2D" path="res://ui/textures/bg_sky.png" id="2_bg"]
+[ext_resource type="Texture2D" path="res://ui/textures/overlay_scrim_left.png" id="3_scrim"]
+[ext_resource type="Texture2D" path="res://ui/textures/overlay_vignette.png" id="4_vignette"]
+[ext_resource type="Texture2D" path="res://ui/textures/fx_mote.png" id="5_mote"]
+[ext_resource type="Texture2D" path="res://ui/textures/logo_crest_128.png" id="6_crest"]
+[ext_resource type="Texture2D" path="res://ui/textures/logo_wordmark.png" id="12_wordmark"]
+[ext_resource type="Texture2D" path="res://ui/textures/fx_glow.png" id="7_glow"]
+[ext_resource type="Texture2D" path="res://ui/textures/ornament_divider.png" id="8_divider"]
+[ext_resource type="Texture2D" path="res://ui/textures/icon_scroll.png" id="9_scroll"]
+[ext_resource type="Texture2D" path="res://ui/textures/icon_play.png" id="10_play"]
+[ext_resource type="Texture2D" path="res://ui/textures/icon_retry.png" id="11_retry"]
+[ext_resource type="Texture2D" path="res://ui/textures/icon_check.png" id="13_check"]
+
+[node name="Launcher" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_launcher")
+
+[node name="Background" type="TextureRect" parent="."]
+texture_filter = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Scrim" type="TextureRect" parent="."]
+texture_filter = 2
+modulate = Color(1, 1, 1, 0.92)
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 2
+texture = ExtResource("3_scrim")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="Vignette" type="TextureRect" parent="."]
+texture_filter = 2
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 2
+texture = ExtResource("4_vignette")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="Dust" type="CPUParticles2D" parent="."]
+position = Vector2(640, 380)
+amount = 34
+lifetime = 11.0
+preprocess = 4.0
+local_coords = false
+texture = ExtResource("5_mote")
+emission_shape = 3
+emission_rect_extents = Vector2(660, 380)
+direction = Vector2(0.4, -1)
+spread = 30.0
+gravity = Vector2(3, -7)
+initial_velocity_min = 6.0
+initial_velocity_max = 18.0
+scale_amount_min = 0.35
+scale_amount_max = 1.1
+color = Color(1, 0.92, 0.72, 0.75)
+
+[node name="SafeArea" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 44
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 26
+
+[node name="Columns" type="HBoxContainer" parent="SafeArea"]
+layout_mode = 2
+theme_override_constants/separation = 28
+alignment = 1
+
+[node name="Left" type="VBoxContainer" parent="SafeArea/Columns"]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="CrestStack" type="Control" parent="SafeArea/Columns/Left"]
+custom_minimum_size = Vector2(124, 124)
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+
+[node name="Glow" type="TextureRect" parent="SafeArea/Columns/Left/CrestStack"]
+modulate = Color(1, 0.86, 0.58, 0.38)
+layout_mode = 0
+offset_right = 124.0
+offset_bottom = 124.0
+mouse_filter = 2
+texture = ExtResource("7_glow")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="Crest" type="TextureRect" parent="SafeArea/Columns/Left/CrestStack"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 112.0
+offset_bottom = 112.0
+mouse_filter = 2
+texture = ExtResource("6_crest")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TitleBlock" type="VBoxContainer" parent="SafeArea/Columns/Left"]
+layout_mode = 2
+theme_override_constants/separation = -2
+
+[node name="Title" type="TextureRect" parent="SafeArea/Columns/Left/TitleBlock"]
+custom_minimum_size = Vector2(466, 33)
+layout_mode = 2
+size_flags_horizontal = 0
+texture = ExtResource("12_wordmark")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Subtitle" type="Label" parent="SafeArea/Columns/Left/TitleBlock"]
+layout_mode = 2
+theme_type_variation = &"SubtitleLabel"
+text = "Kisah Delapan Pengembara"
+
+[node name="Divider" type="TextureRect" parent="SafeArea/Columns/Left"]
+custom_minimum_size = Vector2(256, 32)
+layout_mode = 2
+size_flags_horizontal = 0
+texture = ExtResource("8_divider")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="Spacer" type="Control" parent="SafeArea/Columns/Left"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="Journal" type="PanelContainer" parent="SafeArea/Columns/Left"]
+layout_mode = 2
+size_flags_horizontal = 0
+theme_type_variation = &"InkPanel"
+
+[node name="Pad" type="MarginContainer" parent="SafeArea/Columns/Left/Journal"]
+layout_mode = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 1
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 1
+
+[node name="Box" type="VBoxContainer" parent="SafeArea/Columns/Left/Journal/Pad"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="LogLines" type="Label" parent="SafeArea/Columns/Left/Journal/Pad/Box"]
+layout_mode = 2
+theme_type_variation = &"SmallLabel"
+text = "Jurnal peluncur siap…"
+autowrap_mode = 3
+
+[node name="StatusLine" type="Label" parent="SafeArea/Columns/Left/Journal/Pad/Box"]
+layout_mode = 2
+theme_type_variation = &"TinyLabel"
+text = "versi —  •  launcher v1"
+
+[node name="Right" type="PanelContainer" parent="SafeArea/Columns"]
+custom_minimum_size = Vector2(540, 400)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 3
+theme_type_variation = &"ParchmentPanel"
+
+[node name="Pad" type="MarginContainer" parent="SafeArea/Columns/Right"]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="Content" type="VBoxContainer" parent="SafeArea/Columns/Right/Pad"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HeadRow" type="HBoxContainer" parent="SafeArea/Columns/Right/Pad/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HeadIcon" type="TextureRect" parent="SafeArea/Columns/Right/Pad/Content/HeadRow"]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("9_scroll")
+expand_mode = 0
+stretch_mode = 5
+
+[node name="Heading" type="Label" parent="SafeArea/Columns/Right/Pad/Content/HeadRow"]
+layout_mode = 2
+theme_type_variation = &"PanelHeading"
+text = "CATATAN PERJALANAN"
+
+[node name="HeadSpacer" type="Control" parent="SafeArea/Columns/Right/Pad/Content/HeadRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="VersionPill" type="Label" parent="SafeArea/Columns/Right/Pad/Content/HeadRow"]
+layout_mode = 2
+theme_type_variation = &"InkLabel"
+text = "v—"
+
+[node name="StateTitle" type="Label" parent="SafeArea/Columns/Right/Pad/Content"]
+layout_mode = 2
+theme_type_variation = &"StateTitle"
+text = "Menyiapkan…"
+autowrap_mode = 3
+
+[node name="Detail" type="Label" parent="SafeArea/Columns/Right/Pad/Content"]
+layout_mode = 2
+theme_type_variation = &"DetailLabel"
+text = "Menghubungi server pembaruan"
+autowrap_mode = 3
+
+[node name="ProgressBlock" type="VBoxContainer" parent="SafeArea/Columns/Right/Pad/Content"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Bar" type="ProgressBar" parent="SafeArea/Columns/Right/Pad/Content/ProgressBlock"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+max_value = 100.0
+value = 0.0
+show_percentage = false
+
+[node name="BarMeta" type="HBoxContainer" parent="SafeArea/Columns/Right/Pad/Content/ProgressBlock"]
+layout_mode = 2
+
+[node name="PkgLabel" type="Label" parent="SafeArea/Columns/Right/Pad/Content/ProgressBlock/BarMeta"]
+layout_mode = 2
+theme_type_variation = &"TinyLabel"
+theme_override_colors/font_color = Color(0.36, 0.28, 0.2, 1)
+text = ""
+
+[node name="MetaSpacer" type="Control" parent="SafeArea/Columns/Right/Pad/Content/ProgressBlock/BarMeta"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="SpeedLabel" type="Label" parent="SafeArea/Columns/Right/Pad/Content/ProgressBlock/BarMeta"]
+layout_mode = 2
+theme_type_variation = &"TinyLabel"
+theme_override_colors/font_color = Color(0.36, 0.28, 0.2, 1)
+text = ""
+
+[node name="Divider2" type="TextureRect" parent="SafeArea/Columns/Right/Pad/Content"]
+custom_minimum_size = Vector2(256, 32)
+layout_mode = 2
+size_flags_horizontal = 4
+texture = ExtResource("8_divider")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="Changelog" type="ScrollContainer" parent="SafeArea/Columns/Right/Pad/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ChangelogText" type="RichTextLabel" parent="SafeArea/Columns/Right/Pad/Content/Changelog"]
+layout_mode = 2
+size_flags_horizontal = 3
+bbcode_enabled = true
+text = ""
+fit_content = true
+scroll_active = false
+
+[node name="PackSection" type="VBoxContainer" parent="SafeArea/Columns/Right/Pad/Content"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PackHeading" type="Label" parent="SafeArea/Columns/Right/Pad/Content/PackSection"]
+layout_mode = 2
+theme_type_variation = &"PanelHeading"
+text = "PAKET TERPASANG"
+
+[node name="PackRows" type="GridContainer" parent="SafeArea/Columns/Right/Pad/Content/PackSection"]
+layout_mode = 2
+columns = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="SafeArea/Columns/Right/Pad/Content"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="RetryButton" type="Button" parent="SafeArea/Columns/Right/Pad/Content/ButtonRow"]
+custom_minimum_size = Vector2(190, 46)
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"SecondaryButton"
+text = "  Coba Lagi"
+icon = ExtResource("11_retry")
+
+[node name="BtnSpacer" type="Control" parent="SafeArea/Columns/Right/Pad/Content/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="PlayButton" type="Button" parent="SafeArea/Columns/Right/Pad/Content/ButtonRow"]
+custom_minimum_size = Vector2(212, 66)
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "  MAIN"
+icon = ExtResource("10_play")
+
+[node name="ModalLayer" type="CanvasLayer" parent="."]
+visible = false
+layer = 10
+
+[node name="Dim" type="ColorRect" parent="ModalLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.06, 0.045, 0.04, 0.6)
+
+[node name="Center" type="CenterContainer" parent="ModalLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Modal" type="PanelContainer" parent="ModalLayer/Center"]
+custom_minimum_size = Vector2(660, 0)
+layout_mode = 2
+theme_type_variation = &"ModalPanel"
+
+[node name="Pad" type="MarginContainer" parent="ModalLayer/Center/Modal"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="Box" type="VBoxContainer" parent="ModalLayer/Center/Modal/Pad"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ModalTitle" type="Label" parent="ModalLayer/Center/Modal/Pad/Box"]
+layout_mode = 2
+theme_type_variation = &"StateTitle"
+text = "Pemulihan Otomatis"
+autowrap_mode = 3
+
+[node name="ModalBody" type="Label" parent="ModalLayer/Center/Modal/Pad/Box"]
+layout_mode = 2
+theme_type_variation = &"DetailLabel"
+text = ""
+autowrap_mode = 3
+
+[node name="ModalButtons" type="HBoxContainer" parent="ModalLayer/Center/Modal/Pad/Box"]
+layout_mode = 2
+alignment = 2
+
+[node name="ModalOk" type="Button" parent="ModalLayer/Center/Modal/Pad/Box/ModalButtons"]
+custom_minimum_size = Vector2(160, 46)
+layout_mode = 2
+theme_type_variation = &"SecondaryButton"
+text = "  Mengerti"

@@ -1,0 +1,64 @@
+; Re - Traveller : LAUNCHER (Project A)
+; Engine locked to Godot 4.7.2-stable - see docs/DESIGN_NOTES.md
+; This project contains no game content. Everything playable arrives as .pck.
+
+config_version=5
+
+[application]
+
+config/name="Re - Traveller"
+config/description="Peluncur Re - Traveller. Memuat dunia game dari paket yang diunduh."
+config/version="1.0.0"
+run/main_scene="res://scenes/Launcher.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon/icon.png"
+boot_splash/bg_color=Color(0.086, 0.063, 0.051, 1)
+boot_splash/show_image=true
+boot_splash/image="res://ui/textures/splash_boot.png"
+boot_splash/use_filter=false
+boot_splash/stretch_mode="keep"
+
+[autoload]
+
+Cfg="*res://scripts/Config.gd"
+Log="*res://scripts/Log.gd"
+Store="*res://scripts/Store.gd"
+Guard="*res://scripts/Guard.gd"
+Updater="*res://scripts/UpdateManager.gd"
+
+[debug]
+
+gdscript/warnings/treat_warnings_as_errors=false
+
+gdscript/warnings/untyped_declaration=1
+gdscript/warnings/unsafe_property_access=0
+gdscript/warnings/unsafe_method_access=0
+gdscript/warnings/return_value_discarded=0
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/size/resizable=true
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[gui]
+
+theme/default_font_antialiasing=0
+theme/default_font_hinting=0
+theme/default_font_subpixel_positioning=0
+theme/default_font_multichannel_signed_distance_field=false
+theme/default_font_generate_mipmaps=false
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+textures/vram_compression/import_etc2_astc=true
+anti_aliasing/quality/msaa_2d=0
+environment/defaults/default_clear_color=Color(0.086, 0.063, 0.051, 1)
