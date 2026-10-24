@@ -41,7 +41,7 @@ static func build() -> Theme:
 	t.default_font_size = 20
 
 	# ---------------------------------------------------------------- labels --
-	_label(t, "Label", f_body, 20, COL_PARCH)
+	# base Label (no variation: a type cannot be a variation of itself)
 	t.set_font("font", "Label", f_body)
 	t.set_font_size("font_size", "Label", 20)
 	t.set_color("font_color", "Label", COL_PARCH)

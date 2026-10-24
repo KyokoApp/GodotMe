@@ -133,11 +133,12 @@ jobs:
                   s|^keystore/release_user=".*"|keystore/release_user="androiddebugkey"|; \
                   s|^keystore/release_password=".*"|keystore/release_password="android"|' \
             launcher/export_presets.cfg
-          mkdir -p /tmp/rel
+          mkdir -p dist
           godot --headless --path launcher --export-release "Android" \
-            /tmp/rel/re-traveller-launcher.apk >> /tmp/apk.log 2>&1
+            "$PWD/dist/re-traveller-launcher.apk" >> /tmp/apk.log 2>&1
           code=$?
           tail -40 /tmp/apk.log
+          cp dist/re-traveller-launcher.apk /tmp/rel/ 2>/dev/null || true
           ls -la /tmp/rel/re-traveller-launcher.apk || true
           if [ $code -ne 0 ]; then
             PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
@@ -149,6 +150,16 @@ jobs:
           exit $code
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Publish export log
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          [ -z "$PR" ] && { echo "no PR"; exit 0; }
+          { echo "### release-demo export log"; echo '```'; tail -c 30000 /tmp/apk.log 2>/dev/null || echo "(empty)"; echo '```'; } > /tmp/rel_apk2.md
+          gh pr comment "$PR" --body-file /tmp/rel_apk2.md --repo "$GITHUB_REPOSITORY" || true
 
       # --------------------------------------------------------- release ----
       - name: Publish GitHub Release
