@@ -42,11 +42,16 @@ const LAYOUT := [
 	["rock", -9.4, 1.2, 0.9, true],
 	# tree line at the back
 	["pine", -11.5, -8.5, 1.0, false],
-	["pine", -6.5, -9.5, 1.12, true],
-	["pine", -1.5, -8.8, 0.94, false],
-	["pine", 3.0, -9.6, 1.06, false],
-	["pine", 8.5, -8.2, 0.9, true],
-	["pine", 12.0, -6.0, 1.05, false],
+	["pine", -8.6, -9.8, 0.88, true],
+	["pine", -6.5, -8.9, 1.12, true],
+	["pine", -4.0, -9.8, 0.92, false],
+	["pine", -1.5, -8.6, 0.96, false],
+	["pine", 1.0, -9.7, 1.04, true],
+	["pine", 3.0, -8.8, 1.06, false],
+	["pine", 5.6, -9.9, 0.9, false],
+	["pine", 8.5, -8.2, 0.98, true],
+	["pine", 10.8, -9.2, 1.06, false],
+	["pine", 12.2, -6.2, 1.05, false],
 	["oak", -8.0, -6.0, 1.0, false],
 	["oak", 7.4, -5.2, 1.04, true],
 	# side screens
@@ -114,7 +119,7 @@ func _build_environment() -> void:
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.68, 0.62)
 	env.fog_light_energy = 0.55
-	env.fog_density = 0.006
+	env.fog_density = 0.0045
 	env.fog_sky_affect = 0.0
 	env.glow_enabled = true
 	env.glow_intensity = 0.30
@@ -222,7 +227,11 @@ func _build_props() -> void:
 		var node := _make_prop(kind, s, flip)
 		if node == null:
 			continue
-		node.position = Vector3(x, 0.0, z)
+		# only X/Z: node.position.y already lifts the quad so its bottom edge
+		# sits on the ground. Overwriting y buried the lower half of every prop
+		# (the first capture showed roofs growing out of the grass).
+		node.position.x = x
+		node.position.z = z
 		root.add_child(node)
 	# painter's order for the shadow caster list; billboards still face the camera
 	root.sort_children = true
