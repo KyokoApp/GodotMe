@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" path="res://ui/textures/icon_scroll.png" id="9_scroll"]
 [ext_resource type="Texture2D" path="res://ui/textures/icon_play.png" id="10_play"]
 [ext_resource type="Texture2D" path="res://ui/textures/icon_retry.png" id="11_retry"]
+[ext_resource type="Texture2D" path="res://ui/textures/icon_check.png" id="13_check"]
 
 [node name="Launcher" type="Control"]
 layout_mode = 3
@@ -286,6 +287,21 @@ bbcode_enabled = true
 text = ""
 fit_content = true
 scroll_active = false
+
+[node name="PackSection" type="VBoxContainer" parent="SafeArea/Columns/Right/Pad/Content"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PackHeading" type="Label" parent="SafeArea/Columns/Right/Pad/Content/PackSection"]
+layout_mode = 2
+theme_type_variation = &"PanelHeading"
+text = "PAKET TERPASANG"
+
+[node name="PackRows" type="GridContainer" parent="SafeArea/Columns/Right/Pad/Content/PackSection"]
+layout_mode = 2
+columns = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 2
 
 [node name="ButtonRow" type="HBoxContainer" parent="SafeArea/Columns/Right/Pad/Content"]
 layout_mode = 2

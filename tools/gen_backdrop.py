@@ -78,10 +78,12 @@ def make_scrim() -> None:
         for x in range(W):
             nx = x / (W - 1)
             ny = y / (H - 1)
-            left = max(0.0, 1.0 - nx / 0.46) ** 1.35
-            bottom = max(0.0, (ny - 0.55) / 0.45) ** 1.6
-            a = min(0.86, left * 0.80 + bottom * 0.42)
-            a = round(a * 12) / 12
+            # a soft left wash for the title column, plus a gentle bottom fade.
+            # 32 alpha steps keeps it banded-but-smooth instead of blocky.
+            left = max(0.0, 1.0 - nx / 0.34) ** 1.15
+            bottom = max(0.0, (ny - 0.62) / 0.38) ** 1.7
+            a = min(0.80, left * 0.62 + bottom * 0.30)
+            a = round(a * 32) / 32
             if a > 0:
                 px[x, y] = (20, 14, 11, int(a * 255))
     im.save(os.path.join(TEX, "overlay_scrim_left.png"))

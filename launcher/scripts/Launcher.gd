@@ -24,6 +24,8 @@ extends Control
 @onready var _speed_label: Label = $SafeArea/Columns/Right/Pad/Content/ProgressBlock/BarMeta/SpeedLabel
 @onready var _changelog: ScrollContainer = $SafeArea/Columns/Right/Pad/Content/Changelog
 @onready var _changelog_text: RichTextLabel = $SafeArea/Columns/Right/Pad/Content/Changelog/ChangelogText
+@onready var _pack_rows: GridContainer = $SafeArea/Columns/Right/Pad/Content/PackSection/PackRows
+@onready var _pack_heading: Label = $SafeArea/Columns/Right/Pad/Content/PackSection/PackHeading
 @onready var _retry_button: Button = $SafeArea/Columns/Right/Pad/Content/ButtonRow/RetryButton
 @onready var _play_button: Button = $SafeArea/Columns/Right/Pad/Content/ButtonRow/PlayButton
 @onready var _dust: CPUParticles2D = $Dust
@@ -56,6 +58,7 @@ func _ready() -> void:
 
 	_refresh_status_line()
 	_render_log_tail()
+	_render_pack_rows()
 	_play_entrance()
 	_start_ken_burns()
 	_start_sparkles()
@@ -219,6 +222,7 @@ func _on_state_changed(state: int, ctx: Dictionary) -> void:
 		_pulse_play_button(false)
 
 	_render_changelog(ctx)
+	_render_pack_rows()
 	_refresh_status_line()
 
 	if Cfg.autoplay_enabled() and can_play and state == Updater.State.READY and not _autoplay_done:
@@ -267,6 +271,50 @@ func _on_progress(snap: Dictionary) -> void:
 
 func _on_plan_ready(_manifest: Dictionary, _plan: Array) -> void:
 	_refresh_status_line()
+	_render_pack_rows()
+
+
+## Show what is actually installed, package by package. This is the clearest
+## proof to a player that updates are modular: one row per .pck.
+func _render_pack_rows() -> void:
+	if _pack_rows == null:
+		return
+	var meta := Store.active_meta()
+	var packs: Array = meta.get("packages", [])
+	for child in _pack_rows.get_children():
+		child.queue_free()
+	if packs.is_empty():
+		_pack_heading.text = "BELUM ADA PAKET"
+		var empty := Label.new()
+		empty.text = "Paket akan muncul di sini setelah unduhan pertama."
+		empty.theme_type_variation = &"DetailLabel"
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		empty.custom_minimum_size = Vector2(460, 0)
+		_pack_rows.add_child(empty)
+		_pack_rows.columns = 1
+		return
+	_pack_rows.columns = 3
+	_pack_heading.text = "PAKET TERPASANG (%d)" % packs.size()
+	for pkg in packs:
+		var name_lbl := Label.new()
+		name_lbl.text = String(pkg.get("name", "?"))
+		name_lbl.theme_type_variation = &"DetailLabel"
+		_pack_rows.add_child(name_lbl)
+
+		var size_lbl := Label.new()
+		size_lbl.text = Util.human_size(int(pkg.get("size", 0))).rpad(9)
+		size_lbl.theme_type_variation = &"DetailLabel"
+		size_lbl.add_theme_color_override("font_color", UiTheme.COL_INK_FAINT)
+		_pack_rows.add_child(size_lbl)
+
+		var tick := TextureRect.new()
+		tick.texture = load("res://ui/textures/icon_check.png")
+		tick.custom_minimum_size = Vector2(16, 16)
+		tick.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tick.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tick.modulate = Color(1, 1, 1, 0.9) if Store.pack_ready(pkg) else Color(1, 0.5, 0.4, 0.9)
+		_pack_rows.add_child(tick)
 
 
 func _render_changelog(ctx: Dictionary) -> void:
@@ -276,13 +324,13 @@ func _render_changelog(ctx: Dictionary) -> void:
 		if not Updater.manifest.is_empty():
 			lines = Manifest.changelog_lines(Updater.manifest)
 	if lines.is_empty():
-		_changelog_text.text = "[i][color=#7a6a52]Belum ada catatan untuk versi ini.[/color][/i]"
+		_changelog_text.text = "[i][color=#8a775e]Belum ada catatan untuk versi ini.[/color][/i]"
 		return
 	for i in lines.size():
 		var line := lines[i].strip_edges()
 		if line == "":
 			continue
-		bb += "[color=#c9a35a]◆[/color]  " + line
+		bb += "[img=14x14]res://ui/textures/fx_spark.png[/img]  " + line
 		if i < lines.size() - 1:
 			bb += "\n"
 	_changelog_text.text = bb
@@ -304,10 +352,15 @@ func _on_log_line(entry: Dictionary) -> void:
 
 
 func _render_log_tail() -> void:
-	var lines := Log.tail(3)
+	# keep the journal to two short lines: wrap-around text in a 44px strip
+	# used to overlap itself
+	var lines := Log.tail(2)
 	var out := PackedStringArray()
 	for e in lines:
-		out.append(String(e.get("text", "")))
+		var txt := String(e.get("text", ""))
+		if txt.length() > 52:
+			txt = txt.substr(0, 50) + "…"
+		out.append(txt)
 	_log_lines.text = "\n".join(out)
 	if _log_lines.text == "":
 		_log_lines.text = "Jurnal peluncur siap…"
