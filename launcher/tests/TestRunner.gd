@@ -102,8 +102,19 @@ func _set_manifest(url: String) -> void:
 	f = null
 
 
+## The manager keeps its last state between phases; clear it so a scenario can
+## never mistake a previous run's READY for the new one.
+func _restart() -> void:
+	Updater.cancel()
+	await get_tree().process_frame
+	Updater.state = Updater.State.IDLE
+	Updater.ctx = {}
+	Updater.snap = {}
+
+
 func _install(manifest_url: String, timeout_s: float = 40.0) -> Dictionary:
 	_set_manifest(manifest_url)
+	await _restart()
 	Updater.start()
 	return await _wait_state([Updater.State.READY, Updater.State.ERROR,
 		Updater.State.OFFLINE_READY, Updater.State.LAUNCHER_UPDATE_REQUIRED], timeout_s)
@@ -182,6 +193,7 @@ func _scenario_unit() -> void:
 
 # ----------------------------------------------------------- full pipeline ---
 func _scenario_first_install() -> void:
+	await _restart()
 	Updater.start()
 	var r := await _wait_state([Updater.State.READY, Updater.State.ERROR])
 	_check(r["state"] == Updater.State.READY, "state READY", str(r))
@@ -236,6 +248,7 @@ func _scenario_partial_update() -> void:
 
 
 func _scenario_resume() -> void:
+	await _restart()
 	Updater.start()
 	var seen := await _wait_until(func(): return float(Updater.snap.get("percent", 0.0)) >= 0.25, 40.0)
 	_check(seen, "unduhan mulai berjalan")
@@ -261,6 +274,7 @@ func _scenario_resume() -> void:
 
 
 func _scenario_bad_hash() -> void:
+	await _restart()
 	Updater.start()
 	var r := await _wait_state([Updater.State.READY, Updater.State.ERROR])
 	_check(r["state"] == Updater.State.ERROR, "berakhir di ERROR", str(r))
@@ -279,11 +293,12 @@ func _scenario_offline() -> void:
 	var r := await _install("http://127.0.0.1:1/version.json", 30.0)
 	_check(r["state"] == Updater.State.OFFLINE_READY, "state OFFLINE_READY", str(r))
 	_check(bool(r["ctx"].get("can_play", false)), "versi lama tetap bisa dimainkan")
-	_check(Store.active_version() == "1.0.0", "masih di 1.0.0", Store.active_version())
+	_check(Store.active_version() == "1.0.0", "masih di versi terpasang (1.0.0)", Store.active_version())
 	_check(Updater.has_playable_version(), "paket lama utuh")
 
 
 func _scenario_launcher_too_old() -> void:
+	await _restart()
 	Updater.start()
 	var r := await _wait_state([Updater.State.LAUNCHER_UPDATE_REQUIRED, Updater.State.ERROR])
 	_check(r["state"] == Updater.State.LAUNCHER_UPDATE_REQUIRED, "butuh launcher baru", str(r))
@@ -325,6 +340,7 @@ func _scenario_startup_rollback() -> void:
 
 
 func _scenario_signed_ok() -> void:
+	await _restart()
 	Updater.start()
 	var r := await _wait_state([Updater.State.READY, Updater.State.ERROR], 40.0)
 	_check(r["state"] == Updater.State.READY, "manifest bertanda tangan diterima", str(r))
@@ -332,6 +348,7 @@ func _scenario_signed_ok() -> void:
 
 
 func _scenario_signed_bad() -> void:
+	await _restart()
 	Updater.start()
 	var r := await _wait_state([Updater.State.READY, Updater.State.ERROR], 40.0)
 	_check(r["state"] == Updater.State.ERROR, "tanda tangan rusak ditolak", str(r))
@@ -341,6 +358,7 @@ func _scenario_signed_bad() -> void:
 ## Real crash path: install a pack that dies on boot, then let the process die.
 ## The next process (bash case "crash") must recover through the file sentinel.
 func _scenario_install_and_boot() -> void:
+	await _restart()
 	Updater.start()
 	var r := await _wait_state([Updater.State.READY, Updater.State.ERROR], 40.0)
 	_check(r["state"] == Updater.State.READY, "paket rusak tetap terpasang", str(r))
