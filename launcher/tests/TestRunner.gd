@@ -469,7 +469,11 @@ func _click_at(pos: Vector2) -> void:
 		ev.pressed = is_down
 		ev.position = pos
 		ev.global_position = pos
-		get_viewport().push_input(ev)
+		# in_local_coords: the test works in canvas coordinates. Without it the
+		# stretched-window transform would be applied twice and the tap would
+		# land somewhere else (the first version of this test missed the button
+		# for exactly that reason).
+		get_viewport().push_input(ev, true)
 		await get_tree().process_frame
 		await get_tree().process_frame
 
