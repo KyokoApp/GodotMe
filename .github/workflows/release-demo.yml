@@ -135,6 +135,11 @@ jobs:
                   s|^keystore/release_user=".*"|keystore/release_user="androiddebugkey"|; \
                   s|^keystore/release_password=".*"|keystore/release_password="android"|' \
             launcher/export_presets.cfg
+          echo "--- keystore lines after patch ---"
+          grep '^keystore' launcher/export_presets.cfg
+          ls -l /tmp/debug.keystore || echo "KEYSTORE MISSING"
+          echo "--- editor settings ---"
+          cat "$HOME/.config/godot/editor_settings-4.7.tres" || true
           mkdir -p dist
           godot --headless --path launcher --export-release "Android" \
             "$PWD/dist/re-traveller-launcher.apk" >> /tmp/apk.log 2>&1
