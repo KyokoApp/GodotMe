@@ -53,6 +53,8 @@ func _ready() -> void:
 			await _scenario_signed_bad()
 		"install_and_boot":
 			await _scenario_install_and_boot()
+		"boot_packs":
+			await _scenario_boot_packs()
 		"startup_rollback":
 			await _scenario_startup_rollback()
 		"ui_input":
@@ -374,6 +376,75 @@ func _scenario_install_and_boot() -> void:
 	Updater.play()   # the sample game intentionally crashes here
 	await get_tree().create_timer(10.0).timeout
 	_check(false, "proses seharusnya sudah mati karena paket rusak")
+
+
+## Boot the REAL game out of the REAL packages, inside this process.
+##
+## `install_and_boot` only ever proved that a deliberately broken pack dies. No
+## check anywhere loaded res://game/Main.tscn from a mounted pack, yet that is
+## exactly what a phone does the moment the player taps MAIN. A device showed a
+## black screen there while every CI job was green, so this scenario closes the
+## gap: mount the packs the manifest installed, instantiate the game scene, and
+## insist on the boot contract (boot_ok.json naming the active version) plus a
+## drawn frame.
+func _scenario_boot_packs() -> void:
+	await _restart()
+	Updater.start()
+	var r := await _wait_state([Updater.State.READY, Updater.State.ERROR], 60.0)
+	_check(r["state"] == Updater.State.READY, "paket terpasang sebelum boot", str(r))
+	var meta := Store.active_meta()
+	var loader := PackLoader.new()
+	var res := loader.load_version(meta)
+	_check(bool(res.get("ok", false)), "paket bisa dimuat",
+		String(res.get("error", "")))
+	if not bool(res.get("ok", false)):
+		return
+	var scene_path := String(res.get("main_scene", ""))
+	_check(scene_path == "res://game/Main.tscn", "main_scene dari manifest", scene_path)
+	_check(ResourceLoader.exists(scene_path), "scene utama terlihat dari res://", scene_path)
+	var packed: PackedScene = load(scene_path)
+	_check(packed != null, "scene utama bisa di-load dari paket", scene_path)
+	if packed == null:
+		return
+	var root: Node = packed.instantiate()
+	_check(root != null, "scene utama bisa di-instantiate")
+	if root == null:
+		return
+	# A scene whose script silently failed to attach still instantiates: that is
+	# the black screen with no _ready() and no boot_ok the phone showed.
+	var script: Script = root.get_script()
+	_check(script != null, "skrip Main.gd menempel pada scene")
+	_check(script != null and script.can_instantiate(), "skrip Main.gd terkompilasi")
+	add_child(root)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var ok := await _wait_until(func() -> bool:
+		return FileAccess.file_exists(Cfg.boot_ok_file()), 8.0)
+	_check(ok, "game menulis boot_ok dari dalam paket")
+	_check(Store.boot_ok_version() == Store.active_version(),
+		"boot_ok menyebut versi aktif",
+		"%s vs %s" % [Store.boot_ok_version(), Store.active_version()])
+	_check(root.get_node_or_null("Diorama") != null, "diorama dibangun dari world.pck")
+	_check(root.get_node_or_null("HUD") != null, "HUD dibangun dari core.pck")
+	var cast := root.get_node_or_null("Diorama/Characters")
+	_check(cast != null, "karakter dibangun dari characters.pck")
+	# wait for the fade-in curtain so the capture is not a black frame
+	await get_tree().create_timer(1.6).timeout
+	await RenderingServer.frame_post_draw
+	var dir := ""
+	for arg in OS.get_cmdline_user_args():
+		if String(arg).begins_with("--captures="):
+			dir = String(arg).substr("--captures=".length())
+	if dir != "" and DisplayServer.get_name() != "headless":
+		DirAccess.make_dir_recursive_absolute(dir)
+		var img := get_viewport().get_texture().get_image()
+		var path := dir.path_join("14_game_dari_paket.png")
+		var err := img.save_png(path)
+		print("[TEST] capture 14_game_dari_paket -> %s (err %d, %dx%d)" % [
+			path, err, img.get_width(), img.get_height()])
+		_check(err == OK, "tangkapan layar game-dari-paket tersimpan")
+	elif dir != "":
+		print("[TEST] headless: tangkapan layar dilewati (tidak ada display)")
 
 
 ## Regression guard for the blocker found on a real phone: a tap on MAIN did
