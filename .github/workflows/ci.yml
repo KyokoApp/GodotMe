@@ -49,11 +49,19 @@ jobs:
             godot --headless --path game --check-only --script "res://$f" 2>&1 | grep -v "^Godot Engine" >> /tmp/lint.log
           done
           cat /tmp/lint.log
+          # --check-only cannot resolve autoloads, so "Compilation failed" noise
+          # is expected; a real Parse Error never appears in a clean run.
+          if grep -qE "Parse Error|Failed to parse" /tmp/lint.log; then
+            echo "LINT FAILED: parse error in a GDScript file"
+            grep -nE "Parse Error|Failed to parse" /tmp/lint.log
+            LINT_FAILED=1
+          fi
           PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### parse check"; echo '```'; tail -c 60000 /tmp/lint.log; echo '```'; } > /tmp/lint.md
             gh pr comment "$PR" --body-file /tmp/lint.md --repo "$GITHUB_REPOSITORY" || true
           fi
+          exit ${LINT_FAILED:-0}
         env:
           GH_TOKEN: ${{ github.token }}
 

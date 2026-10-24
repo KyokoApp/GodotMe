@@ -62,6 +62,11 @@ func _ready() -> void:
 		_:
 			_check(false, "scenario dikenal", scenario)
 
+	# A script error aborts the scenario coroutine silently, which used to look
+	# like a pass (0 checks, 0 failures). Never let an empty run go green.
+	if checks == 0:
+		failures += 1
+		print("CHECK scenario ran at least one check FAIL (0 checks executed)")
 	print("RESULT %s %s (%d checks, %d failures)" % [scenario, "PASS" if failures == 0 else "FAIL", checks, failures])
 	await get_tree().process_frame
 	get_tree().quit(0 if failures == 0 else 1)
@@ -392,6 +397,7 @@ func _scenario_ui_input() -> void:
 	for _i in 6:
 		await get_tree().process_frame
 
+	_check(launcher.has_method("_on_state_changed"), "scene launcher memuat skripnya (bukan Control polos)")
 	var play: Button = launcher.get_node("SafeArea/Columns/Right/Pad/Content/ButtonRow/PlayButton")
 	var retry: Button = launcher.get_node("SafeArea/Columns/Right/Pad/Content/ButtonRow/RetryButton")
 	var modal_layer: CanvasLayer = launcher.get_node("ModalLayer")

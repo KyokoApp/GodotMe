@@ -442,8 +442,9 @@ func _hide_modal() -> void:
 	tw.tween_property(_dim, "modulate:a", 0.0, 0.15)
 	tw.tween_property(_modal, "modulate:a", 0.0, 0.15)
 	tw.chain().tween_callback(func():
-		# The whole layer goes away: a hidden panel is not enough, because the
-	# full-rect centre container would still swallow every tap on MAIN.
-	_modal_layer.visible = false
+		_dim.visible = false
 		_modal.visible = false
+		# Hide the whole layer, not just the panel: the full-rect centre
+		# container inside it would otherwise keep swallowing taps on MAIN.
+		_modal_layer.visible = false
 	)
