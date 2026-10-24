@@ -63,6 +63,8 @@ jobs:
             gh pr comment "$PR" --body-file /tmp/lint.md --repo "$GITHUB_REPOSITORY" || true
           fi
           exit ${LINT_FAILED:-0}
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Character sprite contract (strips + SpriteFrames)
         # Fails the build, it does not guess: a strip whose width is not
@@ -78,8 +80,6 @@ jobs:
             { echo "### character contract"; echo '```'; tail -c 20000 /tmp/chars_py.log; echo; tail -c 20000 /tmp/chars_gd.log; echo '```'; } > /tmp/chars.md
             gh pr comment "$PR" --body-file /tmp/chars.md --repo "$GITHUB_REPOSITORY" || true
           fi
-        env:
-          GH_TOKEN: ${{ github.token }}
         env:
           GH_TOKEN: ${{ github.token }}
 
