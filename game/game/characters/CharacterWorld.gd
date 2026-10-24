@@ -83,6 +83,25 @@ func _ready() -> void:
 	var cast := _orcs.size() + (1 if _npc != null else 0) + (1 if _player != null else 0)
 	print("[CHAR] siap: %d aktor, %d orc, blocker %d" % [
 		cast, _orcs.size(), _blockers_count()])
+	_report_cast()
+
+
+## One line per actor: where they stand, which strip frame is up, and how many
+## frames their SpriteFrames actually holds. A missing or empty strip shows up
+## in the CI log instead of as an invisible character in a screenshot.
+func _report_cast() -> void:
+	for actor in [_player, _npc] + _orcs:
+		if actor == null or not is_instance_valid(actor):
+			continue
+		var sp: AnimatedSprite3D = actor.get("sprite")
+		if sp == null:
+			print("[CHAR] %s TANPA sprite" % actor.name)
+			continue
+		var frames: SpriteFrames = sp.sprite_frames
+		var count := frames.get_frame_count(sp.animation) if frames != null else 0
+		print("[CHAR] %-8s pos=%s anim=%s frame=%d/%d pixel=%.4f a=%.2f" % [
+			actor.name, str(actor.position), sp.animation, sp.frame, count,
+			sp.pixel_size, sp.modulate.a])
 
 
 func cast_ready() -> bool:

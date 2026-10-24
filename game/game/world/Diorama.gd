@@ -257,7 +257,6 @@ func _build_props() -> void:
 		node.position.z = z
 		root.add_child(node)
 	# painter's order for the shadow caster list; billboards still face the camera
-	root.sort_children = true
 
 
 func _make_prop(kind: String, s: float, flip: bool) -> Node3D:
