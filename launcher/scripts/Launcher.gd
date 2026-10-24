@@ -6,7 +6,7 @@ extends Control
 
 @onready var _background: TextureRect = $Background
 @onready var _crest_stack: Control = $SafeArea/Columns/Left/CrestStack
-@onready var _title: Label = $SafeArea/Columns/Left/TitleBlock/Title
+@onready var _title: TextureRect = $SafeArea/Columns/Left/TitleBlock/Title
 @onready var _subtitle: Label = $SafeArea/Columns/Left/TitleBlock/Subtitle
 @onready var _left: VBoxContainer = $SafeArea/Columns/Left
 @onready var _divider: TextureRect = $SafeArea/Columns/Left/Divider
@@ -40,7 +40,7 @@ var _sparkle_tweens: Array[Tween] = []
 
 
 func _ready() -> void:
-	theme = UiTheme.build()
+	theme = UiTheme.get_theme()
 	_dim.visible = false
 	_modal.visible = false
 	_modal_ok.pressed.connect(func(): _hide_modal())
@@ -82,22 +82,26 @@ func _ready() -> void:
 
 # ------------------------------------------------------------------ visuals --
 func _play_entrance() -> void:
+	# Containers re-place their children every layout pass, so animating
+	# `position` would be fought (and could shove the layout around). Animate
+	# opacity plus a small uniform scale instead.
 	var items: Array[Control] = [_crest_stack, _title, _subtitle, _divider, _journal, _right]
 	for i in items.size():
 		var node: Control = items[i]
 		node.modulate.a = 0.0
-		var from_x := -26.0 if node != _right else 40.0
-		var start_pos := node.position
-		node.position = start_pos + Vector2(from_x, 0)
+		node.pivot_offset = node.size * 0.5
+		var start_scale := Vector2(0.97, 0.97)
+		node.scale = start_scale
 		var tw := create_tween().set_parallel(true)
-		tw.tween_property(node, "modulate:a", 1.0, 0.42).set_delay(0.05 * i).set_ease(Tween.EASE_OUT)
-		tw.tween_property(node, "position", start_pos, 0.55).set_delay(0.05 * i) \
+		tw.tween_property(node, "modulate:a", 1.0, 0.40).set_delay(0.06 * i) \
+			.set_ease(Tween.EASE_OUT)
+		tw.tween_property(node, "scale", Vector2.ONE, 0.52).set_delay(0.06 * i) \
 			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	# crest settles with a soft bounce
+	# the crest itself settles with a soft bounce
 	_crest_stack.pivot_offset = _crest_stack.size * 0.5
 	_crest_stack.scale = Vector2(0.86, 0.86)
 	var ct := create_tween()
-	ct.tween_property(_crest_stack, "scale", Vector2(1.0, 1.0), 0.7) \
+	ct.tween_property(_crest_stack, "scale", Vector2.ONE, 0.7) \
 		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 
 
@@ -149,9 +153,10 @@ func _process(_delta: float) -> void:
 	if _background.size != size:
 		_background.size = size
 		_background.pivot_offset = size * 0.5
-	var v := $Vignette as TextureRect
+	var v: TextureRect = $Vignette
 	v.size = size
-	($Scrim as TextureRect).size = size
+	var scrim: TextureRect = $Scrim
+	scrim.size = size
 
 
 # --------------------------------------------------------------- rendering ---

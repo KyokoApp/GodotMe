@@ -45,6 +45,24 @@ static func parse_json_text(text: String) -> Dictionary:
 	return {"ok": true, "error": "", "value": parsed}
 
 
+## Indonesian number formatting: comma decimal separator, dot thousands.
+static func _id_number(value: float, decimals: int) -> String:
+	var s := String.num(value, decimals)
+	var parts := s.split(".")
+	var whole := parts[0]
+	var frac := parts[1] if parts.size() > 1 else ""
+	var out := ""
+	var count := 0
+	for i in range(whole.length() - 1, -1, -1):
+		out = whole[i] + out
+		count += 1
+		if count % 3 == 0 and i > 0 and whole[i - 1] != "-":
+			out = "." + out
+	if decimals > 0:
+		return out + "," + frac
+	return out
+
+
 static func human_size(bytes: int) -> String:
 	if bytes < 0:
 		return "-"
@@ -52,11 +70,10 @@ static func human_size(bytes: int) -> String:
 	if b < 1024.0:
 		return "%d B" % int(b)
 	if b < 1024.0 * 1024.0:
-		return ("%.1f KB" % (b / 1024.0)).replace(".", ",")
+		return _id_number(b / 1024.0, 1) + " KB"
 	if b < 1024.0 * 1024.0 * 1024.0:
-		return ("%.1f MB" % (b / (1024.0 * 1024.0))).replace(".", ",")
-	var gb := b / (1024.0 * 1024.0 * 1024.0)
-	return ("%.2f GB" % gb).replace(".", ",")
+		return _id_number(b / (1024.0 * 1024.0), 1) + " MB"
+	return _id_number(b / (1024.0 * 1024.0 * 1024.0), 2) + " GB"
 
 
 static func human_speed(bytes_per_sec: float) -> String:
@@ -96,6 +113,10 @@ static func looks_like_url(s: String) -> bool:
 
 
 ## Resolve a possibly-relative package URL against the manifest's own URL.
+##   .../releases/latest/download/version.json + "packs/core.pck"
+##     -> .../releases/latest/download/packs/core.pck
+##   .../manifests/v100.json           + "packs/core.pck"
+##     -> .../manifests/packs/core.pck
 static func resolve_url(base_url: String, maybe_relative: String) -> String:
 	if maybe_relative.begins_with("http://") or maybe_relative.begins_with("https://") \
 			or maybe_relative.begins_with("file://") or maybe_relative.begins_with("res://") \

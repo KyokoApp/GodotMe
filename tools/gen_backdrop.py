@@ -128,13 +128,60 @@ def make_splash() -> None:
             k = max(0.0, 1.0 - d) ** 1.6
             px[x, y] = (int(26 + 36 * k), int(20 + 27 * k), int(16 + 13 * k), 255)
     crest = Image.open(os.path.join(TEX, "logo_crest.png")).convert("RGBA")
-    im.alpha_composite(crest, (int(cx - crest.width / 2), int(cy - crest.height / 2)))
+    wm = Image.open(os.path.join(TEX, "logo_wordmark.png")).convert("RGBA")
+    total_h = crest.height + 26 + wm.height
+    top = int(cy - total_h / 2)
+    im.alpha_composite(crest, (int(cx - crest.width / 2), top))
+    im.alpha_composite(wm, (int(cx - wm.width / 2), top + crest.height + 26))
     im.convert("RGB").save(os.path.join(TEX, "splash_boot.png"))
     print("splash_boot.png 960x540 (crest only)")
 
 
+def make_wordmark() -> None:
+    """'RE - TRAVELLER' set in the logo face with wide tracking, baked to pixels."""
+    ttf = _ttf_from_woff2(os.path.join(FONTS, "PixelifySans-SemiBold.woff2"))
+    try:
+        text = "RE - TRAVELLER"
+        size = 64
+        scale = 4
+        f = ImageFont.truetype(ttf, size * scale)
+        tracking = int(size * 0.18) * scale
+        # measure
+        widths = []
+        for ch in text:
+            bb = f.getbbox(ch if ch != " " else "n")
+            widths.append(f.getlength(ch) if ch != " " else f.getlength("n") * 0.55)
+        total = int(sum(widths) + tracking * (len(text) - 1)) + 8 * scale
+        h = int(size * scale * 1.5)
+        big = Image.new("L", (total, h), 0)
+        d = ImageDraw.Draw(big)
+        x = 4 * scale
+        for ch, w in zip(text, widths):
+            if ch != " ":
+                d.text((x, 2 * scale), ch, font=f, fill=255)
+            x += w + tracking
+        small = big.resize((max(1, big.width // scale), max(1, big.height // scale)), Image.BOX)
+        small = small.point(lambda v: 255 if v >= 128 else 0)
+        # trim empty rows/cols
+        bbox = small.getbbox()
+        small = small.crop(bbox)
+        # cream fill with a warm drop shadow two pixels down
+        out = Image.new("RGBA", (small.width, small.height + 2), (0, 0, 0, 0))
+        shadow = Image.new("RGBA", small.size, (26, 16, 10, 200))
+        shadow.putalpha(small.point(lambda v: 200 if v else 0))
+        out.alpha_composite(shadow, (0, 2))
+        cream = Image.new("RGBA", small.size, CREAM)
+        cream.putalpha(small)
+        out.alpha_composite(cream, (0, 0))
+        out.save(os.path.join(TEX, "logo_wordmark.png"))
+        print("logo_wordmark.png %dx%d" % out.size)
+    finally:
+        os.remove(ttf)
+
+
 def main():
     os.makedirs(TEX, exist_ok=True)
+    make_wordmark()
     make_bg()
     make_glow()
     make_scrim()

@@ -245,10 +245,23 @@ jobs:
 
       - name: Export APK
         run: |
-          timeout 240 godot --headless --path launcher --import 2>&1 | tail -3
+          set +e
+          : > /tmp/apk.log
+          timeout 240 godot --headless --path launcher --import >> /tmp/apk.log 2>&1
           mkdir -p dist
-          godot --headless --path launcher --export-debug "Android" "$PWD/dist/re-traveller-launcher.apk" 2>&1 | tail -30
-          ls -la dist; du -h dist/*.apk
+          godot --headless --path launcher --export-debug "Android" \
+            "$PWD/dist/re-traveller-launcher.apk" >> /tmp/apk.log 2>&1
+          code=$?
+          tail -60 /tmp/apk.log
+          ls -la dist >> /tmp/apk.log
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### APK export log (exit $code)"; echo '```'; tail -c 60000 /tmp/apk.log; echo '```'; } > /tmp/apk.md
+            gh pr comment "$PR" --body-file /tmp/apk.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - uses: actions/upload-artifact@v4
         with:

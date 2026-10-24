@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" path="res://ui/textures/overlay_vignette.png" id="4_vignette"]
 [ext_resource type="Texture2D" path="res://ui/textures/fx_mote.png" id="5_mote"]
 [ext_resource type="Texture2D" path="res://ui/textures/logo_crest_128.png" id="6_crest"]
+[ext_resource type="Texture2D" path="res://ui/textures/logo_wordmark.png" id="12_wordmark"]
 [ext_resource type="Texture2D" path="res://ui/textures/fx_glow.png" id="7_glow"]
 [ext_resource type="Texture2D" path="res://ui/textures/ornament_divider.png" id="8_divider"]
 [ext_resource type="Texture2D" path="res://ui/textures/icon_scroll.png" id="9_scroll"]
@@ -32,18 +33,6 @@ mouse_filter = 2
 texture = ExtResource("2_bg")
 expand_mode = 1
 stretch_mode = 6
-
-[node name="SunGlow" type="TextureRect" parent="."]
-modulate = Color(1, 0.86, 0.58, 0.5)
-layout_mode = 0
-offset_left = 24.0
-offset_top = 10.0
-offset_right = 384.0
-offset_bottom = 370.0
-mouse_filter = 2
-texture = ExtResource("7_glow")
-expand_mode = 1
-stretch_mode = 0
 
 [node name="Scrim" type="TextureRect" parent="."]
 modulate = Color(1, 1, 1, 0.92)
@@ -89,31 +78,33 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 64
-theme_override_constants/margin_top = 40
-theme_override_constants/margin_right = 56
-theme_override_constants/margin_bottom = 34
+theme_override_constants/margin_left = 44
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 26
 
 [node name="Columns" type="HBoxContainer" parent="SafeArea"]
 layout_mode = 2
-theme_override_constants/separation = 36
+theme_override_constants/separation = 28
+alignment = 1
 
 [node name="Left" type="VBoxContainer" parent="SafeArea/Columns"]
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="CrestStack" type="Control" parent="SafeArea/Columns/Left"]
-custom_minimum_size = Vector2(150, 150)
+custom_minimum_size = Vector2(124, 124)
 layout_mode = 2
 size_flags_horizontal = 0
 mouse_filter = 2
 
 [node name="Glow" type="TextureRect" parent="SafeArea/Columns/Left/CrestStack"]
-modulate = Color(1, 0.88, 0.62, 0.55)
+modulate = Color(1, 0.86, 0.58, 0.38)
 layout_mode = 0
-offset_right = 150.0
-offset_bottom = 150.0
+offset_right = 124.0
+offset_bottom = 124.0
 mouse_filter = 2
 texture = ExtResource("7_glow")
 expand_mode = 1
@@ -121,10 +112,10 @@ stretch_mode = 0
 
 [node name="Crest" type="TextureRect" parent="SafeArea/Columns/Left/CrestStack"]
 layout_mode = 0
-offset_left = 11.0
-offset_top = 11.0
-offset_right = 139.0
-offset_bottom = 139.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 112.0
+offset_bottom = 112.0
 mouse_filter = 2
 texture = ExtResource("6_crest")
 expand_mode = 1
@@ -134,11 +125,13 @@ stretch_mode = 5
 layout_mode = 2
 theme_override_constants/separation = -2
 
-[node name="Title" type="Label" parent="SafeArea/Columns/Left/TitleBlock"]
+[node name="Title" type="TextureRect" parent="SafeArea/Columns/Left/TitleBlock"]
+custom_minimum_size = Vector2(466, 33)
 layout_mode = 2
-theme_type_variation = &"TitleLabel"
-text = "RE - TRAVELLER"
-uppercase = true
+size_flags_horizontal = 0
+texture = ExtResource("12_wordmark")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="Subtitle" type="Label" parent="SafeArea/Columns/Left/TitleBlock"]
 layout_mode = 2
@@ -146,12 +139,12 @@ theme_type_variation = &"SubtitleLabel"
 text = "Kisah Delapan Pengembara"
 
 [node name="Divider" type="TextureRect" parent="SafeArea/Columns/Left"]
-custom_minimum_size = Vector2(0, 16)
+custom_minimum_size = Vector2(128, 16)
 layout_mode = 2
 size_flags_horizontal = 0
 texture = ExtResource("8_divider")
 expand_mode = 1
-stretch_mode = 0
+stretch_mode = 2
 
 [node name="Spacer" type="Control" parent="SafeArea/Columns/Left"]
 layout_mode = 2
@@ -160,6 +153,7 @@ mouse_filter = 2
 
 [node name="Journal" type="PanelContainer" parent="SafeArea/Columns/Left"]
 layout_mode = 2
+size_flags_horizontal = 0
 theme_type_variation = &"InkPanel"
 
 [node name="Pad" type="MarginContainer" parent="SafeArea/Columns/Left/Journal"]
@@ -185,7 +179,7 @@ theme_type_variation = &"TinyLabel"
 text = "versi —  •  launcher v1"
 
 [node name="Right" type="PanelContainer" parent="SafeArea/Columns"]
-custom_minimum_size = Vector2(566, 420)
+custom_minimum_size = Vector2(540, 400)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 3
@@ -246,7 +240,7 @@ layout_mode = 2
 theme_override_constants/separation = 4
 
 [node name="Bar" type="ProgressBar" parent="SafeArea/Columns/Right/Pad/Content/ProgressBlock"]
-custom_minimum_size = Vector2(0, 28)
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 max_value = 100.0
 value = 0.0
@@ -273,11 +267,12 @@ theme_override_colors/font_color = Color(0.36, 0.28, 0.2, 1)
 text = ""
 
 [node name="Divider2" type="TextureRect" parent="SafeArea/Columns/Right/Pad/Content"]
-custom_minimum_size = Vector2(0, 12)
+custom_minimum_size = Vector2(128, 16)
 layout_mode = 2
+size_flags_horizontal = 4
 texture = ExtResource("8_divider")
 expand_mode = 1
-stretch_mode = 0
+stretch_mode = 2
 
 [node name="Changelog" type="ScrollContainer" parent="SafeArea/Columns/Right/Pad/Content"]
 layout_mode = 2

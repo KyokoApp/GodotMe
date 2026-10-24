@@ -188,14 +188,8 @@ def panel_parchment():
     rr(im, 6, 6, w - 7, h - 7, 7, INK_SOFT)          # groove
     rr(im, 7, 7, w - 8, h - 8, 6, PARCH_D)           # parchment field
     rr(im, 8, 8, w - 9, h - 9, 6, PARCH_M)
-    # seamless noise inside the 24x24 centre tile (16..39)
-    rnd = random.Random(7)
-    for y in range(m, h - m):
-        for x in range(m, w - m):
-            if rnd.random() < 0.030:
-                px(im, x, y, PARCH_D)
-            elif rnd.random() < 0.020:
-                px(im, x, y, PARCH_L)
+    # deliberately no interior noise: a 9-sliced centre is stretched, so any
+    # per-pixel texture would smear into blocks. Warm flat parchment it is.
     # inner shadow at the top of the field + light at the bottom
     for x in range(9, w - 9):
         if im.getpixel((x, 8))[3]:
@@ -227,11 +221,6 @@ def panel_ink():
     rr(im, 1, 1, w - 2, h - 2, 7, BRASS_D)
     rr(im, 2, 2, w - 3, h - 3, 7, TEAL_D)
     rr(im, 3, 3, w - 4, h - 4, 6, (32, 52, 50, 255))
-    rnd = random.Random(3)
-    for y in range(pad, h - pad):
-        for x in range(pad, w - pad):
-            if rnd.random() < 0.05:
-                px(im, x, y, (40, 66, 62, 255))
     save(im, "panel_ink.png")
 
 
@@ -322,17 +311,15 @@ def progress_bar():
     hline(im, 4, w - 5, 3, (12, 16, 14, 255))
     save(im, "bar_track.png")
 
-    # fill: warm brass with a lighter top band and a travelling sheen tile
+    # fill: warm brass, one highlight band, one shadow band. No interior detail
+    # because the 9-slice centre is stretched horizontally.
     im = new(w, h)
     rr(im, 0, 0, w - 1, h - 1, 5, BRASS_M)
-    rr(im, 0, 0, w - 1, h - 5, 5, BRASS_L)
-    hline(im, 1, w - 2, 1, BRASS_H)
+    rr(im, 1, 1, w - 2, h - 5, 5, BRASS_L)
+    hline(im, 2, w - 3, 1, BRASS_H)
+    hline(im, 2, w - 3, 2, BRASS_H)
+    hline(im, 1, w - 2, h - 3, BRASS_M)
     hline(im, 1, w - 2, h - 2, BRASS_D)
-    # diagonal hatch so the bar reads as "poured metal"
-    for x in range(0, w):
-        for y in range(3, h - 3):
-            if (x + y) % 8 == 0:
-                px(im, x, y, BRASS_H if y < h // 2 else BRASS_M)
     save(im, "bar_fill.png")
 
     # glowing tip cap
@@ -525,17 +512,12 @@ def ornaments():
     sparkle(im, 4, 4, 3, CREAM, BRASS_L)
     save(im, "fx_spark.png")
 
-    # soft round mote for ambient dust
-    im = new(8, 8)
-    for y in range(8):
-        for x in range(8):
-            d = max(abs(x - 3.5), abs(y - 3.5))
-            if d < 1.2:
-                px(im, x, y, (255, 246, 214, 255))
-            elif d < 2.1:
-                px(im, x, y, (255, 226, 150, 220))
-            elif d < 3.1:
-                px(im, x, y, (255, 210, 120, 110))
+    # soft round mote for ambient dust (4x4: a speck, not a square)
+    im = new(4, 4)
+    px(im, 1, 1, (255, 246, 214, 235))
+    px(im, 2, 1, (255, 236, 176, 200))
+    px(im, 1, 2, (255, 236, 176, 200))
+    px(im, 2, 2, (255, 220, 150, 160))
     save(im, "fx_mote.png")
 
     # vignette overlay 256x144, stretched over the screen. Warm, banded.
