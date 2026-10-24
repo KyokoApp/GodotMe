@@ -51,7 +51,7 @@ prepare() {
 }
 
 case_manifest() { # name manifest data-root
-  run_scenario "$1" "$3" --manifest="$HOST/manifests/$2"
+  run_scenario "$1" "$3" --manifest="$HOST/$2"
 }
 
 run_case() {
@@ -64,8 +64,8 @@ run_case() {
     offline)           case_manifest offline v110.json t_offline ;;
     launcher_too_old)  case_manifest launcher_too_old v100_toonew.json t_old ;;
     blocked)           case_manifest blocked v110.json t_blocked ;;
-    signed_ok)         run_scenario signed_ok t_signed --manifest="$HOST/manifests/v100_signed.json" --require-signature=1 ;;
-    signed_bad)        run_scenario signed_bad t_signbad --manifest="$HOST/manifests/v100_badsig.json" --require-signature=1 ;;
+    signed_ok)         run_scenario signed_ok t_signed --manifest="$HOST/v100_signed.json" --require-signature=1 ;;
+    signed_bad)        run_scenario signed_bad t_signbad --manifest="$HOST/v100_badsig.json" --require-signature=1 ;;
     crash)
       # 1) install a healthy build, 2) install the rigged build and let it crash,
       # 3) start again: the launcher must roll back on its own.
@@ -73,12 +73,12 @@ run_case() {
       note "scenario: install_and_boot (paket sengaja rusak, proses harus mati)"
       timeout -k 5 110 "$GODOT" --headless --path launcher res://tests/TestRunner.tscn -- \
           --scenario=install_and_boot --data-root="user://t_crash" --budget=95 \
-          --manifest="$HOST/manifests/v120_broken.json" 2>&1 | tail -14
+          --manifest="$HOST/v120_broken.json" 2>&1 | tail -14
       local code=${PIPESTATUS[0]}
       [ "$code" -eq 0 ] && fail "paket rusak TIDAK membuat aplikasi mati"
       run_scenario startup_rollback t_crash
       ;;
-    capture)           run_scenario capture t_capture --manifest="$HOST/manifests/slow.json" --captures="${CAPTURES:-/tmp/shots}" ;;
+    capture)           run_scenario capture t_capture --manifest="$HOST/slow.json" --captures="${CAPTURES:-/tmp/shots}" ;;
     *) fail "unknown case $1"; return 1 ;;
   esac
 }

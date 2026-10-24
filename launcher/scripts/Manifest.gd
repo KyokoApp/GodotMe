@@ -125,7 +125,7 @@ static func verify_signature_bytes(raw: PackedByteArray, signature_b64: String,
 	if not FileAccess.file_exists(public_key_path):
 		return _fail("Kunci publik tidak ditemukan di %s." % public_key_path)
 	var key := CryptoKey.new()
-	if key.load_from_string(FileAccess.get_file_as_string(public_key_path)) != OK:
+	if key.load_from_string(FileAccess.get_file_as_string(public_key_path), true) != OK:
 		return _fail("Kunci publik tidak bisa dibaca.")
 	var digest := digest_bytes(raw)
 	var sig := Marshalls.base64_to_raw(signature_b64)

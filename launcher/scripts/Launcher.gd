@@ -82,9 +82,9 @@ func _ready() -> void:
 
 # ------------------------------------------------------------------ visuals --
 func _play_entrance() -> void:
-	var items: Array[CanvasItem] = [_crest_stack, _title, _subtitle, _divider, _journal, _right]
+	var items: Array[Control] = [_crest_stack, _title, _subtitle, _divider, _journal, _right]
 	for i in items.size():
-		var node := items[i]
+		var node: Control = items[i]
 		node.modulate.a = 0.0
 		var from_x := -26.0 if node != _right else 40.0
 		var start_pos := node.position

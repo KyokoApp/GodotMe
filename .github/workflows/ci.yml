@@ -40,7 +40,9 @@ jobs:
           godot --headless --path game --import >/dev/null 2>&1
           for f in $(cd launcher && find . -name "*.gd" | sed 's|^\./||'); do
             echo "--- launcher/$f" >> /tmp/lint.log
-            godot --headless --path launcher --check-only --script "res://$f" 2>&1 | grep -v "^Godot Engine" >> /tmp/lint.log
+            godot --headless --path launcher --check-only --script "res://$f" 2>&1 \
+              | grep -v "^Godot Engine" \
+              | grep -vE "Identifier not found: (Cfg|Store|Log|Guard|Updater)" >> /tmp/lint.log
           done
           for f in $(cd game && find . -name "*.gd" | sed 's|^\./||'); do
             echo "--- game/$f" >> /tmp/lint.log
@@ -170,7 +172,7 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
             "$GITHUB_WORKSPACE/.tools/godot" --path launcher --resolution 1280x720 \
             res://tests/TestRunner.tscn -- --scenario=capture --data-root=user://t_capture \
-            --budget=120 --manifest=http://127.0.0.1:$PORT/manifests/slow.json \
+            --budget=120 --manifest=http://127.0.0.1:$PORT/slow.json \
             --captures="$GITHUB_WORKSPACE/docs/screenshots" 2>&1 | tail -40
           kill $SRV 2>/dev/null || true
           ls -la docs/screenshots

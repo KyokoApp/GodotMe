@@ -206,4 +206,12 @@ func _write_manifest(tag: String, version: String, min_launcher: int,
 				sf = null
 				print("[FIXTURES] tanda tangan %s (%d bita)%s" % [
 					tag, sig.size(), " RUSAK" if corrupt_signature else ""])
-	print("[FIXTURES] manifest %s -> %s" % [tag, path])
+	# release-folder layout: version.json sits next to packs/
+	var root_copy := out_dir.path_join(tag + ".json")
+	var rf := FileAccess.open(root_copy, FileAccess.WRITE)
+	rf.store_string(text)
+	rf.flush()
+	rf = null
+	if sign and FileAccess.file_exists(path + ".sig"):
+		DirAccess.copy_absolute(path + ".sig", root_copy + ".sig")
+	print("[FIXTURES] manifest %s -> %s (+ root copy)" % [tag, path])
