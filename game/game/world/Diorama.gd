@@ -107,6 +107,7 @@ func _ready() -> void:
 
 # --------------------------------------------------------------- lighting ----
 func _build_environment() -> void:
+	print("[WORLD] renderer=%s diorama building" % RenderingServer.get_video_adapter_name())
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.42, 0.35, 0.30)
@@ -221,8 +222,11 @@ func _build_path() -> void:
 	var dirt := WorldArt.tex(TEX_DIR + "path_tile.png")
 	var grass_tex := WorldArt.tex(TEX_DIR + "grass_tile.png")
 	var mat := ShaderMaterial.new()
-	if ResourceLoader.exists(WORLD_DIR + "path.gdshader"):
+	var shader_ok := ResourceLoader.exists(WORLD_DIR + "path.gdshader")
+	if shader_ok:
 		mat.shader = load(WORLD_DIR + "path.gdshader")
+	print("[WORLD] path shader exists=%s loaded=%s dirt_tex=%s grass_tex=%s" % [
+		shader_ok, mat.shader != null, dirt != null, grass_tex != null])
 	mat.set_shader_parameter("dirt_tex", dirt)
 	mat.set_shader_parameter("grass_tex", grass_tex)
 	mat.set_shader_parameter("half_width", PATH_WIDTH * 0.5)

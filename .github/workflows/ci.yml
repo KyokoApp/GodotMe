@@ -182,14 +182,24 @@ jobs:
             "$GITHUB_WORKSPACE/.tools/godot" --path launcher --resolution 1280x720 \
             res://tests/TestRunner.tscn -- --scenario=capture --data-root=user://t_capture \
             --budget=120 --manifest=http://127.0.0.1:$PORT/slow.json \
-            --captures="$GITHUB_WORKSPACE/docs/screenshots" 2>&1 | tail -40
+            --captures="$GITHUB_WORKSPACE/docs/screenshots" 2>&1 | tee /tmp/capture.log | tail -40
           kill $SRV 2>/dev/null || true
           # the screen the player actually lands on after tapping MAIN
           xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
             "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
             -- --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=08_diorama \
-            2>&1 | tail -5
+            2>&1 | tee -a /tmp/capture.log | tail -20
           ls -la docs/screenshots
+
+      - name: Publish capture log to the PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          [ -z "$PR" ] && exit 0
+          { echo "### capture log"; echo '```'; tail -c 20000 /tmp/capture.log 2>/dev/null || echo "(empty)"; echo '```'; } > /tmp/cap.md
+          gh pr comment "$PR" --body-file /tmp/cap.md --repo "$GITHUB_REPOSITORY" || true
 
       - name: Commit screenshots
         # The branch is also pushed to by whoever is working; a rejected push
