@@ -510,3 +510,12 @@ animasi, flinch tidak bisa dirantai, ada pengawas waktu) dan `world_100.pck`
 Uji yang menjaga paket ini: job **parse check → Play rules** di CI
 (`game/tests/PlayTest.tscn`), 12 pemeriksaan, termasuk "ksatria tetap bisa
 dikendalikan setelah orc memukul" dan "semua prop menapak di tanah".
+
+### 0.3.0 — kontrol dan kamera
+
+`characters_100.pck` 158.204 B dan `world_100.pck` 1.617.828 B; `version.json`
+2.285 B (`version: 0.3.0`). APK tetap: **Periksa Lagi → MAIN**.
+
+Isi perubahan: billboard sumbu Y untuk karakter dan prop (akar "melayang"),
+kamera mengikuti pemain dengan deadzone, stik dinamis di zona kiri layar.
+Uji penjaga: `PlayTest` naik dari 12 menjadi **24 pemeriksaan**.
