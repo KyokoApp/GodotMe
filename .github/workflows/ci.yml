@@ -37,6 +37,10 @@ jobs:
         run: |
           set +e
           : > /tmp/lint.log
+          # cheap first: a duplicated function name costs a 5 minute Godot
+          # round trip to discover otherwise
+          python3 tools/gd_dup_check.py | tee -a /tmp/lint.log
+          DUP_FAILED=${PIPESTATUS[0]}
           godot --headless --path launcher --import >/dev/null 2>&1
           godot --headless --path game --import >/dev/null 2>&1
           for f in $(cd launcher && find . -name "*.gd" | sed 's|^\./||'); do
@@ -55,6 +59,10 @@ jobs:
           if grep -qE "Parse Error|Failed to parse" /tmp/lint.log; then
             echo "LINT FAILED: parse error in a GDScript file"
             grep -nE "Parse Error|Failed to parse" /tmp/lint.log
+            LINT_FAILED=1
+          fi
+          if [ "${DUP_FAILED:-0}" -ne 0 ]; then
+            echo "LINT FAILED: duplicate function definition"
             LINT_FAILED=1
           fi
           PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")

@@ -137,23 +137,6 @@ func _button(text: String, font: Font, size: Vector2) -> Button:
 	return b
 
 
-## Screen rects the camera must not treat as a pan gesture.
-func block_rects() -> Array:
-	var out: Array = []
-	for c in [_base, _attack_btn, _block_btn, _interact_btn]:
-		if c != null:
-			out.append(c.get_global_rect().grow(8.0))
-	return out
-
-
-func _on_block_down() -> void:
-	block_held = true
-
-
-func _on_block_up() -> void:
-	block_held = false
-
-
 ## Rect of the thumb area, in screen pixels. Cheap to compute and used both by
 ## the input handler and by the camera's "do not pan here" list.
 func stick_zone() -> Rect2:
