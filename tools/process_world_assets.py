@@ -118,6 +118,10 @@ def save(img: Image.Image, name: str) -> None:
 
 def ground(name: str, colors: int) -> None:
     src = Image.open(os.path.join(SRC, name + ".png"))
+    # Generated tiles carry a darker rim at the image border; cropping 10% off
+    # removes it before the edge blend, otherwise the seam is a visible grid.
+    w, h = src.size
+    src = src.crop((int(w * 0.10), int(h * 0.10), int(w * 0.90), int(h * 0.90)))
     tile = src.convert("RGB").resize((TILE_SIZE, TILE_SIZE), Image.LANCZOS)
     tile = make_seamless(tile, blend=40)
     tile = tile.quantize(colors=colors, method=Image.MEDIANCUT, dither=Image.NONE).convert("RGB")

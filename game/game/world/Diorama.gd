@@ -195,10 +195,14 @@ func _build_path() -> void:
 			var across: float = corner[1]
 			verts.append(Vector3(p.x, 0.02, p.y))
 			norms.append(Vector3.UP)
-			# metres / 2 on both axes: square texels along and across the track
-			uvs.append(Vector2(across * PATH_WIDTH / 2.0, run / 2.0))
-			# ground tiling (tile size matches _build_ground's 2.0 m)
-			uvs2.append(Vector2(p.x / 2.0, p.y / 2.0))
+			# X stays 0..1 across the strip (the shader needs the edge distance),
+			# Y is metres/2 so texels stay square along the track
+			uvs.append(Vector2(across, run / 2.0))
+			# the ground plane tiles 2 m per texture repeat and its UV origin is
+			# the plane corner, so the offset is what makes the grass under the
+			# path line up with the grass around it
+			uvs2.append(Vector2((p.x + GROUND_SIZE.x * 0.5) / 2.0,
+				(p.y + GROUND_SIZE.y * 0.5) / 2.0))
 		indices.append_array([base, base + 1, base + 2, base + 1, base + 3, base + 2])
 		run += seg
 	var arrays := []
@@ -221,8 +225,8 @@ func _build_path() -> void:
 		mat.shader = load(WORLD_DIR + "path.gdshader")
 	mat.set_shader_parameter("dirt_tex", dirt)
 	mat.set_shader_parameter("grass_tex", grass_tex)
-	mat.set_shader_parameter("dirt_scale", 1.0)
-	mat.set_shader_parameter("feather", 0.30)
+	mat.set_shader_parameter("half_width", PATH_WIDTH * 0.5)
+	mat.set_shader_parameter("feather", 0.28)
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
