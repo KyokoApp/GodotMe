@@ -143,12 +143,12 @@ theme_type_variation = &"SubtitleLabel"
 text = "Kisah Delapan Pengembara"
 
 [node name="Divider" type="TextureRect" parent="SafeArea/Columns/Left"]
-custom_minimum_size = Vector2(128, 16)
+custom_minimum_size = Vector2(256, 32)
 layout_mode = 2
 size_flags_horizontal = 0
 texture = ExtResource("8_divider")
 expand_mode = 1
-stretch_mode = 2
+stretch_mode = 0
 
 [node name="Spacer" type="Control" parent="SafeArea/Columns/Left"]
 layout_mode = 2
@@ -271,12 +271,12 @@ theme_override_colors/font_color = Color(0.36, 0.28, 0.2, 1)
 text = ""
 
 [node name="Divider2" type="TextureRect" parent="SafeArea/Columns/Right/Pad/Content"]
-custom_minimum_size = Vector2(128, 16)
+custom_minimum_size = Vector2(256, 32)
 layout_mode = 2
 size_flags_horizontal = 4
 texture = ExtResource("8_divider")
 expand_mode = 1
-stretch_mode = 2
+stretch_mode = 0
 
 [node name="Changelog" type="ScrollContainer" parent="SafeArea/Columns/Right/Pad/Content"]
 layout_mode = 2

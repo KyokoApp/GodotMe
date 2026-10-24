@@ -54,8 +54,16 @@ static func build() -> Theme:
 	_label(t, "PanelHeading", f_bold, 17, COL_BRASS_DIM)
 	_label(t, "StateTitle", f_bold, 34, COL_INK)
 	_label(t, "DetailLabel", f_body, 19, COL_INK_SOFT)
-	_label(t, "SmallLabel", f_body, 16, COL_PARCH)
-	_label(t, "TinyLabel", f_body, 16, COL_PARCH)
+	# Pixelify Sans packs its glyph sidebearings tight; at 16 px the journal of
+	# the launcher reads as one long word. A FontVariation that only widens the
+	# space (and slightly the glyph gap) keeps the letterforms identical but
+	# makes the small print legible on a phone.
+	var f_small := FontVariation.new()
+	f_small.base_font = f_body
+	f_small.spacing_space = 4
+	f_small.spacing_glyph = 1
+	_label(t, "SmallLabel", f_small, 16, COL_PARCH)
+	_label(t, "TinyLabel", f_small, 16, COL_PARCH)
 	_label(t, "InkLabel", f_bold, 18, COL_BRASS)
 	_label(t, "ErrorLabel", f_bold, 19, COL_RUST)
 
