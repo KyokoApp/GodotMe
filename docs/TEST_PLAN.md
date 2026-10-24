@@ -52,7 +52,7 @@ Job `release-demo` (`.github/workflows/release-demo.yml`) tidak berhenti pada
 launcher, lalu meminta 64 byte pertama setiap paket dengan header
 `Range: bytes=0-63` untuk memastikan aset benar-benar bisa diunduh dan mendukung
 resume. Hasil terakhir: 6/6 paket menjawab `200/206`, rilis `demo-v0.1.0`
-berisi `version.json` + 6 `.pck` + `re-traveller-launcher.apk` (29.423.721 byte).
+berisi `version.json` + 6 `.pck` + `re-traveller-launcher.apk` (29.428.024 byte).
 
 ## Uji manual di HP (yang tidak bisa diotomasi di sini)
 

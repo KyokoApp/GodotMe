@@ -18,7 +18,7 @@ saat konten diperbarui:
 
 | Proyek | Isi | Keluaran | Ukuran |
 | --- | --- | --- | --- |
-| `launcher/` (A) | splash, layar update bertema, pengunduh + resume, verifikator SHA-256, pemuat paket, tombol MAIN | `re-traveller-launcher.apk` | **29.423.721 byte (± 29,4 MB)**, arm64-v8a |
+| `launcher/` (A) | splash, layar update bertema, pengunduh + resume, verifikator SHA-256, pemuat paket, tombol MAIN | `re-traveller-launcher.apk` | **29.428.024 byte (± 29,4 MB)**, arm64-v8a |
 | `game/` (B) | seluruh game | 6 paket `.pck` | lihat tabel paket di bawah |
 
 Launcher **tidak memuat** logika permainan, sprite, nama karakter, atau data
@@ -108,7 +108,9 @@ mendukung Range, throttle, dan penghitung permintaan.
 Tidak ada kegagalan. Rincian cara uji + tabel manual di HP ada di
 [`TEST_PLAN.md`](TEST_PLAN.md).
 
-Bukti visual (diambil otomatis oleh CI, 1280×720):
+Bukti visual (diambil otomatis oleh CI, 1280×720, dijalankan terhadap
+`tools/testserver.py` lokal — itu sebabnya jurnal menampilkan alamat
+`127.0.0.1`):
 
 | Berkas | Isi |
 | --- | --- |
