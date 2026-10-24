@@ -432,3 +432,70 @@ Semua prop berskala 0,85–1,2, sehingga prop kecil melayang sampai **0,324 m**
 **setelah** skala. Uji `PlayTest` mengukur tepi bawah setiap prop di diorama
 sungguhan dan menuntut |y| ≤ 0,02 m, jadi kesalahan seperti ini tidak bisa
 lolos lagi.
+
+## 12. "Masih melayang", kamera, dan stik (25 Okt 2026)
+
+Tiga laporan pemilik setelah paket 0.2.2. Yang pertama ternyata **bukan** skala
+prop (itu bug lain, sudah diperbaiki di §11.2), melainkan cara kuad menghadap
+kamera.
+
+### 12.1 Akar "melayang": billboard yang ikut miring
+
+Semua sprite (karakter dan prop) memakai `BaseMaterial3D.BILLBOARD_ENABLED`.
+Billboard penuh **memiringkan kuad ke belakang sebesar pitch kamera** (−38°) dan
+rotasinya berpusat di **titik tengah kuad** — untuk ksatria itu ±1,85 m di atas
+kaki. Titik kaki karena itu terangkat dan bergeser ke arah kamera:
+
+```
+dy = h/2 (1 - cos 38°) = 1.85 x 0.212 = 0.39 m
+dz = h/2  sin 38°       = 1.85 x 0.616 = 1.14 m
+```
+
+Kaki terlihat 0,39 m di atas rumput sementara blob shadow tetap di y = 0, jadi
+seluruh karakter (dan setiap pohon/batu) tampak melayang dengan "bayangan yang
+tertinggal". Karena pergeserannya bergantung tinggi, orc (1,4 m) tampak lebih
+ringan gejalanya daripada ksatria (1,8 m).
+
+Perbaikan: `BILLBOARD_FIXED_Y` untuk karakter **dan** prop — kuad hanya berputar
+pada sumbu Y dunia, tetap tegak, dan titik kakinya persis di pivot. Ini juga
+menghapus dua sumber kedipan: billboard penuh mengubah tinggi efektif setiap
+kali kamera bergeser.
+
+Uji: `PlayTest` memeriksa `sprite.billboard == FIXED_Y` untuk karakter dan untuk
+**setiap** prop di diorama.
+
+### 12.2 Kamera tidak mengikuti pemain
+
+`DioramaCamera` sudah punya `set_follow_target()`, tetapi `CharacterWorld`
+memanggilnya **sebelum** `_wire_ground()`/spawn selesai pada beberapa jalur, dan
+yang lebih penting: `_pan_screen()` mengunci follow selama 2,5 detik setiap kali
+ada satu jari menggeser layar. Di HP, satu jari di luar stik langsung dianggap
+"pan", jadi kamera praktis tidak pernah mengikuti.
+
+Sekarang:
+
+- follow memakai **deadzone** 0,55 m: kamera diam selama ksatria masih dekat,
+  lalu meluncur dengan laju 5,5 (bukan mengejar tiap milimeter, yang membuat
+  gambar bergetar);
+- `set_follow_target()` langsung **snap** ke posisi aktor, jadi frame pertama
+  sudah benar;
+- pan hanya untuk **dua jari** dan jedanya pendek (1,2 s).
+
+Uji: `PlayTest` memindahkan ksatria 4 m lalu menuntut kamera ikut > 2,5 m dan
+berhenti < 1,2 m dari aktor.
+
+### 12.3 Stik: dinamis, di mana pun ibu jari mendarat
+
+Stik lama dipaku di satu posisi (kiri bawah, 196 px). Pemain harus melihat ke
+bawah untuk menemukannya, dan sentuhan yang meleset di luar lingkarannya
+**menggeser kamera**, bukan menggerakkan ksatria — persis keluhan pemilik.
+
+Sekarang stik **muncul di titik sentuhan** di mana pun dalam zona kiri
+(55% lebar layar, 85% tinggi) dan hilang saat jari diangkat. Satu jari di zona
+itu selalu untuk berjalan, tidak pernah untuk kamera. Tombol kanan tetap
+hit-test normal; kamera memakai daftar `block_rects()` supaya tombol tidak
+dianggap gestur.
+
+Uji: `PlayTest` (6 pemeriksaan) — stik tersembunyi sebelum disentuh, muncul di
+titik sentuh, arah dorongan benar, hilang saat diangkat, dan layar kanan tidak
+memunculkan stik.

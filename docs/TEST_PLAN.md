@@ -124,3 +124,17 @@ godot --headless --path game res://game/tests/PlayTest.tscn   # exit 1 bila ada 
 | P4 | `death` menahan frame terakhir | animasi mati tidak boleh loop |
 | P5 | orc memukul berkali-kali: ksatria tetap bisa dikendalikan | laporan perangkat "stuck saat dipukul" |
 | P6 | tepi bawah setiap prop di diorama = 0 m (toleransi 2 cm) | laporan perangkat "pohon/batu melayang" |
+
+Tambahan `PlayTest` (25 Okt 2026):
+
+| # | Yang diuji | Kenapa |
+| --- | --- | --- |
+| P7 | sprite karakter memakai billboard sumbu Y | billboard penuh memiringkan kuad → karakter melayang 0,39 m |
+| P8 | setiap prop memakai billboard sumbu Y | pohon/batu ikut melayang karena sebab yang sama |
+| P9 | kamera mengikuti aktor (pindah > 2,5 m saat aktor jalan 4 m) | keluhan "kamera tidak mengikuti" |
+| P10 | kamera berhenti dekat aktor (< 1,2 m) | follow yang tertinggal terlalu jauh sama saja tidak mengikuti |
+| P11 | stik tersembunyi sebelum disentuh | stik dinamis, bukan dipaku |
+| P12 | stik muncul di titik sentuhan pada zona kiri | keluhan "analog muncul ketika disentuh" |
+| P13 | arah dorongan benar (kanan → kanan) | pemetaan layar → dunia |
+| P14 | stik hilang & dorongan nol setelah jari diangkat | tidak boleh berjalan sendiri |
+| P15 | layar kanan tidak memunculkan stik | zona tombol tidak boleh jadi stik |
