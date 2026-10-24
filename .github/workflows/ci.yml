@@ -318,6 +318,39 @@ jobs:
           done
           tail -60 /tmp/apk.log
           ls -la dist >> /tmp/apk.log
+
+          # Prove the artifact really contains this commit's code: BUILD_ID is
+          # a const in Config.gd, so its value is read from the working tree and
+          # then searched for inside every exported APK.
+          python3 - <<'PYEOF'
+          import glob, re, sys, zipfile
+          src = open("launcher/scripts/Config.gd", encoding="utf-8").read()
+          found = re.search(r'const BUILD_ID: String = "([^"]+)"', src)
+          if not found:
+              sys.exit("Config.gd has no BUILD_ID")
+          marker = found.group(1).encode()
+          apks = sorted(glob.glob("dist/*.apk"))
+          if not apks:
+              sys.exit("no APK produced")
+          for apk in apks:
+              hit = False
+              with zipfile.ZipFile(apk) as z:
+                  for info in z.infolist():
+                      if hit:
+                          break
+                      if info.file_size > 80 * 1024 * 1024:
+                          continue
+                      try:
+                          if marker in z.read(info):
+                              hit = True
+                      except Exception:
+                          pass
+              print("BUILD_ID %s in %s: %s" % (marker.decode(), apk, hit))
+              if not hit:
+                  sys.exit("APK %s does not contain BUILD_ID %s" % (apk, marker.decode()))
+          PYEOF
+          [ $? -ne 0 ] && code=1
+
           PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### APK export log (exit $code)"; echo '```'; tail -c 60000 /tmp/apk.log; echo '```'; } > /tmp/apk.md

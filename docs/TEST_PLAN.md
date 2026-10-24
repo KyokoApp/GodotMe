@@ -49,8 +49,11 @@ nama paket ganda, `sha256` salah, path tidak aman).
   software (llvmpipe) pada 1280×720.
 * **Audit permintaan server**: satu paket yang berubah hanya diminta sekali
   selama delta update; paket yang tidak berubah tidak diunduh ulang.
-* **APK**: diekspor setiap push (debug + release template) dan diunggah sebagai
-  artefak.
+* **APK**: diekspor setiap push (debug + release), diverifikasi dengan
+  `apksigner verify`, lalu **isi APK-nya diperiksa**: CI membaca `BUILD_ID` dari
+  `launcher/scripts/Config.gd` dan memastikan string itu benar-benar ada di dalam
+  setiap APK yang diekspor. Jadi artefak basi (atau build yang tidak memakai kode
+  terbaru) tidak mungkin lagi dipublikasikan tanpa ketahuan.
 
 ## Verifikasi end-to-end di rilis sungguhan
 

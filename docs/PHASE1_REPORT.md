@@ -135,6 +135,10 @@ Bukti visual (diambil otomatis oleh CI, 1280×720, dijalankan terhadap
 
 Catatan perbaikan penting selama Fase 1:
 
+* **APK tidak lagi bisa "kelihatan benar".** Setiap build diberi `BUILD_ID`
+  (`Config.gd`, kini `rt-launcher-v2-main-fix`, tampil di jurnal launcher), dan
+  CI membaca konstanta itu dari source lalu mencarinya di dalam berkas APK.
+  Artefak basi langsung gagal.
 * **Tombol MAIN mati di HP.** `CenterContainer` selebar layar di dalam lapisan
   modal selalu `visible` dan menelan semua sentuhan. Sekarang lapisan itu ikut
   disembunyikan, container tengahnya `mouse_filter = IGNORE`, dan skenario

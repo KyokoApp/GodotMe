@@ -4,8 +4,14 @@ extends Node
 ## Everything an operator ever needs to edit lives here. The launcher itself is
 ## generic: it knows nothing about the game beyond the manifest contract.
 
-const LAUNCHER_VERSION: int = 1
+const LAUNCHER_VERSION: int = 2
 const GAME_ID: String = "re-traveller"
+
+## Marker that is compiled into the APK. CI greps the exported APK for it, so a
+## stale artifact (or a build that did not pick up the latest code) is caught
+## instead of being published. Bump it whenever you need to prove which build is
+## installed: the value shows up in the launcher journal as "build ...".
+const BUILD_ID: String = "rt-launcher-v2-main-fix"
 
 ## Where the launcher reads version.json (HTTPS, must return JSON).
 ## Default points at the GitHub Releases of this repo: replace with your own

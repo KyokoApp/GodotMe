@@ -84,7 +84,7 @@ func _ready() -> void:
 
 	_on_state_changed(Updater.State.CHECKING, {
 		"message": "Menyiapkan…",
-		"detail": "Launcher v%d" % Cfg.LAUNCHER_VERSION,
+		"detail": "Launcher v%d (%s)" % [Cfg.LAUNCHER_VERSION, Cfg.BUILD_ID],
 		"can_retry": false,
 		"can_play": Updater.has_playable_version(),
 		"version": Store.active_version(),
