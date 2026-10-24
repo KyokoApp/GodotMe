@@ -90,7 +90,7 @@ func _process(delta: float) -> void:
 ## Walk the knight up to the guard and press Bicara for him. Everything here is
 ## the same path a thumb takes - it just has no thumb.
 func _open_dialogue() -> void:
-	_cast.call("teleport_player", Vector2(3.6, 3.2))
+	_cast.call("teleport_player", Vector2(3.4, 5.8))
 	_cast.call("press_interact")
 	var dlg: Node = _cast.call("dialogue")
 	if dlg == null:

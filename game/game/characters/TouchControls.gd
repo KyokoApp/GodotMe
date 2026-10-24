@@ -100,6 +100,19 @@ func _build() -> void:
 	_interact_btn.pressed.connect(func() -> void: interact_pressed.emit())
 
 
+## Hide the whole pad: the parchment panel covers the right thumb anyway, and a
+## stray drag on a hidden stick must not steer the knight behind the dialogue.
+func show_controls(shown: bool) -> void:
+	visible = shown
+	for node in [_base, _attack_btn, _block_btn, _interact_btn]:
+		if node != null:
+			(node as CanvasItem).visible = shown
+	if not shown:
+		stick_vector = Vector2.ZERO
+		block_held = false
+		_touch_index = -1
+
+
 func _button(text: String, font: Font, size: Vector2) -> Button:
 	var b := Button.new()
 	b.text = text

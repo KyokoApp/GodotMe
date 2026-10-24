@@ -56,11 +56,12 @@ func _build() -> void:
 	_panel.anchor_bottom = 1.0
 	_panel.offset_left = -450.0
 	_panel.offset_right = 450.0
-	# Height comes from the content, and the panel grows *upwards* from the
-	# bottom margin: a fixed height cut the second answer off the screen.
-	_panel.offset_top = -26.0
+	# A fixed height cut the second answer off the screen, and `grow_vertical`
+	# alone still let the container overflow downwards. So the height is measured
+	# from the content and the top offset is pushed up by exactly that much
+	# (`_fit_panel`), which always keeps the panel inside the screen.
+	_panel.offset_top = -236.0
 	_panel.offset_bottom = -26.0
-	_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_root.add_child(_panel)
 
 	var box := VBoxContainer.new()
@@ -110,6 +111,23 @@ func open(speaker: String, pages: Array, options: Array = []) -> void:
 	_choices.visible = false
 	_clear_choices()
 	_type_page()
+	_fit_panel()
+
+
+## Size the parchment from what is actually inside it, then slide it up so its
+## bottom edge stays 26 px above the screen edge. Called again one frame later,
+## because autowrapped text and freshly added buttons only report their real
+## height after the container has sorted them once.
+func _fit_panel() -> void:
+	var need: float = _panel.get_combined_minimum_size().y
+	if need <= 0.0:
+		return
+	_panel.offset_top = -(need + 26.0)
+	_panel.offset_bottom = -26.0
+
+
+func _fit_panel_later() -> void:
+	call_deferred("_fit_panel")
 
 
 func _type_page() -> void:
@@ -146,6 +164,7 @@ func _refresh_footer() -> void:
 		return
 	_advance.visible = true
 	_advance.text = "Selesai" if last else "Lanjut"
+	_fit_panel_later()
 
 
 func _show_choices() -> void:
@@ -165,6 +184,8 @@ func _show_choices() -> void:
 		var idx := i
 		b.pressed.connect(func() -> void: _on_choice(idx))
 		_choices.add_child(b)
+	_fit_panel()
+	_fit_panel_later()
 
 
 func _clear_choices() -> void:

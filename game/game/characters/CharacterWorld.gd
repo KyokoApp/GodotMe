@@ -348,13 +348,13 @@ func _on_interact_pressed() -> void:
 	_dialogue.call("open", String(DIALOGUE["speaker"]), DIALOGUE["pages"],
 		DIALOGUE["options"])
 	# the parchment covers the right thumb; controls come back when it closes
-	if _controls != null:
-		_controls.visible = false
+	if _controls != null and _controls.has_method("show_controls"):
+		_controls.call("show_controls", false)
 
 
 func _on_dialogue_closed() -> void:
-	if _controls != null:
-		_controls.visible = true
+	if _controls != null and _controls.has_method("show_controls"):
+		_controls.call("show_controls", true)
 
 
 func _on_attacked(actor: Node3D) -> void:
