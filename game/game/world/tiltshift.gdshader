@@ -8,9 +8,9 @@ shader_type canvas_item;
 // as a soft lens.
 
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
-uniform float focus_line : hint_range(0.0, 1.0) = 0.54;
-uniform float sharp_band : hint_range(0.0, 0.6) = 0.13;
-uniform float blur_pixels : hint_range(0.0, 12.0) = 3.2;
+uniform float focus_line : hint_range(0.0, 1.0) = 0.62;
+uniform float sharp_band : hint_range(0.0, 0.6) = 0.18;
+uniform float blur_pixels : hint_range(0.0, 12.0) = 2.4;
 uniform float vignette : hint_range(0.0, 1.5) = 0.34;
 uniform vec3 warm_tint = vec3(1.02, 0.995, 0.94);
 

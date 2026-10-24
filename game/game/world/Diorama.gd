@@ -102,10 +102,10 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.42, 0.35, 0.30)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.62, 0.60, 0.66)
-	env.ambient_light_energy = 0.85
+	env.ambient_light_color = Color(0.55, 0.58, 0.68)
+	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 1.0
+	env.tonemap_exposure = 0.92
 	env.tonemap_white = 6.0
 	# warm afternoon haze -> depth without a depth-of-field pass
 	env.fog_enabled = true
@@ -118,8 +118,8 @@ func _build_environment() -> void:
 	env.glow_bloom = 0.04
 	env.glow_hdr_threshold = 1.0
 	env.adjustment_enabled = true
-	env.adjustment_contrast = 1.06
-	env.adjustment_saturation = 1.10
+	env.adjustment_contrast = 1.08
+	env.adjustment_saturation = 1.04
 
 	var we := WorldEnvironment.new()
 	we.name = "WorldEnvironment"
@@ -129,8 +129,9 @@ func _build_environment() -> void:
 	_sun = DirectionalLight3D.new()
 	_sun.name = "Sun"
 	_sun.rotation_degrees = Vector3(-46.0, 34.0, 0.0)
-	_sun.light_color = Color(1.0, 0.90, 0.74)
-	_sun.light_energy = 1.25
+	# late afternoon, not noon: keeps the greens green instead of hay-yellow
+	_sun.light_color = Color(1.0, 0.94, 0.84)
+	_sun.light_energy = 0.95
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	_sun.directional_shadow_max_distance = 60.0
@@ -149,7 +150,7 @@ func _build_ground() -> void:
 	mi.mesh = plane
 	var grass := WorldArt.tex(TEX_DIR + "grass_tile.png")
 	mi.material_override = WorldArt.ground_material(
-		grass, GROUND_SIZE.x / 3.2, GROUND_SIZE.y / 3.2)
+		grass, GROUND_SIZE.x / 2.3, GROUND_SIZE.y / 2.3)
 	add_child(mi)
 
 	# A darker skirt around the meadow so the world does not end in mid-air.
@@ -250,8 +251,8 @@ func _make_prop(kind: String, s: float, flip: bool) -> Node3D:
 func _build_camera() -> void:
 	_camera = DioramaCamera.new()
 	_camera.name = "CameraRig"
-	_camera.bounds = Vector2(GROUND_SIZE.x * 0.5 - 4.0, GROUND_SIZE.y * 0.5 - 4.0)
-	_camera.start_zoom = 14.0
+	_camera.bounds = Vector2(GROUND_SIZE.x * 0.5 - 6.0, GROUND_SIZE.y * 0.5 - 6.0)
+	_camera.start_zoom = 30.0
 	add_child(_camera)
 	var cam := Camera3D.new()
 	cam.name = "Camera3D"

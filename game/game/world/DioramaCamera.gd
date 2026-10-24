@@ -9,13 +9,13 @@ extends Node3D
 
 const PITCH_DEG := -38.0
 const YAW_DEG := -22.0
-const ZOOM_MIN := 8.0
-const ZOOM_MAX := 20.0
+const ZOOM_MIN := 14.0
+const ZOOM_MAX := 42.0
 const ZOOM_STEP := 0.9
 
 ## Half extents of the area the camera may look at (metres).
 @export var bounds := Vector2(15.0, 11.0)
-@export var start_zoom := 13.0
+@export var start_zoom := 30.0
 
 var _yaw := YAW_DEG
 var _zoom := 13.0

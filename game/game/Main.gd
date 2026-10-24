@@ -123,7 +123,7 @@ func _build_hud() -> void:
 	note.anchor_top = 1.0
 	note.anchor_bottom = 1.0
 	note.offset_left = 26.0
-	note.offset_right = 470.0
+	note.offset_right = 452.0
 	note.offset_top = -26.0
 	note.offset_bottom = -26.0
 	note.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -186,8 +186,8 @@ func _build_hud() -> void:
 	_hint.anchor_right = 1.0
 	_hint.anchor_top = 1.0
 	_hint.anchor_bottom = 1.0
-	_hint.offset_top = -58.0
-	_hint.offset_bottom = -30.0
+	_hint.offset_top = -96.0
+	_hint.offset_bottom = -68.0
 	root.add_child(_hint)
 	var tw := create_tween()
 	tw.tween_interval(5.0)
