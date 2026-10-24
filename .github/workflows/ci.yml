@@ -72,12 +72,17 @@ jobs:
         # check stayed green.
         run: |
           set -o pipefail
+          # keep the transcript visible even when the rules fail: a red step with
+          # no log in the PR is useless on a phone-sized screen
+          set +e
           godot --headless --path game res://game/tests/PlayTest.tscn 2>&1 | tee /tmp/play.log
+          code=${PIPESTATUS[0]}
           PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
-            { echo "### play rules"; echo '```'; tail -c 20000 /tmp/play.log; echo '```'; } > /tmp/play.md
+            { echo "### play rules (exit $code)"; echo '```'; tail -c 20000 /tmp/play.log; echo '```'; } > /tmp/play.md
             gh pr comment "$PR" --body-file /tmp/play.md --repo "$GITHUB_REPOSITORY" || true
           fi
+          exit $code
         env:
           GH_TOKEN: ${{ github.token }}
 
