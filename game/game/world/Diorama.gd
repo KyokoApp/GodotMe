@@ -89,7 +89,7 @@ const PATH := [
 	Vector2(5.2, 9.6), Vector2(3.0, 6.2), Vector2(0.8, 3.2),
 	Vector2(-1.2, 1.0), Vector2(-2.6, -0.4),
 ]
-const PATH_WIDTH := 1.9
+const PATH_WIDTH := 1.6
 
 const GROUND_SIZE := Vector2(26.0, 20.0)
 
@@ -195,7 +195,8 @@ func _build_path() -> void:
 			var across: float = corner[1]
 			verts.append(Vector3(p.x, 0.02, p.y))
 			norms.append(Vector3.UP)
-			uvs.append(Vector2(across, run / 2.2))
+			# metres / 2 on both axes: square texels along and across the track
+			uvs.append(Vector2(across * PATH_WIDTH / 2.0, run / 2.0))
 			# ground tiling (tile size matches _build_ground's 2.0 m)
 			uvs2.append(Vector2(p.x / 2.0, p.y / 2.0))
 		indices.append_array([base, base + 1, base + 2, base + 1, base + 3, base + 2])
@@ -220,8 +221,8 @@ func _build_path() -> void:
 		mat.shader = load(WORLD_DIR + "path.gdshader")
 	mat.set_shader_parameter("dirt_tex", dirt)
 	mat.set_shader_parameter("grass_tex", grass_tex)
-	mat.set_shader_parameter("dirt_scale", 1.6)
-	mat.set_shader_parameter("feather", 0.26)
+	mat.set_shader_parameter("dirt_scale", 1.0)
+	mat.set_shader_parameter("feather", 0.30)
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
