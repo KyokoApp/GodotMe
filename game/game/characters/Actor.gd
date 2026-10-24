@@ -96,7 +96,14 @@ func _build_visual() -> void:
 	sprite.name = "Sprite"
 	sprite.sprite_frames = CharacterAssets.build_frames(def)
 	sprite.centered = true
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	# FIXED_Y, not ENABLED. A fully camera-facing billboard is tilted back by the
+	# camera's pitch (-38 deg), and that tilt happens around the quad's CENTRE -
+	# which sits ~1.85 m above the feet. The feet pivot therefore swung up by
+	# 1.85 * (1 - cos 38) = 0.39 m and 1.14 m towards the viewer: every character
+	# (and every prop) looked like it floated above the grass, with its blob
+	# shadow left behind. FIXED_Y only yaws around the world up axis, so the
+	# quad stays vertical and the feet stay exactly on the pivot point.
+	sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	sprite.alpha_scissor_threshold = 0.45

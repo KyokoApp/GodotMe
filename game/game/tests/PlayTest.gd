@@ -29,6 +29,9 @@ func _ready() -> void:
 	await _test_death_holds()
 	await _test_orc_swing_does_not_lock_player()
 	await _test_props_stand_on_ground()
+	await _test_billboards_stay_upright()
+	await _test_camera_follows_player()
+	await _test_dynamic_stick()
 
 	print("[PLAY] %d pemeriksaan, %d gagal" % [checks, failures])
 	get_tree().quit(0 if failures == 0 else 1)
@@ -176,3 +179,121 @@ func _test_props_stand_on_ground() -> void:
 	_check(absf(worst) <= 0.02, "semua prop menapak di tanah",
 		"%s melayang %.3f m" % [worst_name, worst])
 	world.queue_free()
+
+
+## A camera-facing billboard is tilted back by the camera pitch, and that tilt
+## happens around the quad centre - which sits above the feet. Result on the
+## device: characters and props floated. Yaw-only billboards keep them upright.
+func _test_billboards_stay_upright() -> void:
+	var knight := _actor(KNIGHT_DEF)
+	await get_tree().process_frame
+	var sprite: AnimatedSprite3D = knight.get("sprite")
+	_check(sprite.billboard == BaseMaterial3D.BILLBOARD_FIXED_Y,
+		"sprite karakter hanya berputar pada sumbu Y (tidak miring)",
+		"mode %d" % sprite.billboard)
+	knight.queue_free()
+
+	if not ResourceLoader.exists(DIORAMA):
+		return
+	var world: Node3D = load(DIORAMA).instantiate()
+	add_child(world)
+	await get_tree().process_frame
+	var props := world.get_node_or_null("Props")
+	if props == null:
+		_check(false, "node Props ada untuk uji billboard")
+		return
+	var bad := 0
+	var total := 0
+	for child in props.get_children():
+		var mi := child as MeshInstance3D
+		if mi == null:
+			continue
+		var mat := mi.material_override as StandardMaterial3D
+		if mat == null:
+			continue
+		total += 1
+		if mat.billboard_mode != BaseMaterial3D.BILLBOARD_FIXED_Y:
+			bad += 1
+	_check(total > 10 and bad == 0, "semua prop memakai billboard sumbu Y",
+		"%d dari %d masih miring" % [bad, total])
+	world.queue_free()
+
+
+## The owner's report: "the camera does not follow where the character walks".
+func _test_camera_follows_player() -> void:
+	if not ResourceLoader.exists(DIORAMA):
+		return
+	var world: Node3D = load(DIORAMA).instantiate()
+	add_child(world)
+	await get_tree().process_frame
+	var rig := world.get_node_or_null("CameraRig") as Node3D
+	_check(rig != null, "CameraRig ada di diorama")
+	if rig == null:
+		return
+	var walker := _actor(KNIGHT_DEF)
+	walker.position = Vector3(0.0, 0.0, 0.0)
+	rig.call("set_follow_target", walker)
+	await get_tree().process_frame
+	var start := rig.position
+	walker.position = Vector3(3.5, 0.0, 2.0)
+	for _i in 90:
+		await get_tree().process_frame
+	var moved: float = Vector2(rig.position.x - start.x, rig.position.z - start.z).length()
+	_check(moved > 2.5, "kamera mengikuti karakter yang berjalan",
+		"pindah %.2f m dari %.2f" % [moved, start.length()])
+	var err: float = Vector2(rig.position.x - 3.5, rig.position.z - 2.0).length()
+	_check(err < 1.2, "kamera berhenti dekat karakter (bukan jauh tertinggal)",
+		"selisih %.2f m" % err)
+	walker.queue_free()
+	world.queue_free()
+
+
+## The owner's request: the stick should appear where the thumb lands, and only
+## in the left half of the screen.
+func _test_dynamic_stick() -> void:
+	var pad: Node = (load("res://game/characters/TouchControls.gd") as Script).new()
+	add_child(pad)
+	await get_tree().process_frame
+	var base: Panel = pad.get("_base")
+	_check(base != null and not base.visible, "stik tersembunyi sebelum disentuh")
+
+	var vp := get_viewport().get_visible_rect().size
+	var spot := Vector2(vp.x * 0.22, vp.y * 0.78)
+	var down := InputEventScreenTouch.new()
+	down.index = 0
+	down.pressed = true
+	down.position = spot
+	pad.call("_input", down)
+	await get_tree().process_frame
+	_check(base.visible, "stik muncul saat layar kiri disentuh")
+	var centre: Vector2 = base.position + Vector2(96.0, 96.0)
+	_check(centre.distance_to(spot) < 40.0, "stik muncul di titik sentuhan",
+		"pusat %s vs sentuh %s" % [centre, spot])
+
+	var drag := InputEventScreenDrag.new()
+	drag.index = 0
+	drag.position = spot + Vector2(70.0, 0.0)
+	pad.call("_input", drag)
+	await get_tree().process_frame
+	var v: Vector2 = pad.get("stick_vector")
+	_check(v.x > 0.6 and absf(v.y) < 0.2, "dorongan ke kanan menghasilkan jalan ke kanan",
+		str(v))
+
+	var up := InputEventScreenTouch.new()
+	up.index = 0
+	up.pressed = false
+	up.position = drag.position
+	pad.call("_input", up)
+	await get_tree().process_frame
+	_check(not base.visible, "stik hilang setelah jari diangkat")
+	_check((pad.get("stick_vector") as Vector2).length() < 0.01, "dorongan kembali nol")
+
+	# the right half belongs to the buttons: touching it must not spawn a stick
+	var right := InputEventScreenTouch.new()
+	right.index = 1
+	right.pressed = true
+	right.position = Vector2(vp.x * 0.85, vp.y * 0.6)
+	pad.call("_input", right)
+	await get_tree().process_frame
+	_check(not base.visible, "layar kanan tidak memunculkan stik")
+	pad.queue_free()

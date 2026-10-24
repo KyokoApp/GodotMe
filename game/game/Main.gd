@@ -205,7 +205,7 @@ func _build_hud() -> void:
 
 	# --- one-time control hint near the bottom centre
 	_hint = Label.new()
-	_hint.text = "Stik kiri: jalan (dorong penuh untuk lari) · Serang · Tahan · Bicara\nGeser layar untuk melihat sekeliling · cubit untuk memperbesar"
+	_hint.text = "Sentuh kiri untuk stik jalan (dorong penuh = lari) · Serang · Tahan · Bicara\nDua jari untuk menggeser pandangan · cubit untuk memperbesar"
 	_hint.add_theme_font_override("font", _font_body)
 	_hint.add_theme_font_size_override("font_size", 16)
 	_hint.add_theme_color_override("font_color", CREAM)

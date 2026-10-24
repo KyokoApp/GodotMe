@@ -1,9 +1,15 @@
 extends CanvasLayer
-## On-screen controls for a phone held in landscape: a large thumb stick on the
-## left (small push walks, full push runs) and three thumb buttons on the right
-## (attack, hold to block, talk).
+## On-screen controls for a phone held in landscape: a floating thumb stick on
+## the left (small push walks, full push runs) and three thumb buttons on the
+## right (attack, hold to block, talk).
 ##
-## Every target is at least 96 px so it can be hit with a thumb without looking.
+## The stick is *dynamic*: it appears wherever the thumb lands in the left half
+## and disappears on release. A stick pinned to one spot forces the player to
+## look down and hunt for it; a thumb that missed the circle used to pan the
+## camera instead of moving the knight, which is exactly what the owner
+## reported. Nothing else on the left half reacts to a single finger.
+##
+## Every button target is at least 96 px so it can be hit without looking.
 ## The stick is hit-tested by hand instead of relying on Control drag routing,
 ## because a drag that leaves the stick must keep steering.
 
@@ -34,7 +40,12 @@ var _attack_btn: Button
 var _block_btn: Button
 var _interact_btn: Button
 var _touch_index := -1
-var _radius := 78.0
+const STICK_SIZE := 196.0
+const STICK_RADIUS := 78.0
+## The left share of the screen that belongs to the stick. Any single finger
+## there steers and never touches the camera.
+const STICK_ZONE_X := 0.55
+const STICK_ZONE_Y := 0.15
 
 
 func _ready() -> void:
@@ -47,15 +58,10 @@ func _build() -> void:
 
 	_base = Panel.new()
 	_base.add_theme_stylebox_override("panel", _stick_style())
-	_base.anchor_left = 0.0
-	_base.anchor_top = 1.0
-	_base.anchor_right = 0.0
-	_base.anchor_bottom = 1.0
-	_base.offset_left = 34.0
-	_base.offset_right = 34.0 + 196.0
-	_base.offset_top = -230.0
-	_base.offset_bottom = -34.0
+	# Positioned in code, wherever the thumb lands (see _place_stick).
+	_base.size = Vector2(STICK_SIZE, STICK_SIZE)
 	_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_base.visible = false
 	add_child(_base)
 
 	_knob = Panel.new()
@@ -63,7 +69,7 @@ func _build() -> void:
 	_knob.size = Vector2(80.0, 80.0)
 	_knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_base.add_child(_knob)
-	_knob.position = Vector2(58.0, 58.0)
+	_knob.position = Vector2(STICK_SIZE * 0.5, STICK_SIZE * 0.5) - _knob.size * 0.5
 
 	_attack_btn = _button("Serang", font, Vector2(140.0, 140.0))
 	_attack_btn.anchor_left = 1.0
@@ -104,9 +110,12 @@ func _build() -> void:
 ## stray drag on a hidden stick must not steer the knight behind the dialogue.
 func show_controls(shown: bool) -> void:
 	visible = shown
-	for node in [_base, _attack_btn, _block_btn, _interact_btn]:
+	# the stick is dynamic: it stays hidden until a thumb actually lands
+	for node in [_attack_btn, _block_btn, _interact_btn]:
 		if node != null:
 			(node as CanvasItem).visible = shown
+	_base.visible = false
+	_knob.visible = false
 	if not shown:
 		stick_vector = Vector2.ZERO
 		block_held = false
@@ -145,13 +154,38 @@ func _on_block_up() -> void:
 	block_held = false
 
 
+## Rect of the thumb area, in screen pixels. Cheap to compute and used both by
+## the input handler and by the camera's "do not pan here" list.
+func stick_zone() -> Rect2:
+	var vp := get_viewport().get_visible_rect().size
+	return Rect2(0.0, vp.y * STICK_ZONE_Y, vp.x * STICK_ZONE_X, vp.y * (1.0 - STICK_ZONE_Y))
+
+
+## Screen rects the camera must not treat as a pan gesture.
+func block_rects() -> Array:
+	var out: Array = []
+	for c in [_attack_btn, _block_btn, _interact_btn]:
+		if c != null:
+			out.append(c.get_global_rect().grow(8.0))
+	return out
+
+
+func _on_block_down() -> void:
+	block_held = true
+
+
+func _on_block_up() -> void:
+	block_held = false
+
+
 func _input(event: InputEvent) -> void:
 	if _base == null:
 		return
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
-		if t.pressed and _touch_index == -1 and _base.get_global_rect().grow(24.0).has_point(t.position):
+		if t.pressed and _touch_index == -1 and stick_zone().has_point(t.position):
 			_touch_index = t.index
+			_place_stick(t.position)
 			_steer(t.position)
 			get_viewport().set_input_as_handled()
 		elif not t.pressed and t.index == _touch_index:
@@ -166,8 +200,9 @@ func _input(event: InputEvent) -> void:
 		var mb := event as InputEventMouseButton
 		if mb.button_index != MOUSE_BUTTON_LEFT:
 			return
-		if mb.pressed and _base.get_global_rect().grow(24.0).has_point(mb.position):
+		if mb.pressed and _touch_index == -1 and stick_zone().has_point(mb.position):
 			_touch_index = -2
+			_place_stick(mb.position)
 			_steer(mb.position)
 			get_viewport().set_input_as_handled()
 		elif not mb.pressed and _touch_index == -2:
@@ -177,20 +212,33 @@ func _input(event: InputEvent) -> void:
 		_steer((event as InputEventMouseMotion).position)
 
 
+## Put the stick under the thumb, pushed inside the screen edges so it is never
+## half off-screen near a corner.
+func _place_stick(pos: Vector2) -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var half := Vector2(STICK_SIZE, STICK_SIZE) * 0.5
+	var centre := Vector2(
+		clampf(pos.x, half.x + 16.0, vp.x - half.x - 16.0),
+		clampf(pos.y, half.y + 16.0, vp.y - half.y - 16.0))
+	_base.position = centre - half
+	_base.visible = true
+	_knob.visible = true
+	_knob.position = Vector2(STICK_SIZE, STICK_SIZE) * 0.5 - _knob.size * 0.5
+
+
 func _steer(pos: Vector2) -> void:
-	var rect := _base.get_global_rect()
-	var centre := rect.position + rect.size * 0.5
+	var centre := _base.position + Vector2(STICK_SIZE, STICK_SIZE) * 0.5
 	var delta := pos - centre
-	if delta.length() > _radius:
-		delta = delta.normalized() * _radius
-	stick_vector = delta / _radius
-	_knob.position = rect.size * 0.5 + delta - _knob.size * 0.5
+	if delta.length() > STICK_RADIUS:
+		delta = delta.normalized() * STICK_RADIUS
+	stick_vector = delta / STICK_RADIUS
+	_knob.position = Vector2(STICK_SIZE, STICK_SIZE) * 0.5 + delta - _knob.size * 0.5
 
 
 func _reset() -> void:
 	stick_vector = Vector2.ZERO
-	if _knob != null and _base != null:
-		_knob.position = _base.size * 0.5 - _knob.size * 0.5
+	_base.visible = false
+	_knob.visible = false
 
 
 func _stick_style() -> StyleBoxFlat:
