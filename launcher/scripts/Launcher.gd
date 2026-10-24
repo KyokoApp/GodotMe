@@ -230,10 +230,20 @@ func _on_state_changed(state: int, ctx: Dictionary) -> void:
 			_state_title.add_theme_color_override("font_color", UiTheme.COL_RUST)
 			_pulse_play_button(false)
 		_:
-			# IDLE = the download was paused by the player: the button resumes it.
+			# IDLE means one of two very different things:
+			#   * the player paused a download -> the button resumes it;
+			#   * the launcher came back from a failed boot and wiped the broken
+			#     version (no packs left) -> there is nothing to resume, so the
+			#     button has to say what it really does and the title has to say
+			#     why the screen is empty.
+			var installed := Updater.has_playable_version()
 			_show_progress(false)
 			_retry_button.visible = true
-			_set_retry_action("  Lanjutkan", ICON_RETRY)
+			_set_retry_action("  Lanjutkan" if installed else "  Periksa Lagi",
+				ICON_RETRY)
+			if not installed:
+				_state_title.text = "Paket belum terpasang"
+				_detail.text = "Tekan Periksa Lagi untuk mengunduh versi terbaru."
 	if not can_play:
 		_pulse_play_button(false)
 

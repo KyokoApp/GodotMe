@@ -438,3 +438,29 @@ Verifikasi yang dijalankan CI untuk rilis ini: `periksa` strip
 (`tools/import_character_sprites.py --check`), gate headless
 `ValidateCharacters.tscn`, empat scene tangkapan (09/10/11/12/13), 13 skenario
 peluncur, dan pemeriksaan `BUILD_ID` di dalam APK sebelum aset diunggah.
+
+### Kalau launcher menampilkan "versi belum ada" / "Belum ada paket"
+
+Ini **bukan** APK rusak dan **tidak** perlu pasang ulang APK. Artinya launcher
+baru saja memulihkan diri:
+
+1. Versi game yang terpasang sebelumnya (mis. `0.1.0`) dijalankan, tetapi
+   `user://retraveller/boot_ok.json` tidak pernah muncul dalam 25 detik
+   (`Guard`), jadi launcher menganggap versi itu gagal boot.
+2. `Store.rollback()` dipanggil. Kalau tidak ada versi sebelumnya yang utuh
+   (baru pertama kali pasang), semua paket dihapus dan `active.version` jadi
+   kosong — itulah "Rollback gagal: tidak ada versi sebelumnya yang utuh" dan
+   "versi belum ada".
+3. Setelah pemulihan, launcher **sengaja tidak** mengunduh otomatis (agar tidak
+   mengulang versi yang barusan gagal). Tombol sekunder karena itu berarti
+   "unduh sekarang", bukan "lanjutkan unduhan".
+
+Yang dilakukan pemain: tekan tombol sekunder (kini berlabel **Periksa Lagi**
+saat tidak ada paket terpasang; dulu selalu "Lanjutkan"), tunggu enam paket
+terunduh, lalu **MAIN**. Tidak ada data pemain yang hilang karena tahap ini
+belum punya sistem save.
+
+Kalau setelah itu layar kembali ke launcher dengan pesan yang sama, berarti
+paketnya benar-benar gagal boot di perangkat (bukan masalah jaringan): kirim
+dua baris jurnal di kiri bawah + `user://retraveller/logs/`. Perbaikan pada
+paket game bisa dikirim sebagai paket baru tanpa memasang ulang APK.
