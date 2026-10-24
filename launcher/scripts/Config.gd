@@ -88,6 +88,10 @@ func versions_dir() -> String:
 	return data_root().path_join("versions")
 
 
+func packs_dir() -> String:
+	return data_root().path_join("packs")
+
+
 func partial_dir() -> String:
 	return data_root().path_join("partial")
 
@@ -144,5 +148,5 @@ func autoplay_enabled() -> bool:
 
 
 func ensure_dirs() -> void:
-	for d in [data_root(), versions_dir(), partial_dir(), logs_dir()]:
+	for d in [data_root(), versions_dir(), packs_dir(), partial_dir(), logs_dir()]:
 		DirAccess.make_dir_recursive_absolute(d)

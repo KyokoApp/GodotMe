@@ -189,11 +189,11 @@ func _scenario_first_install() -> void:
 	_check(Updater.has_playable_version(), "versi bisa dimainkan")
 	_check(_pack_count() == 6, "enam paket tersimpan", str(_pack_count()))
 	var meta := Store.active_meta()
-	var all_ok := true
+	var all_ok := (meta.get("packages", []) as Array).size() == 6
 	for pkg in meta.get("packages", []):
 		if not Store.pack_ready(pkg):
 			all_ok = false
-	_check(all_ok, "semua paket ada dan berukuran tepat")
+	_check(all_ok, "keenam paket ada dan berukuran tepat", JSON.stringify(meta.get("packages", [])))
 	var prev: Variant = Util.read_json(Cfg.active_file()).get("previous", "")
 	_check(String(prev) == "", "instalasi pertama tanpa versi sebelumnya", String(prev))
 	# pretend the player has progress: save data lives OUTSIDE the pack tree

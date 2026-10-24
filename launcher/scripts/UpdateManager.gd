@@ -469,6 +469,7 @@ func _download_package(pkg: Dictionary, pkg_total: int) -> bool:
 		Log.ok("SHA-256 %s cocok." % name)
 
 		# ---- move into place ------------------------------------------------
+		DirAccess.make_dir_recursive_absolute(dest.get_base_dir())
 		if FileAccess.file_exists(dest):
 			DirAccess.remove_absolute(dest)
 		var mv := DirAccess.rename_absolute(tmp, dest)

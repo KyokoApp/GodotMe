@@ -99,7 +99,7 @@ func pack_file_name(pkg: Dictionary) -> String:
 
 
 func pack_path(pkg: Dictionary) -> String:
-	return Cfg.data_root().path_join("packs").path_join(pack_file_name(pkg))
+	return Cfg.packs_dir().path_join(pack_file_name(pkg))
 
 
 func partial_path(pkg: Dictionary) -> String:
@@ -240,7 +240,7 @@ func gc() -> void:
 		for pkg in meta.get("packages", []):
 			referenced[pack_file_name(pkg)] = true
 
-	var packs_dir := Cfg.data_root().path_join("packs")
+	var packs_dir := Cfg.packs_dir()
 	for f in Util.list_files(packs_dir):
 		if not referenced.has(f):
 			DirAccess.remove_absolute(packs_dir.path_join(f))
