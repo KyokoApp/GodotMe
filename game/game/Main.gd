@@ -181,13 +181,15 @@ func _build_hud() -> void:
 	_hint.add_theme_color_override("font_shadow_color", Color(0.05, 0.03, 0.02, 0.9))
 	_hint.add_theme_constant_override("shadow_offset_y", 2)
 	_hint.add_theme_constant_override("shadow_outline_size", 4)
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_hint.anchor_left = 0.0
 	_hint.anchor_right = 1.0
-	_hint.anchor_top = 1.0
-	_hint.anchor_bottom = 1.0
-	_hint.offset_top = -96.0
-	_hint.offset_bottom = -68.0
+	_hint.anchor_top = 0.0
+	_hint.anchor_bottom = 0.0
+	_hint.offset_left = 380.0
+	_hint.offset_right = -200.0
+	_hint.offset_top = 40.0
+	_hint.offset_bottom = 68.0
 	root.add_child(_hint)
 	var tw := create_tween()
 	tw.tween_interval(5.0)

@@ -36,53 +36,56 @@ const PROP_TEXTURE := {
 ## Hand-placed layout: kind, x, z, scale, flip.
 const LAYOUT := [
 	# the cottage and its doorstep
-	["cottage", -4.2, -3.0, 1.0, false],
-	["bush", -7.4, -1.2, 1.0, false],
-	["bush", -1.4, -1.0, 0.85, true],
-	["rock", -6.6, 1.4, 0.9, true],
-	# tree line at the back, denser on the left
-	["pine", -13.0, -11.0, 1.0, false],
-	["pine", -9.0, -13.2, 1.12, true],
-	["pine", -4.4, -12.0, 0.94, false],
-	["pine", 0.6, -13.4, 1.06, false],
-	["pine", 5.2, -11.6, 0.9, true],
-	["pine", 9.6, -13.0, 1.08, false],
-	["pine", 13.6, -10.2, 0.96, true],
-	["oak", -11.4, -4.6, 1.0, false],
-	["oak", 8.2, -5.2, 1.04, true],
-	["oak", 13.4, 0.4, 0.92, false],
+	["cottage", -3.0, -1.6, 1.0, false],
+	["bush", -6.2, 0.4, 1.0, false],
+	["bush", -0.6, 0.8, 0.85, true],
+	["rock", -9.4, 1.2, 0.9, true],
+	# tree line at the back
+	["pine", -11.5, -8.5, 1.0, false],
+	["pine", -6.5, -9.5, 1.12, true],
+	["pine", -1.5, -8.8, 0.94, false],
+	["pine", 3.0, -9.6, 1.06, false],
+	["pine", 8.5, -8.2, 0.9, true],
+	["pine", 12.0, -6.0, 1.05, false],
+	["oak", -8.0, -6.0, 1.0, false],
+	["oak", 7.4, -5.2, 1.04, true],
 	# side screens
-	["pine", -15.4, -2.0, 1.16, true],
-	["pine", -14.2, 5.6, 1.02, false],
-	["pine", 15.8, -4.4, 1.12, false],
-	["pine", 16.4, 6.2, 1.0, true],
-	# foreground framing (kept low so it never hides the middle)
-	["bush", -10.8, 8.6, 1.1, false],
-	["bush", 6.4, 9.4, 1.0, true],
-	["rock", -8.2, 11.0, 1.15, false],
-	["rock", 10.2, 10.6, 1.0, true],
-	["bush", 1.8, 11.4, 0.95, false],
+	["pine", -12.5, -2.0, 1.1, true],
+	["pine", -12.8, 3.6, 1.0, false],
+	["pine", 12.6, -1.0, 1.05, false],
+	["pine", 12.9, 4.2, 1.0, true],
+	# middle ground
+	["bush", 5.6, 0.2, 1.0, true],
+	["rock", 6.8, 3.4, 0.95, false],
+	["bush", 9.2, 2.4, 0.9, false],
+	# foreground framing (low, so it never hides the middle)
+	["bush", -8.4, 7.4, 1.2, false],
+	["bush", 7.8, 7.8, 1.15, true],
+	["rock", -3.2, 8.6, 1.2, false],
+	["rock", 3.4, 8.9, 1.1, true],
 	# scattered detail
-	["tuft", -6.0, 4.2, 1.0, false],
-	["tuft", -2.6, 5.6, 1.1, true],
-	["tuft", 3.4, 3.8, 0.9, false],
-	["tuft", 5.0, 6.4, 1.05, true],
-	["tuft", -9.6, 2.6, 0.95, false],
-	["tuft", 8.8, 2.2, 1.0, true],
-	["tuft", 11.4, 4.6, 0.9, false],
-	["tuft", 0.2, 7.4, 1.05, false],
-	["rock", 12.2, -1.6, 0.8, false],
-	["bush", 2.6, -8.4, 0.9, true],
+	["tuft", -5.4, 3.2, 1.0, false],
+	["tuft", -1.8, 4.4, 1.1, true],
+	["tuft", 2.2, 2.8, 0.9, false],
+	["tuft", 4.6, 5.2, 1.05, true],
+	["tuft", -7.6, 2.0, 0.95, false],
+	["tuft", 7.0, 1.2, 1.0, true],
+	["tuft", 10.2, 3.8, 0.9, false],
+	["tuft", 0.4, 6.2, 1.05, false],
+	["tuft", -2.4, 6.8, 0.95, true],
+	["tuft", 5.2, -2.4, 1.0, false],
+	["rock", 10.4, -3.2, 0.8, false],
+	["bush", 2.4, -6.6, 0.9, true],
 ]
 
 ## Winding dirt path towards the cottage door, in world XZ.
 const PATH := [
-	Vector2(-15.0, 13.0), Vector2(-11.0, 10.2), Vector2(-8.0, 7.0),
-	Vector2(-6.2, 3.4), Vector2(-4.6, 0.2), Vector2(-4.2, -1.2),
+	Vector2(-11.0, 8.4), Vector2(-7.6, 5.4), Vector2(-5.4, 2.6),
+	Vector2(-3.8, 0.2), Vector2(-3.0, -0.7),
 ]
-const PATH_WIDTH := 1.9
+const PATH_WIDTH := 1.7
 
-const GROUND_SIZE := Vector2(46.0, 36.0)
+const GROUND_SIZE := Vector2(26.0, 20.0)
 
 var _sun: DirectionalLight3D
 var _camera: DioramaCamera
@@ -102,24 +105,24 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.42, 0.35, 0.30)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.55, 0.58, 0.68)
-	env.ambient_light_energy = 0.55
+	env.ambient_light_color = Color(0.50, 0.56, 0.72)
+	env.ambient_light_energy = 0.48
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.92
+	env.tonemap_exposure = 1.0
 	env.tonemap_white = 6.0
 	# warm afternoon haze -> depth without a depth-of-field pass
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.86, 0.68, 0.48)
-	env.fog_light_energy = 0.9
-	env.fog_density = 0.011
+	env.fog_light_color = Color(0.74, 0.68, 0.62)
+	env.fog_light_energy = 0.55
+	env.fog_density = 0.006
 	env.fog_sky_affect = 0.0
 	env.glow_enabled = true
-	env.glow_intensity = 0.45
+	env.glow_intensity = 0.30
 	env.glow_bloom = 0.04
 	env.glow_hdr_threshold = 1.0
 	env.adjustment_enabled = true
 	env.adjustment_contrast = 1.08
-	env.adjustment_saturation = 1.04
+	env.adjustment_saturation = 1.12
 
 	var we := WorldEnvironment.new()
 	we.name = "WorldEnvironment"
@@ -130,8 +133,8 @@ func _build_environment() -> void:
 	_sun.name = "Sun"
 	_sun.rotation_degrees = Vector3(-46.0, 34.0, 0.0)
 	# late afternoon, not noon: keeps the greens green instead of hay-yellow
-	_sun.light_color = Color(1.0, 0.94, 0.84)
-	_sun.light_energy = 0.95
+	_sun.light_color = Color(1.0, 0.96, 0.90)
+	_sun.light_energy = 1.1
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	_sun.directional_shadow_max_distance = 60.0
@@ -150,7 +153,7 @@ func _build_ground() -> void:
 	mi.mesh = plane
 	var grass := WorldArt.tex(TEX_DIR + "grass_tile.png")
 	mi.material_override = WorldArt.ground_material(
-		grass, GROUND_SIZE.x / 2.3, GROUND_SIZE.y / 2.3)
+		grass, GROUND_SIZE.x / 2.0, GROUND_SIZE.y / 2.0)
 	add_child(mi)
 
 	# A darker skirt around the meadow so the world does not end in mid-air.
@@ -251,8 +254,8 @@ func _make_prop(kind: String, s: float, flip: bool) -> Node3D:
 func _build_camera() -> void:
 	_camera = DioramaCamera.new()
 	_camera.name = "CameraRig"
-	_camera.bounds = Vector2(GROUND_SIZE.x * 0.5 - 6.0, GROUND_SIZE.y * 0.5 - 6.0)
-	_camera.start_zoom = 30.0
+	_camera.bounds = Vector2(GROUND_SIZE.x * 0.5 - 4.0, GROUND_SIZE.y * 0.5 - 3.5)
+	_camera.start_zoom = 19.0
 	add_child(_camera)
 	var cam := Camera3D.new()
 	cam.name = "Camera3D"
