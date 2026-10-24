@@ -134,7 +134,7 @@ jobs:
           # (EditorExportPreset::get_or_env), so no preset patching is needed.
           GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /tmp/debug.keystore
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_RELEASE_PASS: android
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: android
         run: |
           set +e
           : > /tmp/apk.log
