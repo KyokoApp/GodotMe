@@ -1,0 +1,164 @@
+name: ci
+
+on:
+  push:
+    branches: ["arena/5c17933c-godotme"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  # ---------------------------------------------------------------- tests ---
+  launcher-tests:
+    name: launcher tests + screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tools"
+          curl -sSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/.tools"
+          mv "$GITHUB_WORKSPACE/.tools/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GITHUB_WORKSPACE/.tools/godot"
+          chmod +x "$GITHUB_WORKSPACE/.tools/godot"
+          echo "$GITHUB_WORKSPACE/.tools" >> "$GITHUB_PATH"
+          "$GITHUB_WORKSPACE/.tools/godot" --version
+
+      - name: Generate throwaway signing key for the signature tests
+        run: |
+          mkdir -p launcher/signing
+          openssl genrsa -out /tmp/rt_priv.pem 2048 2>/dev/null
+          openssl rsa -in /tmp/rt_priv.pem -pubout -out launcher/signing/public_key.pem 2>/dev/null
+          ls -l launcher/signing
+
+      - name: Run launcher test suite
+        env:
+          GODOT: ${{ github.workspace }}/.tools/godot
+          SIGN_KEY: /tmp/rt_priv.pem
+          PORT: "8765"
+        run: |
+          chmod +x tools/run_launcher_tests.sh
+          tools/run_launcher_tests.sh 2>&1 | tee /tmp/suite.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Install software GL for screenshots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 libegl-mesa0
+
+      - name: Capture launcher screenshots
+        env:
+          GODOT: ${{ github.workspace }}/.tools/godot
+        run: |
+          set -o pipefail
+          rm -rf /tmp/shots && mkdir -p /tmp/shots
+          # fresh fixture server for the capture run
+          python3 tools/testserver.py --root /tmp/rt_fixtures --port 8766 >/tmp/cap_server.log 2>&1 &
+          SRV=$!
+          sleep 1
+          rm -rf ~/.local/share/godot/app_userdata/*/t_capture || true
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path launcher --resolution 1280x720 \
+            res://tests/TestRunner.tscn -- \
+            --scenario=capture --data-root=user://t_capture \
+            --manifest=http://127.0.0.1:8766/manifests/slow.json \
+            --captures=/tmp/shots 2>&1 | tail -40
+          kill $SRV 2>/dev/null || true
+          ls -la /tmp/shots
+          mkdir -p docs/screenshots
+          cp /tmp/shots/*.png docs/screenshots/ 2>/dev/null || echo "no screenshots produced"
+
+      - name: Commit screenshots back to the branch
+        if: always()
+        run: |
+          git config user.name "arena-ci"
+          git config user.email "ci@arena.ai"
+          git add -A docs/screenshots
+          if git diff --cached --quiet; then
+            echo "screenshots unchanged"
+          else
+            git commit -m "docs: tangkapan layar launcher (CI) [skip ci]"
+            git push
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launcher-screenshots
+          path: docs/screenshots/*.png
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs
+          path: /tmp/suite.log
+          if-no-files-found: warn
+
+  # ----------------------------------------------------------------- apk ----
+  android-apk:
+    name: build launcher APK
+    runs-on: ubuntu-latest
+    needs: launcher-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tools"
+          curl -sSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/.tools"
+          mv "$GITHUB_WORKSPACE/.tools/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GITHUB_WORKSPACE/.tools/godot"
+          chmod +x "$GITHUB_WORKSPACE/.tools/godot"
+          echo "$GITHUB_WORKSPACE/.tools" >> "$GITHUB_PATH"
+
+      - name: Install export templates
+        run: |
+          mkdir -p /tmp/tpl
+          curl -sSL -o /tmp/tpl.tpz \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/tpl.tpz -d /tmp/tpl
+          DEST="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$DEST"
+          cp -r /tmp/tpl/templates/* "$DEST"/
+          ls "$DEST" | head -20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Android SDK pieces
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" | tail -3
+          yes | sdkmanager --licenses >/dev/null || true
+
+      - name: Debug keystore
+        run: |
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey \
+            -keypass android -keystore /tmp/debug.keystore -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+
+      - name: Import assets and export APK
+        run: |
+          godot --headless --path launcher --import || godot --headless --path launcher --editor --quit
+          mkdir -p dist
+          godot --headless --path launcher --export-debug "Android" "$PWD/dist/re-traveller-launcher.apk" 2>&1 | tail -30
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: re-traveller-launcher-apk
+          path: dist/*.apk
+          if-no-files-found: error
