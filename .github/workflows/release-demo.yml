@@ -173,7 +173,7 @@ jobs:
 
           # Prove the artifact really contains this commit's code: BUILD_ID is a
           # const in Config.gd, so it is read from the working tree and searched
-          # for inside every exported APK.
+          # for inside every exported APK. A stale or wrong artifact fails here.
           python3 - <<'PYEOF' 2>&1 | tee -a /tmp/apk.log
           import glob, re, sys, zipfile
           src = open("launcher/scripts/Config.gd", encoding="utf-8").read()
@@ -184,32 +184,24 @@ jobs:
           apks = sorted(glob.glob("dist/*.apk"))
           if not apks:
               sys.exit("no APK produced")
+          failed = False
           for apk in apks:
               hit = False
-              names = []
               with zipfile.ZipFile(apk) as z:
-                  infos = z.infolist()
-                  print("--- %s: %d entries" % (apk, len(infos)))
-                  for info in infos:
-                      if ".pck" in info.name or info.name.startswith("assets/") \
-                              or info.name.endswith(".godot"):
-                          names.append("%s (%d bytes)" % (info.name, info.file_size))
-                      if len(info.file_size.__str__()) and info.file_size > 80 * 1024 * 1024:
+                  for info in z.infolist():
+                      if hit or info.file_size > 80 * 1024 * 1024:
                           continue
                       try:
                           if marker in z.read(info):
                               hit = True
-                              print("    marker found in entry: %s" % info.name)
-                      except Exception as exc:
-                          print("    unreadable entry %s: %s" % (info.name, exc))
-              print("--- entries that look like project data:")
-              for n in names[:25]:
-                  print("    " + n)
-              raw = open(apk, "rb").read()
-              print("BUILD_ID %s in %s: entry-scan=%s raw-scan=%s" % (
-                  marker.decode(), apk, hit, marker in raw))
+                              print("  %s: marker in %s" % (apk, info.filename))
+                      except Exception:
+                          pass
+              print("BUILD_ID %s in %s: %s" % (marker.decode(), apk, hit))
+              failed = failed or not hit
+          sys.exit(1 if failed else 0)
           PYEOF
-          code=$(( code + 0 ))
+          [ $? -ne 0 ] && code=1
 
           cp dist/re-traveller-launcher.apk /tmp/rel/release/ 2>/dev/null || true
           ls -la /tmp/rel/release/re-traveller-launcher.apk || true
