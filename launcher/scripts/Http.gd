@@ -214,8 +214,9 @@ static func _http_download(url: String, dest_path: String, expected_size: int, r
 		await _tick()
 
 	var code := client.get_response_code()
+	var resp_headers := _headers(client)
 	if REDIRECT_CODES.has(code):
-		var loc := client.get_response_header_value("location")
+		var loc := _hget(resp_headers, "location")
 		client.close()
 		if loc.strip_edges() == "":
 			return _err("Pengalihan tanpa Location.")
@@ -236,7 +237,7 @@ static func _http_download(url: String, dest_path: String, expected_size: int, r
 
 	var total := -1
 	if code == 206:
-		var cr := client.get_response_header_value("content-range")  # e.g. bytes 100-999/1000
+		var cr := _hget(resp_headers, "content-range")  # e.g. bytes 100-999/1000
 		var slash := cr.rfind("/")
 		if slash >= 0:
 			total = int(cr.substr(slash + 1))
@@ -245,7 +246,7 @@ static func _http_download(url: String, dest_path: String, expected_size: int, r
 	else:
 		# server ignored our Range header -> restart the file from zero
 		offset = 0
-		var cl := client.get_response_header_value("content-length")
+		var cl := _hget(resp_headers, "content-length")
 		if cl != "":
 			total = int(cl)
 	if expected_size > 0:
@@ -301,6 +302,19 @@ static func _http_download(url: String, dest_path: String, expected_size: int, r
 		return _err("Ukuran berkas terunduh %s != %s." % [
 			Util.human_size(done), Util.human_size(expected_size)])
 	return {"ok": true, "error": "", "code": code, "bytes": done, "resumed_from": offset}
+
+
+## HTTPClient keeps the server's header casing; look them up case-insensitively.
+static func _headers(client: HTTPClient) -> Dictionary:
+	var raw := client.get_response_headers_as_dictionary()
+	var out := {}
+	for k in raw.keys():
+		out[String(k).to_lower()] = String(raw[k])
+	return out
+
+
+static func _hget(headers: Dictionary, key: String) -> String:
+	return String(headers.get(key.to_lower(), ""))
 
 
 static func _err(message: String, code: int = 0) -> Dictionary:
