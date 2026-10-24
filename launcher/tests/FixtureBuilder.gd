@@ -183,6 +183,11 @@ func _write_manifest(tag: String, version: String, min_launcher: int,
 		"packages": entries,
 	}
 	var text := JSON.stringify(data, "  ")
+	var path := out_dir.path_join("manifests").path_join(tag + ".json")
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(text)
+	f.flush()
+	f = null
 	if sign:
 		if not FileAccess.file_exists(private_key_path):
 			printerr("Kunci privat tidak ada: %s" % private_key_path)
@@ -191,19 +196,14 @@ func _write_manifest(tag: String, version: String, min_launcher: int,
 			if key.load_from_string(FileAccess.get_file_as_string(private_key_path)) != OK:
 				printerr("Kunci privat tidak valid.")
 			else:
-				var digest := Manifest.signed_payload(text)
-				var crypto := Crypto.new()
-				var sig := crypto.sign(HashingContext.HASH_SHA256, digest, key)
-				var signed_data: Dictionary = data.duplicate(true)
-				var sig_bytes := sig
-				if corrupt_signature and sig_bytes.size() > 8:
-					sig_bytes[4] = (sig_bytes[4] + 1) % 256
-				signed_data["signature"] = Marshalls.raw_to_base64(sig_bytes)
-				text = JSON.stringify(signed_data, "  ")
-				print("[FIXTURES] manifest %s ditandatangani (%d bita)" % [tag, sig.size()])
-	var path := out_dir.path_join("manifests").path_join(tag + ".json")
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	f.store_string(text)
-	f.flush()
-	f = null
+				var digest := Manifest.digest_bytes(text.to_utf8_buffer())
+				var sig := Crypto.new().sign(HashingContext.HASH_SHA256, digest, key)
+				if corrupt_signature and sig.size() > 8:
+					sig[4] = (sig[4] + 1) % 256
+				var sf := FileAccess.open(path + ".sig", FileAccess.WRITE)
+				sf.store_string(Marshalls.raw_to_base64(sig))
+				sf.flush()
+				sf = null
+				print("[FIXTURES] tanda tangan %s (%d bita)%s" % [
+					tag, sig.size(), " RUSAK" if corrupt_signature else ""])
 	print("[FIXTURES] manifest %s -> %s" % [tag, path])

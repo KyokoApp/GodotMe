@@ -108,21 +108,18 @@ static func changelog_lines(data: Dictionary) -> PackedStringArray:
 	return out
 
 
-## Strip the signature field, serialise deterministically, return SHA-256 bytes
-## of that payload. Signing is done over this exact digest.
-static func signed_payload(text: String) -> PackedByteArray:
-	var parsed: Variant = JSON.parse_string(text)
-	if typeof(parsed) != TYPE_DICTIONARY:
-		return PackedByteArray()
-	var copy: Dictionary = (parsed as Dictionary).duplicate(true)
-	copy.erase("signature")
+## Detached signature over the *exact bytes* of version.json, so any tool
+## (openssl, python, Godot) can produce it without JSON canonicalisation.
+##   openssl dgst -sha256 -sign private.pem -out version.json.sig.bin version.json
+static func digest_bytes(raw: PackedByteArray) -> PackedByteArray:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(JSON.stringify(copy).to_utf8_buffer())
+	ctx.update(raw)
 	return ctx.finish()
 
 
-static func verify_signature(text: String, signature_b64: String, public_key_path: String) -> Dictionary:
+static func verify_signature_bytes(raw: PackedByteArray, signature_b64: String,
+		public_key_path: String) -> Dictionary:
 	if signature_b64.strip_edges() == "":
 		return _fail("Manifest tidak ditandatangani.")
 	if not FileAccess.file_exists(public_key_path):
@@ -130,11 +127,16 @@ static func verify_signature(text: String, signature_b64: String, public_key_pat
 	var key := CryptoKey.new()
 	if key.load_from_string(FileAccess.get_file_as_string(public_key_path)) != OK:
 		return _fail("Kunci publik tidak bisa dibaca.")
-	var digest := signed_payload(text)
-	if digest.is_empty():
-		return _fail("Manifest tidak bisa dibaca untuk verifikasi.")
+	var digest := digest_bytes(raw)
 	var sig := Marshalls.base64_to_raw(signature_b64)
+	if sig.is_empty():
+		return _fail("Tanda tangan kosong atau bukan base64.")
 	var crypto := Crypto.new()
 	if not crypto.verify(HashingContext.HASH_SHA256, digest, sig, key):
 		return _fail("Tanda tangan manifest tidak cocok.")
 	return {"ok": true, "error": ""}
+
+
+## Kept for callers that only have the text form.
+static func verify_signature(text: String, signature_b64: String, public_key_path: String) -> Dictionary:
+	return verify_signature_bytes(text.to_utf8_buffer(), signature_b64, public_key_path)

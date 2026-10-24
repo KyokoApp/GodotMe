@@ -333,20 +333,28 @@ func _fetch_manifest() -> Dictionary:
 		if data.has("game") and String(data["game"]) != Cfg.GAME_ID:
 			last_error = "Manifest milik game lain (%s)." % String(data["game"])
 			continue
+		var sig := await _fetch_signature(url)
 		if Cfg.require_signature():
-			var sig := String(data.get("signature", ""))
-			var vr := Manifest.verify_signature(text, sig, Cfg.PUBLIC_KEY_PATH)
+			if sig == "":
+				last_error = "Manifest tidak ditandatangani padahal tanda tangan wajib."
+				Log.error(last_error)
+				continue
+			var vr := Manifest.verify_signature_bytes(
+				PackedByteArray(String(res.get("body", "")).to_utf8_buffer()), sig,
+				Cfg.PUBLIC_KEY_PATH)
 			if not vr["ok"]:
 				last_error = String(vr["error"])
 				Log.error("Verifikasi tanda tangan gagal: %s" % last_error)
 				continue
 			Log.ok("Tanda tangan manifest valid.")
-		elif data.has("signature") and String(data["signature"]) != "":
-			var vr2 := Manifest.verify_signature(text, String(data["signature"]), Cfg.PUBLIC_KEY_PATH)
+		elif sig != "":
+			var vr2 := Manifest.verify_signature_bytes(
+				PackedByteArray(String(res.get("body", "")).to_utf8_buffer()), sig,
+				Cfg.PUBLIC_KEY_PATH)
 			if vr2["ok"]:
 				Log.ok("Tanda tangan manifest valid.")
 			else:
-				Log.warn("Tanda tangan manifest ada tetapi tidak bisa diverifikasi: %s" % String(vr2["error"]))
+				Log.warn("Tanda tangan manifest tidak bisa diverifikasi: %s" % String(vr2["error"]))
 		# cache for offline display
 		Util.write_json_atomic(Cfg.manifest_cache_file(), {
 			"url": url,
@@ -355,6 +363,17 @@ func _fetch_manifest() -> Dictionary:
 		})
 		return {"ok": true, "error": "", "data": data, "url": url, "text": text}
 	return {"ok": false, "error": last_error}
+
+
+## version.json.sig is optional; a missing one simply means "unsigned".
+func _fetch_signature(manifest_url_value: String) -> String:
+	var res: Dictionary = await Http.fetch_text(manifest_url_value + ".sig", 10.0, 65536)
+	if not res["ok"]:
+		return ""
+	var txt := String(res.get("body", "")).strip_edges()
+	# accept both a raw base64 blob and a file with newlines
+	txt = txt.replace("\n", "").replace("\r", "").replace(" ", "")
+	return txt
 
 
 func _cached_manifest() -> Dictionary:
