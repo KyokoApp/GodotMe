@@ -1,0 +1,196 @@
+name: release-demo
+
+# Builds one GitHub Release that contains everything needed to try the whole
+# pipeline on a real phone:
+#
+#   re-traveller-launcher.apk   <- install this once
+#   version.json                <- what the launcher reads
+#   packs/*.pck                 <- the six modular packages it downloads
+#
+# Because the release is "latest", the launcher's default MANIFEST_URL
+# (https://github.com/<owner>/<repo>/releases/latest/download/version.json)
+# points straight at it - no hosting needed to test.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag"
+        default: "demo-v0.1.0"
+        required: true
+      pack_version:
+        description: "Version written into version.json"
+        default: "0.1.0"
+        required: true
+  push:
+    branches: ["arena/5c17933c-godotme"]
+    paths: ["RELEASE_DEMO"]
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tools"
+          curl -sSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d "$GITHUB_WORKSPACE/.tools"
+          mv "$GITHUB_WORKSPACE/.tools/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GITHUB_WORKSPACE/.tools/godot"
+          chmod +x "$GITHUB_WORKSPACE/.tools/godot"
+          echo "$GITHUB_WORKSPACE/.tools" >> "$GITHUB_PATH"
+
+      # ---------------------------------------------------------- packs -----
+      - name: Build the six game packages + manifest
+        run: |
+          set -euo pipefail
+          timeout 240 godot --headless --path launcher --import
+          timeout 240 godot --headless --path game --import
+          rm -rf /tmp/rel && mkdir -p /tmp/rel
+          timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
+            --game-dir="$PWD/game" --out=/tmp/rel
+          VERSION="${{ github.event.inputs.pack_version || '0.1.0' }}"
+          python3 - "$VERSION" <<'PY'
+          import json, sys, os
+          version = sys.argv[1]
+          with open("/tmp/rel/v100.json", encoding="utf-8") as fh:
+              manifest = json.load(fh)
+          manifest["version"] = version
+          manifest["changelog"] = [
+              "Rilis demo: enam paket modular (core, characters, enemies, world, ui, audio).",
+              "Dunia contoh dimuat dari paket .pck, bukan dari APK.",
+              "Uji: update karakter hanya mengunduh characters.pck.",
+          ]
+          with open("/tmp/rel/version.json", "w", encoding="utf-8") as fh:
+              json.dump(manifest, fh, indent=2)
+              fh.write("\n")
+          print(json.dumps(manifest, indent=2)[:400])
+          PY
+          ls -la /tmp/rel /tmp/rel/packs
+          # sanity: every listed package must exist with the recorded size
+          python3 - <<'PY'
+          import json, os, sys
+          m = json.load(open("/tmp/rel/version.json"))
+          for p in m["packages"]:
+              path = os.path.join("/tmp/rel", p["url"])
+              size = os.path.getsize(path)
+              assert size == p["size"], (p["name"], size, p["size"])
+          print("manifest verified:", len(m["packages"]), "packages")
+          PY
+
+      # ------------------------------------------------------------ apk -----
+      - name: Install export templates
+        run: |
+          mkdir -p /tmp/tpl
+          curl -sSL -o /tmp/tpl.tpz \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/tpl.tpz -d /tmp/tpl
+          DEST="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$DEST"
+          cp -r /tmp/tpl/templates/* "$DEST"/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Keystore + editor settings
+        run: |
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey \
+            -keypass android -keystore /tmp/debug.keystore -storepass android \
+            -dname "CN=Re Traveller Demo,O=Arena,C=ID" -validity 9999 \
+            -deststoretype pkcs12
+          SDK=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$SDK"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "/tmp/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          export/android/force_system_user = false
+          export/android/shutdown_adb_on_exit = true
+          EOF
+          sed -i 's/^          //' "$HOME/.config/godot/editor_settings-4.7.tres"
+
+      - name: Export APK
+        run: |
+          set -euo pipefail
+          sed -i 's|^keystore/release=".*"|keystore/release="/tmp/debug.keystore"|; \
+                  s|^keystore/release_user=".*"|keystore/release_user="androiddebugkey"|; \
+                  s|^keystore/release_password=".*"|keystore/release_password="android"|' \
+            launcher/export_presets.cfg
+          mkdir -p /tmp/rel
+          godot --headless --path launcher --export-release "Android" \
+            /tmp/rel/re-traveller-launcher.apk 2>&1 | tail -20
+          ls -la /tmp/rel/re-traveller-launcher.apk
+
+      # --------------------------------------------------------- release ----
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || 'demo-v0.1.0' }}
+        run: |
+          set -euo pipefail
+          cd /tmp/rel
+          cat > NOTES.md <<'MD'
+          ## Re - Traveller — demo launcher + paket contoh
+
+          **Cara pakai di HP (sekali pasang):**
+
+          1. Unduh `re-traveller-launcher.apk`, izinkan "instal dari sumber tidak dikenal", lalu buka.
+          2. Launcher membaca `version.json` dari rilis ini (default `MANIFEST_URL`),
+             memeriksa ukuran + SHA-256, lalu mengunduh enam paket.
+          3. Tekan **MAIN** — dunia contoh dimuat dari paket `.pck`, bukan dari APK.
+
+          Paket yang ada: `core`, `characters`, `enemies`, `world`, `ui`, `audio`.
+          Rilis berikutnya yang hanya mengubah satu paket akan diunduh sebagai
+          selisih (delta), bukan unduh ulang semuanya.
+
+          APK ini ditandatangani dengan kunci uji. Untuk distribusi, buat APK
+          bertanda tangan kunci Anda sendiri (`docs/BUILD_AND_RELEASE.md`).
+          MD
+          # prune stale assets so the manifest always matches what is attached
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete-asset "$TAG" version.json -y || true
+            gh release upload "$TAG" version.json packs/*.pck re-traveller-launcher.apk --clobber
+            gh release edit "$TAG" --notes-file NOTES.md --latest
+          else
+            gh release create "$TAG" version.json packs/*.pck re-traveller-launcher.apk \
+              --title "Re - Traveller demo (launcher + paket)" \
+              --notes-file NOTES.md --latest
+          fi
+          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"'
+
+      - name: Verify the release is reachable exactly like the launcher does
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || 'demo-v0.1.0' }}"
+          URL="https://github.com/${{ github.repository }}/releases/latest/download/version.json"
+          echo "fetching $URL"
+          curl -sSL --retry 5 "$URL" -o /tmp/live.json
+          python3 - <<'PY'
+          import json, urllib.request
+          m = json.load(open("/tmp/live.json"))
+          print("live manifest version:", m["version"], "packages:", len(m["packages"]))
+          base = "https://github.com/%s/releases/latest/download/" % __import__("os").environ["GITHUB_REPOSITORY"]
+          for p in m["packages"]:
+              req = urllib.request.Request(base + p["url"], method="GET",
+                                           headers={"Range": "bytes=0-63"})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  first = r.read(64)
+                  print("  %-11s %s  range-ok=%s first8=%s" % (
+                      p["name"], r.status, r.status in (200, 206), first[:8].hex()))
+          PY
