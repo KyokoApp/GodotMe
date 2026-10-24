@@ -5,7 +5,7 @@ extends Control
 
 var camera: Camera3D
 var actors: Array = []
-var ruler_x := -4.2
+var ruler_x := -3.4
 var ruler_z := 0.0
 var top_metres := 2.0
 
@@ -31,7 +31,9 @@ func _draw() -> void:
 		var major := i % 5 == 0
 		draw_line(p, p - Vector2(20.0 if major else 10.0, 0.0), INK, 2.0 if major else 1.0)
 		if major:
-			draw_string(font, p - Vector2(74.0, -5.0), "%.1f m" % h,
+			# label to the right of the tick: on the left it was clipped by the
+			# screen edge in the very first capture sheet
+			draw_string(font, p + Vector2(6.0, 5.0), "%.1f m" % h,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
 	for actor in actors:
 		if not is_instance_valid(actor):
