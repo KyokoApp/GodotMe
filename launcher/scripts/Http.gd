@@ -323,4 +323,7 @@ static func _err(message: String, code: int = 0) -> Dictionary:
 
 
 static func _tick() -> void:
-	await (Engine.get_main_loop() as SceneTree).process_frame
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+	await tree.process_frame
