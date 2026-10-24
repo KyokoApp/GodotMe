@@ -280,8 +280,11 @@ func _make_prop(kind: String, s: float, flip: bool) -> Node3D:
 	if kind == "tuft":
 		tint = Color(0.92, 0.98, 0.88)
 	mi.material_override = ART.sprite_material(texture, tint)
-	# stand the sprite on the ground: the quad is centred on its origin
-	mi.position.y = size.y * 0.5
+	# Stand the sprite on the ground: the quad is centred on its origin, so the
+	# lift is half its *scaled* height. Without the `* s` a prop scaled to 0.85
+	# hovered 15 % of its height above the grass (device report: floating trees
+	# and rocks), and one scaled above 1.0 sank halfway into it.
+	mi.position.y = size.y * 0.5 * s
 	mi.scale = Vector3(s * (-1.0 if flip else 1.0), s, s)
 	mi.cast_shadow = (GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if kind == "tuft"
 		else GeometryInstance3D.SHADOW_CASTING_SETTING_ON)

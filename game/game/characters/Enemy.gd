@@ -74,8 +74,8 @@ func _swing() -> void:
 		options.append("attack_2")
 	if options.is_empty():
 		return
-	state = STATE_ATTACK
-	_play(String(options[randi() % options.size()]), 1.0)
+	_enter_state(STATE_ATTACK)
+	_play(String(options[randi() % options.size()]), 1.0, true)
 	_squash = 0.18
 	_squash_kind = 1.0
 	attacked.emit(self)

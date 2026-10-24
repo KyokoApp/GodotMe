@@ -65,6 +65,13 @@ var _combo: Array = []
 var _combo_index := 0
 var _combo_queued := false
 var _step_acc := 0.0
+## Speed the running animation should play at. Hit-stop zeroes `speed_scale`,
+## and without this the animation stays frozen *after* the hit-stop ends: that
+## is what locked the knight in `hurt` (no walking, no attack) on the device.
+var _anim_speed := 1.0
+## Seconds since the current one-shot state started; a watchdog hands control
+## back even if an `animation_finished` is ever missed.
+var _state_time := 0.0
 
 
 func setup(character_def: Resource) -> void:
@@ -163,13 +170,29 @@ func _collect_combo() -> void:
 
 
 # ------------------------------------------------------------- animation ----
-func _play(anim: String, anim_speed: float) -> void:
+func _play(anim: String, anim_speed: float, restart: bool = false) -> void:
 	if not def.call("has_anim", anim):
 		return
-	if _anim != anim:
+	if _anim != anim or restart:
 		_anim = anim
 		sprite.play(anim)
-	sprite.speed_scale = maxf(0.05, anim_speed)
+	_anim_speed = maxf(0.05, anim_speed)
+	sprite.speed_scale = _anim_speed
+
+
+## How long one pass of a one-shot animation lasts, in seconds.
+func _anim_seconds(anim: String) -> float:
+	var entry: Dictionary = def.call("anim_entry", anim)
+	if entry.is_empty():
+		return 0.0
+	var frames := float(entry.get("frames", 1))
+	var fps := maxf(1.0, float(entry.get("fps", 10.0)))
+	return frames / fps
+
+
+func _enter_state(new_state: String) -> void:
+	state = new_state
+	_state_time = 0.0
 
 
 func _on_anim_finished() -> void:
@@ -178,11 +201,11 @@ func _on_anim_finished() -> void:
 			if _combo_queued and _combo_index + 1 < _combo.size():
 				_start_attack(_combo_index + 1)
 			else:
-				state = STATE_IDLE
+				_enter_state(STATE_IDLE)
 				_play(STATE_IDLE, 1.0)
 		STATE_HURT:
 			if not _dead:
-				state = STATE_IDLE
+				_enter_state(STATE_IDLE)
 				_play(STATE_IDLE, 1.0)
 		_:
 			# death and block hold their last frame on purpose
@@ -218,7 +241,8 @@ func drive(dir: Vector2, run_hint: bool, delta: float) -> void:
 	else:
 		speed = walk_speed * clampf(mag / 0.55, 0.25, 1.0)
 
-	state = anim
+	if state != anim:
+		_enter_state(anim)
 	_apply_facing(nd.x)
 	_play(anim, speed / nominal)
 	_move(Vector3(nd.x, 0.0, nd.y) * speed * delta)
@@ -232,7 +256,7 @@ func drive(dir: Vector2, run_hint: bool, delta: float) -> void:
 
 func stop_locomotion() -> void:
 	if state == STATE_WALK or state == STATE_RUN:
-		state = STATE_IDLE
+		_enter_state(STATE_IDLE)
 		_play(STATE_IDLE, 1.0)
 	_step_acc = 0.0
 
@@ -305,8 +329,8 @@ func _start_attack(index: int) -> void:
 		return
 	_combo_index = index
 	_combo_queued = false
-	state = STATE_ATTACK
-	_play(String(_combo[index]), 1.0)
+	_enter_state(STATE_ATTACK)
+	_play(String(_combo[index]), 1.0, true)
 	_squash = 0.18
 	_squash_kind = 1.0
 	attacked.emit(self)
@@ -317,19 +341,25 @@ func set_block(on: bool) -> void:
 		return
 	if not on:
 		if state == STATE_BLOCK:
-			state = STATE_IDLE
+			_enter_state(STATE_IDLE)
 			_play(STATE_IDLE, 1.0)
+		return
+	if state == STATE_BLOCK:
 		return
 	if state == STATE_ATTACK or state == STATE_HURT or state == STATE_DEATH:
 		return
 	if not def.call("has_anim", "block"):
 		return
-	state = STATE_BLOCK
-	_play("block", 1.0)
+	_enter_state(STATE_BLOCK)
+	_play("block", 1.0, true)
 
 
 func take_hit() -> void:
 	if def == null or _dead:
+		return
+	# Two orcs swinging together used to chain-stun the player: he could not
+	# move at all. One flinch per 0.2 s is enough to feel the hit.
+	if state == STATE_HURT and _state_time < 0.2:
 		return
 	_hitstop = HITSTOP_SEC
 	_flash = FLASH_SEC
@@ -337,17 +367,20 @@ func take_hit() -> void:
 	_squash_kind = -1.0
 	hurt.emit(self)
 	if def.call("has_anim", "hurt"):
-		state = STATE_HURT
-		_play("hurt", 1.0)
+		_enter_state(STATE_HURT)
+		# `restart` matters: the second flinch arrives while `hurt` is still the
+		# current animation name, so without it the strip would never rewind -
+		# and because it had already finished, no `animation_finished` follows.
+		_play("hurt", 1.0, true)
 
 
 func die() -> void:
 	if _dead:
 		return
 	_dead = true
-	state = STATE_DEATH
+	_enter_state(STATE_DEATH)
 	if def.call("has_anim", "death"):
-		_play("death", 1.0)
+		_play("death", 1.0, true)
 	died.emit(self)
 
 
@@ -386,8 +419,30 @@ func _process(delta: float) -> void:
 	if _hitstop > 0.0:
 		_hitstop = maxf(0.0, _hitstop - delta)
 		sprite.speed_scale = 0.0
+		if _hitstop <= 0.0:
+			sprite.speed_scale = _anim_speed   # resume where the hit stopped it
 		return
+	_state_time += delta
+	_watch_one_shot()
 	tick(delta)
+
+
+## Hand control back if a one-shot animation never reported that it ended.
+## Belt and braces on top of `animation_finished`: a dropped signal (device
+## hiccup, a paused tree) must never leave a character permanently frozen.
+func _watch_one_shot() -> void:
+	if _dead:
+		return
+	if state != STATE_HURT and state != STATE_ATTACK:
+		return
+	var limit := _anim_seconds(state) / maxf(_anim_speed, 0.05) + 0.35
+	if _state_time < limit:
+		return
+	if state == STATE_ATTACK and _combo_queued and _combo_index + 1 < _combo.size():
+		return   # the next swing is about to start
+	push_warning("[ACTOR] %s keluar dari state %s lewat pengawas waktu" % [name, state])
+	_enter_state(STATE_IDLE)
+	_play(STATE_IDLE, 1.0)
 
 
 func _update_flash(delta: float) -> void:
