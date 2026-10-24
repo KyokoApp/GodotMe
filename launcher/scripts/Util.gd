@@ -52,10 +52,9 @@ static func human_size(bytes: int) -> String:
 	if b < 1024.0:
 		return "%d B" % int(b)
 	if b < 1024.0 * 1024.0:
-		return "%.1f KB" % (b / 1024.0)
+		return ("%.1f KB" % (b / 1024.0)).replace(".", ",")
 	if b < 1024.0 * 1024.0 * 1024.0:
-		var mb := b / (1024.0 * 1024.0)
-		return ("%.1f MB" % mb).replace(".", ",")
+		return ("%.1f MB" % (b / (1024.0 * 1024.0))).replace(".", ",")
 	var gb := b / (1024.0 * 1024.0 * 1024.0)
 	return ("%.2f GB" % gb).replace(".", ",")
 

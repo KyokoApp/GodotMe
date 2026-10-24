@@ -116,15 +116,18 @@ func boot_ok_file() -> String:
 	return data_root().path_join("boot_ok.json")
 
 
-## Manifest URL resolution order: CLI flag > operator override file > constant.
+## Manifest URL resolution order:
+##   data_root/manifest_url.txt  (operator / test override, wins at runtime)
+##   --manifest= on the command line
+##   Config.MANIFEST_URL          (the shipped default)
 func manifest_url() -> String:
-	if _manifest_override != "":
-		return _manifest_override
 	var override_path: String = data_root().path_join("manifest_url.txt")
 	if FileAccess.file_exists(override_path):
 		var txt := FileAccess.get_file_as_string(override_path).strip_edges()
 		if txt != "":
 			return txt
+	if _manifest_override != "":
+		return _manifest_override
 	return MANIFEST_URL
 
 

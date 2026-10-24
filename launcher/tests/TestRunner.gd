@@ -122,8 +122,8 @@ func _install(manifest_url: String, timeout_s: float = 40.0) -> Dictionary:
 
 func _base() -> String:
 	var url := Cfg.manifest_url()
-	var i := url.find("/manifests/")
-	return url.substr(0, i) if i > 0 else url
+	var i := url.rfind("/")
+	return url.substr(0, i) if i > 7 else url
 
 
 func _pack_count() -> int:

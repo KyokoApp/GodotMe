@@ -76,7 +76,7 @@ run_case() {
           --manifest="$HOST/v120_broken.json" 2>&1 | tail -14
       local code=${PIPESTATUS[0]}
       [ "$code" -eq 0 ] && fail "paket rusak TIDAK membuat aplikasi mati"
-      run_scenario startup_rollback t_crash
+      run_scenario startup_rollback t_crash --manifest="$HOST/v110.json"
       ;;
     capture)           run_scenario capture t_capture --manifest="$HOST/slow.json" --captures="${CAPTURES:-/tmp/shots}" ;;
     *) fail "unknown case $1"; return 1 ;;
