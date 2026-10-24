@@ -11,11 +11,14 @@ const CREST := "res://game/assets/crest.png"
 const BG := "res://game/assets/bg.png"
 const PARCH := "res://game/assets/parchment.png"
 const DIVIDER := "res://game/assets/divider.png"
-const FONT_DISPLAY := "res://game/assets/Jacquard12.woff2"
+# Blackletter reads as a smear at phone size (and at 60 px on a 1280x720
+# canvas it is unreadable), so the sample screen uses the same pixel face as the
+# launcher, bigger and with extra tracking.
+const FONT_DISPLAY := "res://game/assets/PixelifySans-SemiBold.woff2"
 const FONT_BODY := "res://game/assets/PixelifySans.woff2"
 
-var _font_display: FontFile
-var _font_body: FontFile
+var _font_display: Font
+var _font_body: Font
 var _status: Label
 
 
@@ -60,21 +63,21 @@ func _build_ui() -> void:
 	bg_rect.modulate = Color(0.72, 0.66, 0.62)
 	add_child(bg_rect)
 
-	_font_display = _font(FONT_DISPLAY)
-	_font_body = _font(FONT_BODY)
+	_font_display = _font(FONT_DISPLAY, 3)
+	_font_body = _font(FONT_BODY, 1)
 
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", _nine(PARCH, 20, 30, 26))
 	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(760, 0)
+	panel.custom_minimum_size = Vector2(820, 0)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.5
 	panel.anchor_bottom = 0.5
-	panel.offset_left = -380
-	panel.offset_right = 380
-	panel.offset_top = -220
-	panel.offset_bottom = 220
+	panel.offset_left = -410
+	panel.offset_right = 410
+	panel.offset_top = -250
+	panel.offset_bottom = 250
 	add_child(panel)
 
 	var box := VBoxContainer.new()
@@ -90,9 +93,9 @@ func _build_ui() -> void:
 	box.add_child(crest)
 
 	var title := Label.new()
-	title.text = "PAKET CONTOH"
+	title.text = "DUNIA CONTOH"
 	title.add_theme_font_override("font", _font_display)
-	title.add_theme_font_size_override("font_size", 60)
+	title.add_theme_font_size_override("font_size", 52)
 	title.add_theme_color_override("font_color", Color(0.165, 0.11, 0.086))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
@@ -113,12 +116,20 @@ func _build_ui() -> void:
 	box.add_child(divider)
 
 	_status = Label.new()
-	_status.text = "Paket: core, characters, enemies, world, ui, audio"
+	_status.text = "Dimuat dari 6 paket: core · characters · enemies · world · ui · audio"
 	_status.add_theme_font_override("font", _font_body)
 	_status.add_theme_font_size_override("font_size", 17)
 	_status.add_theme_color_override("font_color", Color(0.42, 0.33, 0.24))
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_status)
+
+	var end_note := Label.new()
+	end_note.text = "Ini batas Fase 1: pipa unduh → verifikasi → muat paket sudah utuh.\nDunia sesungguhnya (kamera HD-2D, karakter, pertempuran) dibangun di Fase 2."
+	end_note.add_theme_font_override("font", _font_body)
+	end_note.add_theme_font_size_override("font_size", 16)
+	end_note.add_theme_color_override("font_color", Color(0.44, 0.35, 0.26))
+	end_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(end_note)
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -147,6 +158,25 @@ func _maybe_quit_for_tests() -> void:
 			print("[SAMPLE] keluar otomatis untuk pengujian.")
 			get_tree().quit(0)
 			return
+		if a.begins_with("--capture="):
+			# "godot --path game -- --capture=<dir> [--capture-name=x]": save the
+			# scene once and exit, so CI can check this screen visually.
+			var dir := a.substr("--capture=".length())
+			var shot_name := "07_dunia"
+			for arg2 in OS.get_cmdline_user_args():
+				var b := String(arg2)
+				if b.begins_with("--capture-name="):
+					shot_name = b.substr("--capture-name=".length())
+			await get_tree().create_timer(1.2).timeout
+			await RenderingServer.frame_post_draw
+			DirAccess.make_dir_recursive_absolute(dir)
+			var img := get_viewport().get_texture().get_image()
+			var path := dir.path_join(shot_name + ".png")
+			var err := img.save_png(path)
+			print("[SAMPLE] capture %s -> %s (err %d, %dx%d)" % [
+				shot_name, path, err, img.get_width(), img.get_height()])
+			get_tree().quit(0)
+			return
 
 
 # --------------------------------------------------------------- helpers -----
@@ -160,14 +190,22 @@ func _tex(path: String) -> Texture2D:
 	return ImageTexture.create_from_image(img)
 
 
-func _font(path: String) -> FontFile:
+## Pixelify packs its glyphs tight; a FontVariation adds tracking without
+## touching the letterforms (same trick as the launcher's small print).
+func _font(path: String, tracking: int = 0) -> Font:
 	var f := FontFile.new()
 	if f.load_dynamic_font(path) != OK:
 		return null
 	f.antialiasing = TextServer.FONT_ANTIALIASING_NONE
 	f.hinting = TextServer.HINTING_NONE
 	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
-	return f
+	if tracking == 0:
+		return f
+	var v := FontVariation.new()
+	v.base_font = f
+	v.spacing_glyph = tracking
+	v.spacing_space = tracking * 2
+	return v
 
 
 func _nine(path: String, margin: int, mx: int, my: int) -> StyleBoxTexture:

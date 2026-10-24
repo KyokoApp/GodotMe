@@ -184,6 +184,11 @@ jobs:
             --budget=120 --manifest=http://127.0.0.1:$PORT/slow.json \
             --captures="$GITHUB_WORKSPACE/docs/screenshots" 2>&1 | tail -40
           kill $SRV 2>/dev/null || true
+          # the screen the player actually lands on after tapping MAIN
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            -- --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=07_dunia \
+            2>&1 | tail -5
           ls -la docs/screenshots
 
       - name: Commit screenshots
