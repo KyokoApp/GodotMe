@@ -230,18 +230,44 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Android SDK pieces
+      - name: Android SDK (use the runner image's preinstalled SDK)
+        continue-on-error: true
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" | tail -3
-          yes | sdkmanager --licenses >/dev/null || true
+          set +e
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          SDK=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          ls "$SDK" || true
+          echo "--- build-tools ---"; ls "$SDK/build-tools" || true
+          echo "--- platforms ---"; ls "$SDK/platforms" || true
+          which apksigner || ls "$SDK"/build-tools/*/apksigner || true
+          which zipalign || ls "$SDK"/build-tools/*/zipalign || true
 
       - name: Debug keystore
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey \
             -keypass android -keystore /tmp/debug.keystore -storepass android \
             -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+
+      - name: Point Godot at the SDK (editor settings)
+        run: |
+          SDK=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$SDK"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "/tmp/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          export/android/force_system_user = false
+          export/android/shutdown_adb_on_exit = true
+          EOF
+          # strip the heredoc indentation so the .tres parses
+          sed -i 's/^          //' "$HOME/.config/godot/editor_settings-4.7.tres"
+          cat "$HOME/.config/godot/editor_settings-4.7.tres"
 
       - name: Export APK
         run: |
@@ -263,8 +289,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Publish APK log to the PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          [ -z "$PR" ] && exit 0
+          { echo "### APK job log"; echo '```'; tail -c 40000 /tmp/apk.log 2>/dev/null || echo "(no export log)"; echo '```'; } > /tmp/apk2.md
+          gh pr comment "$PR" --body-file /tmp/apk2.md --repo "$GITHUB_REPOSITORY" || true
+
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: re-traveller-launcher-apk
           path: dist/*.apk
-          if-no-files-found: error
+          if-no-files-found: warn
