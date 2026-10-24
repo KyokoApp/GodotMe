@@ -78,12 +78,13 @@ run_case() {
       [ "$code" -eq 0 ] && fail "paket rusak TIDAK membuat aplikasi mati"
       run_scenario startup_rollback t_crash --manifest="$HOST/v110.json"
       ;;
+    ui_input)          run_scenario ui_input t_ui ;;
     capture)           run_scenario capture t_capture --manifest="$HOST/slow.json" --captures="${CAPTURES:-/tmp/shots}" ;;
     *) fail "unknown case $1"; return 1 ;;
   esac
 }
 
-ALL_CASES="unit first_install partial_update resume bad_hash offline launcher_too_old blocked signed_ok signed_bad crash"
+ALL_CASES="unit first_install partial_update resume bad_hash offline launcher_too_old blocked signed_ok signed_bad ui_input crash"
 
 prepare || exit 1
 if [ $# -gt 0 ]; then

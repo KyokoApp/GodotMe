@@ -55,6 +55,8 @@ func _ready() -> void:
 			await _scenario_install_and_boot()
 		"startup_rollback":
 			await _scenario_startup_rollback()
+		"ui_input":
+			await _scenario_ui_input()
 		"capture":
 			await _scenario_capture()
 		_:
@@ -367,6 +369,103 @@ func _scenario_install_and_boot() -> void:
 	Updater.play()   # the sample game intentionally crashes here
 	await get_tree().create_timer(10.0).timeout
 	_check(false, "proses seharusnya sudah mati karena paket rusak")
+
+
+## Regression guard for the blocker found on a real phone: a tap on MAIN did
+## nothing because a full-rect control inside the (always visible) modal layer sat
+## above the whole UI and ate every touch event. These checks push real
+## press/release events through the viewport instead of calling handlers
+## directly, so any overlay that swallows input fails the test.
+func _scenario_ui_input() -> void:
+	await _restart()
+	# This scenario is about input routing only. Freezing the manager stops the
+	# launcher's own 0.25 s auto-check from firing a network request and
+	# overwriting the state set up below.
+	Updater._running = true
+
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(host)
+	var launcher: Control = load("res://scenes/Launcher.tscn").instantiate()
+	host.add_child(launcher)
+	for _i in 6:
+		await get_tree().process_frame
+
+	var play: Button = launcher.get_node("SafeArea/Columns/Right/Pad/Content/ButtonRow/PlayButton")
+	var retry: Button = launcher.get_node("SafeArea/Columns/Right/Pad/Content/ButtonRow/RetryButton")
+	var modal_layer: CanvasLayer = launcher.get_node("ModalLayer")
+
+	# Render the real READY state instead of hand-poking disabled flags.
+	launcher._on_state_changed(Updater.State.READY, {
+		"message": "Pembaruan selesai",
+		"detail": "Versi 1.0.0 siap dimainkan.",
+		"can_play": true,
+		"can_retry": true,
+		"version": "1.0.0",
+	})
+	for _i in 3:
+		await get_tree().process_frame
+
+	var hits := {"play": 0, "retry": 0}
+	# Take over MAIN's own handler so a successful press cannot boot the sample
+	# game and kill the test runner; the boot path is covered by the crash and
+	# install_and_boot scenarios.
+	for conn in play.pressed.get_connections():
+		play.pressed.disconnect(conn["callable"])
+	play.pressed.connect(func(): hits["play"] += 1)
+	retry.pressed.connect(func(): hits["retry"] += 1)
+
+	var main_pos := play.get_global_rect().get_center()
+	print("VIEWPORT %s  MAIN rect %s" % [get_viewport().get_visible_rect().size, play.get_global_rect()])
+	_check(play.get_global_rect().size.x >= 40.0, "MAIN punya ukuran nyata di layar", str(play.get_global_rect()))
+	_check(not play.disabled, "MAIN aktif pada state READY", str(play.disabled))
+	_check(not modal_layer.visible, "lapisan modal tidak terlihat saat tidak dipakai", str(modal_layer.visible))
+
+	# A disabled button must ignore taps ...
+	play.disabled = true
+	await _click_at(main_pos)
+	_check(hits["play"] == 0, "MAIN nonaktif memang tidak bereaksi", str(hits["play"]))
+	play.disabled = false
+
+	# ... and an enabled one must receive them through the real input pipeline.
+	await _click_at(main_pos)
+	_check(hits["play"] == 1, "sentuhan sampai ke tombol MAIN (tidak tertutup overlay)", str(hits["play"]))
+
+	# Retry sits in the same row; an overlay covering the row would break both.
+	await _click_at(retry.get_global_rect().get_center())
+	_check(hits["retry"] == 1, "tombol sekunder juga menerima sentuhan", str(hits["retry"]))
+
+	# An open modal MUST block the launcher behind it ...
+	launcher._show_modal("Uji", "Modal uji.", "Mengerti")
+	for _i in 4:
+		await get_tree().process_frame
+	_check(modal_layer.visible, "lapisan modal muncul bersama modalnya", str(modal_layer.visible))
+	await _click_at(main_pos)
+	_check(hits["play"] == 1, "modal terbuka menahan sentuhan ke latar", str(hits["play"]))
+
+	# ... and must stop blocking once dismissed.
+	launcher._hide_modal()
+	await get_tree().create_timer(0.6).timeout
+	_check(not modal_layer.visible, "lapisan modal hilang lagi setelah ditutup", str(modal_layer.visible))
+	await _click_at(main_pos)
+	_check(hits["play"] == 2, "MAIN bisa ditekan lagi setelah modal ditutup", str(hits["play"]))
+
+	launcher.queue_free()
+	await get_tree().process_frame
+
+
+## Full press/release pair through the viewport, like a real tap.
+func _click_at(pos: Vector2) -> void:
+	for is_down in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.pressed = is_down
+		ev.position = pos
+		ev.global_position = pos
+		get_viewport().push_input(ev)
+		await get_tree().process_frame
+		await get_tree().process_frame
 
 
 func _scenario_capture() -> void:

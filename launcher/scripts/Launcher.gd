@@ -33,6 +33,7 @@ const ICON_PAUSE := "res://ui/textures/icon_pause.png"
 var _retry_icon := ""
 @onready var _play_button: Button = $SafeArea/Columns/Right/Pad/Content/ButtonRow/PlayButton
 @onready var _dust: CPUParticles2D = $Dust
+@onready var _modal_layer: CanvasLayer = $ModalLayer
 @onready var _dim: ColorRect = $ModalLayer/Dim
 @onready var _modal: PanelContainer = $ModalLayer/Center/Modal
 @onready var _modal_title: Label = $ModalLayer/Center/Modal/Pad/Box/ModalTitle
@@ -50,7 +51,9 @@ func _ready() -> void:
 	# the modal lives under a CanvasLayer, which does not take part in theme
 	# propagation, so it gets the same theme explicitly
 	_modal.theme = theme
-	_dim.visible = false
+	# The whole layer goes away: a hidden panel is not enough, because the
+	# full-rect centre container would still swallow every tap on MAIN.
+	_modal_layer.visible = false
 	_modal.visible = false
 	_modal_ok.pressed.connect(func(): _hide_modal())
 	_retry_button.pressed.connect(_on_retry_pressed)
@@ -421,6 +424,7 @@ func _show_modal(title: String, body: String, ok_text: String = "Mengerti") -> v
 	_modal_title.text = title
 	_modal_body.text = body
 	_modal_ok.text = ok_text
+	_modal_layer.visible = true
 	_dim.visible = true
 	_modal.visible = true
 	_dim.modulate.a = 0.0
@@ -438,6 +442,8 @@ func _hide_modal() -> void:
 	tw.tween_property(_dim, "modulate:a", 0.0, 0.15)
 	tw.tween_property(_modal, "modulate:a", 0.0, 0.15)
 	tw.chain().tween_callback(func():
-		_dim.visible = false
+		# The whole layer goes away: a hidden panel is not enough, because the
+	# full-rect centre container would still swallow every tap on MAIN.
+	_modal_layer.visible = false
 		_modal.visible = false
 	)

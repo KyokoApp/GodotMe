@@ -76,6 +76,7 @@ jobs:
           - blocked
           - signed_ok
           - signed_bad
+          - ui_input
           - crash
     steps:
       - uses: actions/checkout@v4

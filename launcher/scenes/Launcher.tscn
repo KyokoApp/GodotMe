@@ -331,6 +331,7 @@ text = "  MAIN"
 icon = ExtResource("10_play")
 
 [node name="ModalLayer" type="CanvasLayer" parent="."]
+visible = false
 layer = 10
 
 [node name="Dim" type="ColorRect" parent="ModalLayer"]
@@ -347,6 +348,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="Modal" type="PanelContainer" parent="ModalLayer/Center"]
 custom_minimum_size = Vector2(660, 0)
