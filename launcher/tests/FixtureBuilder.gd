@@ -35,6 +35,7 @@ const PACK_FILES := {
 			"game/world/DioramaCamera.gd",
 			"game/world/WorldArt.gd",
 			"game/world/tiltshift.gdshader",
+			"game/world/path.gdshader",
 			"game/world/textures/tree_pine.png",
 			"game/world/textures/tree_oak.png",
 			"game/world/textures/cottage.png",

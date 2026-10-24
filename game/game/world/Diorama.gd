@@ -9,7 +9,8 @@ extends Node3D
 ##
 ## No character logic lives here (Phase 2 stage 1 is the engine, not an actor).
 
-const TEX_DIR := "res://game/world/textures/"
+const WORLD_DIR := "res://game/world/"
+const TEX_DIR := WORLD_DIR + "textures/"
 
 const AREA_NAME := "Lembah Senja"
 const AREA_SUBTITLE := "Yaros, awal perjalanan"
@@ -178,6 +179,7 @@ func _build_ground() -> void:
 func _build_path() -> void:
 	var verts := PackedVector3Array()
 	var uvs := PackedVector2Array()
+	var uvs2 := PackedVector2Array()
 	var norms := PackedVector3Array()
 	var indices := PackedInt32Array()
 	var run := 0.0
@@ -194,6 +196,8 @@ func _build_path() -> void:
 			verts.append(Vector3(p.x, 0.02, p.y))
 			norms.append(Vector3.UP)
 			uvs.append(Vector2(across, run / 2.2))
+			# ground tiling (tile size matches _build_ground's 2.0 m)
+			uvs2.append(Vector2(p.x / 2.0, p.y / 2.0))
 		indices.append_array([base, base + 1, base + 2, base + 1, base + 3, base + 2])
 		run += seg
 	var arrays := []
@@ -201,6 +205,7 @@ func _build_path() -> void:
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = norms
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_TEX_UV2] = uvs2
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
@@ -209,9 +214,14 @@ func _build_path() -> void:
 	mi.name = "Path"
 	mi.mesh = mesh
 	var dirt := WorldArt.tex(TEX_DIR + "path_tile.png")
-	var mat := WorldArt.ground_material(dirt, 1.0, 1.0)
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.uv1_triplanar = false
+	var grass_tex := WorldArt.tex(TEX_DIR + "grass_tile.png")
+	var mat := ShaderMaterial.new()
+	if ResourceLoader.exists(WORLD_DIR + "path.gdshader"):
+		mat.shader = load(WORLD_DIR + "path.gdshader")
+	mat.set_shader_parameter("dirt_tex", dirt)
+	mat.set_shader_parameter("grass_tex", grass_tex)
+	mat.set_shader_parameter("dirt_scale", 1.6)
+	mat.set_shader_parameter("feather", 0.26)
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
