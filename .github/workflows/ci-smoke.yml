@@ -1,0 +1,11 @@
+name: ci-smoke
+on:
+  push:
+    branches: ["arena/5c17933c-godotme"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: hello
+        run: echo "CI_WORKS $(uname -a)"
