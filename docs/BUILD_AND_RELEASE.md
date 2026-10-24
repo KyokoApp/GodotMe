@@ -500,3 +500,13 @@ Bukti di CI (job `screenshots`, artefak `docs/screenshots/`):
 jalur yang dipakai HP, lengkap dengan `boot_ok.json` yang menyebut versi aktif.
 Uji yang sama juga memastikan `Main.gd` benar-benar punya skrip dan terkompilasi
 sebelum dijalankan — kalau tidak, build merah, bukan layar hitam.
+
+### 0.2.2 — paket perbaikan permainan
+
+`characters_100.pck` 156.188 B (state machine: hit-stop tidak lagi membekukan
+animasi, flinch tidak bisa dirantai, ada pengawas waktu) dan `world_100.pck`
+1.615.876 B (tinggi prop ikut skala). APK tidak berubah: **Periksa Lagi → MAIN**.
+
+Uji yang menjaga paket ini: job **parse check → Play rules** di CI
+(`game/tests/PlayTest.tscn`), 12 pemeriksaan, termasuk "ksatria tetap bisa
+dikendalikan setelah orc memukul" dan "semua prop menapak di tanah".
