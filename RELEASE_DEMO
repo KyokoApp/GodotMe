@@ -31,3 +31,4 @@
 # re-run 19:49:30
 # re-run 20:62 tahap sprite: characters.pck berisi ksatria/penjaga/orc; core berubah (kontrol+dialog)
 # re-run 21:04 notes rilis tidak lagi kosong; changelog menyebut world.pck
+# re-run 22:40 perbaikan boot: skrip game tanpa class_name; paket 0.2.1
