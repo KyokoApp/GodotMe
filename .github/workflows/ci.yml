@@ -319,36 +319,38 @@ jobs:
           tail -60 /tmp/apk.log
           ls -la dist >> /tmp/apk.log
 
-          # Non-fatal probe: where do our strings live inside the APK?
+          # Prove the APK was built from this commit: build_id lives in
+          # project.godot and ends up inside assets/project.binary, so a stale
+          # or wrong artifact fails here instead of being published.
           python3 - <<'PYEOF' 2>&1 | tee -a /tmp/apk.log
-          import glob, hashlib, subprocess, zipfile
-          print("HEAD", subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
-                                        text=True).stdout.strip())
-          probes = [b"rt-launcher-v2-main-fix", b"Kisah Delapan Pengembara",
-                    b"config/version", b"project.binary", b".pck"]
-          for apk in sorted(glob.glob("dist/*.apk")):
-              data = open(apk, "rb").read()
-              print("APK %s  %d bytes  sha256=%s" % (apk, len(data),
-                                                    hashlib.sha256(data).hexdigest()[:16]))
-              for p in probes:
-                  print("   raw %-28s %s" % (p.decode(), p in data))
+          import glob, re, sys, zipfile
+          src = open("launcher/project.godot", encoding="utf-8").read()
+          m = re.search(r'^build_id="([^"]+)"', src, re.M)
+          if not m:
+              sys.exit("project.godot has no [re_traveller] build_id")
+          marker = m.group(1).encode()
+          apks = sorted(glob.glob("dist/*.apk"))
+          if not apks:
+              sys.exit("no APK produced")
+          failed = False
+          for apk in apks:
+              hit = False
+              where = ""
               with zipfile.ZipFile(apk) as z:
-                  for info in z.infolist()[:30]:
-                      print("   entry %-52s %8d %s" % (info.filename, info.file_size,
-                                                       info.compress_type))
-                  hits = {}
                   for info in z.infolist():
-                      if info.file_size > 80 * 1024 * 1024:
+                      if hit or info.file_size > 80 * 1024 * 1024:
                           continue
                       try:
-                          blob = z.read(info)
+                          if marker in z.read(info):
+                              hit = True
+                              where = info.filename
                       except Exception:
-                          continue
-                      for p in probes:
-                          if p in blob:
-                              hits.setdefault(p.decode(), []).append(info.filename)
-                  print("   entry-scan hits:", {k: v[:2] for k, v in hits.items()})
+                          pass
+              print("BUILD_ID %s in %s: %s %s" % (marker.decode(), apk, hit, where))
+              failed = failed or not hit
+          sys.exit(1 if failed else 0)
           PYEOF
+          [ ${PIPESTATUS[0]} -ne 0 ] && code=1
 
           PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then

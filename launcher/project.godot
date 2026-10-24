@@ -26,6 +26,13 @@ Store="*res://scripts/Store.gd"
 Guard="*res://scripts/Guard.gd"
 Updater="*res://scripts/UpdateManager.gd"
 
+[re_traveller]
+
+; Stamped into the APK (assets/project.binary) and shown in the launcher
+; journal, so "which build is installed" is never a guess. CI reads this file
+; and fails when an exported APK does not contain the value.
+build_id="rt-launcher-v2-main-fix"
+
 [debug]
 
 gdscript/warnings/treat_warnings_as_errors=false
