@@ -20,10 +20,10 @@ on:
         required: true
       pack_version:
         description: "Version written into version.json"
-        default: "0.1.0"
+        default: "0.2.0"
         required: true
   push:
-    branches: ["arena/5c17933c-godotme"]
+    branches: ["arena/**"]
     paths: ["RELEASE_DEMO"]
 
 permissions:
@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.1.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.2.0' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,9 +70,9 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
-              "Rilis demo: enam paket modular (core, characters, enemies, world, ui, audio).",
-              "Dunia contoh dimuat dari paket .pck, bukan dari APK.",
-              "Uji: update karakter hanya mengunduh characters.pck.",
+              "Tahap sprite: ksatria, penjaga, dan tiga orc hidup di lembah.",
+              "Kontrol sentuh: stik jalan/lari, serang, tahan blok, bicara dengan penjaga.",
+              "Yang berubah hanya core.pck dan characters.pck; paket lain tetap.",
           ]
           # GitHub Release assets are flat: the manifest must point at bare file
           # names, so rewrite "packs/<file>" -> "<file>" and copy just the packs

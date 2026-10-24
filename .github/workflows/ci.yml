@@ -2,7 +2,8 @@ name: ci
 
 on:
   push:
-    branches: ["arena/5c17933c-godotme"]
+    # any Arena work branch, plus main, so a merged change keeps being checked
+    branches: ["main", "arena/**"]
   workflow_dispatch:
 
 permissions:
@@ -62,6 +63,23 @@ jobs:
             gh pr comment "$PR" --body-file /tmp/lint.md --repo "$GITHUB_REPOSITORY" || true
           fi
           exit ${LINT_FAILED:-0}
+
+      - name: Character sprite contract (strips + SpriteFrames)
+        # Fails the build, it does not guess: a strip whose width is not
+        # frames x frame_width, a stale pivot or an empty animation stops here.
+        run: |
+          set -o pipefail
+          python3 -m venv /tmp/venv >/dev/null
+          /tmp/venv/bin/pip install --quiet pillow
+          /tmp/venv/bin/python tools/import_character_sprites.py --check 2>&1 | tee /tmp/chars_py.log
+          godot --headless --path game res://game/tests/ValidateCharacters.tscn 2>&1 | tee /tmp/chars_gd.log
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### character contract"; echo '```'; tail -c 20000 /tmp/chars_py.log; echo; tail -c 20000 /tmp/chars_gd.log; echo '```'; } > /tmp/chars.md
+            gh pr comment "$PR" --body-file /tmp/chars.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -189,6 +207,21 @@ jobs:
             "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
             -- --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=08_diorama \
             2>&1 | tee -a /tmp/capture.log | tail -20
+          # --- character stage: three-up test sheet --------------------------
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            res://game/tests/CharacterTest.tscn -- \
+            --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=09_karakter \
+            2>&1 | tee -a /tmp/capture.log | tail -20
+          # --- character stage: the cast inside the diorama, day and night ---
+          for variant in "day 10_visual_siang" "night 11_visual_malam"; do
+            set -- $variant
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              res://game/tests/VisualTest.tscn -- \
+              --time="$1" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
+          done
           ls -la docs/screenshots
 
       - name: Publish capture log to the PR

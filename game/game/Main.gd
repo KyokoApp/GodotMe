@@ -49,6 +49,7 @@ func _build_world() -> void:
 	if ResourceLoader.exists(DIORAMA):
 		_diorama = load(DIORAMA).instantiate() as Node3D
 		add_child(_diorama)
+		_add_cast()
 	else:
 		# A missing world pack must not look like a crash: say it plainly.
 		_diorama = null
@@ -67,6 +68,24 @@ func _build_world() -> void:
 		mat.shader = load(TILT_SHIFT)
 	rect.material = mat
 	layer.add_child(rect)
+
+
+## The cast lives in the characters pack and is added *inside* the diorama, so
+## it can ask the world for its prop footprints and inherit its light. A missing
+## characters pack leaves the diorama standing instead of taking the boot down.
+func _add_cast() -> void:
+	var path := "res://game/characters/CharacterWorld.gd"
+	if _diorama == null or not ResourceLoader.exists(path):
+		print("[GAME] paket karakter tidak ada, diorama tetap tampil tanpa penghuni")
+		return
+	var script: Script = load(path)
+	if script == null:
+		print("[GAME] skrip karakter gagal dimuat")
+		return
+	var cast: Node3D = script.new()
+	cast.name = "Characters"
+	_diorama.add_child(cast)
+	print("[GAME] penghuni dimuat dari paket karakter")
 
 
 # -------------------------------------------------------------------- hud ----
@@ -142,7 +161,7 @@ func _build_hud() -> void:
 	note_box.add_child(crest)
 
 	var note_label := Label.new()
-	note_label.text = "Fase 2 · tahap 1: mesin diorama.\nKamera, cahaya, bayangan, dan kabut sudah hidup — belum ada penghuni."
+	note_label.text = "Fase 2 · tahap 2: penghuni lembah.\nKsatria bisa digerakkan, penjaga punya cerita, orc berpatroli di tepi hutan."
 	note_label.add_theme_font_override("font", _font_body)
 	note_label.add_theme_font_size_override("font_size", 15)
 	note_label.add_theme_color_override("font_color", INK_SOFT)
@@ -174,7 +193,7 @@ func _build_hud() -> void:
 
 	# --- one-time control hint near the bottom centre
 	_hint = Label.new()
-	_hint.text = "Geser untuk melihat sekeliling · cubit atau gulir untuk memperbesar"
+	_hint.text = "Stik kiri: jalan (dorong penuh untuk lari) · Serang · Tahan · Bicara\nGeser layar untuk melihat sekeliling · cubit untuk memperbesar"
 	_hint.add_theme_font_override("font", _font_body)
 	_hint.add_theme_font_size_override("font_size", 16)
 	_hint.add_theme_color_override("font_color", CREAM)

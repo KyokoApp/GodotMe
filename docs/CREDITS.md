@@ -36,6 +36,30 @@ Semua gambar diproses menjadi **bitmap PNG sungguhan** sebelum masuk game.
 Tidak ada sprite/UI yang digambar lewat kode saat runtime (`draw_rect`,
 polygon, gradient prosedural) — kode hanya memuat PNG dan menempatkannya.
 
+## Karakter (tahap sprite, Fase 2)
+
+Semua sprite karakter adalah **PNG dari pack pihak ketiga yang diunggah pemilik
+proyek**, bukan gambar hasil kode dan bukan hasil model gambar. Tidak ada satu
+piksel pun yang digambar runtime: `AnimatedSprite3D` hanya memotong strip yang
+sudah ada.
+
+| Pack | Berkas yang dipakai | Lisensi | Catatan |
+| --- | --- | --- | --- |
+| **FREE Knight 2D Pixel Art v1.2** | `game/assets/characters/knight/*.png` (12 strip: idle, walk, run, attack_1–3, block, hurt, death, jump_start/transition/fall), `LICENSE.txt` | Komersial & pribadi boleh; **dilarang menjual/menyebarkan ulang sebagai aset** (harus jadi bagian dari proyek); kredit tidak wajib tetapi dihargai; boleh dimodifikasi; **dilarang** dijadikan NFT | Ksatria = pemain. Teks lisensi asli disalin apa adanya ke `game/assets/characters/knight/LICENSE.txt`. Nama kreator tidak tercantum di dalam berkas lisensi pack, jadi tidak dikarang di sini. |
+| **Tiny RPG Character Asset Pack 01 v2.0 — Free Soldier & Orc** | `game/assets/characters/soldier/*.png`, `game/assets/characters/orc/*.png` | **DIISI PEMILIK (TODO)** — zip yang diunggah **tidak memuat berkas lisensi**, sumber/kreator belum terverifikasi | Penjaga (NPC) + orc (musuh). Varian "with shadows" **tidak dipakai**; disimpan sebagai cadangan di `assets_src/characters/*/_with_shadows/`. Arrow projectile (100×100 & 32×32) disimpan untuk pemanah nanti. Jangan publikasikan sebelum kolom lisensi diisi. |
+
+Catatan lisensi yang perlu diingat sebelum rilis publik:
+
+1. Pack Knight melarang **menjual atau menyebarkan ulang asetnya sebagai aset**.
+   Karena itu strip mentah tidak boleh dipublikasikan sebagai "asset pack" di
+   repo/release terpisah; di repo ini ia hanya ada sebagai bagian dari game.
+2. Pack Soldier/Orc belum punya berkas lisensi. Statusnya masih **TODO pemilik**;
+   `game/assets/characters/soldier/SOURCE.txt` dan `.../orc/SOURCE.txt` menuliskan
+   ini secara eksplisit di dalam paketnya sendiri.
+3. Pack **FREE Blacksmith 2D Pixel Art** ikut terkirim di zip yang sama. Belum
+   dipakai di tahap ini; disimpan di `assets_src/characters/_extra_blacksmith/`
+   lengkap dengan lisensinya (isinya sama dengan lisensi Knight).
+
 ## Kode & tooling
 
 | Berkas | Lisensi |

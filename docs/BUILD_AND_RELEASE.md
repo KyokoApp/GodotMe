@@ -331,3 +331,72 @@ Naik engine = **APK baru** (satu-satunya alasan selain perubahan launcher):
    `min_launcher_version` = versi launcher baru, sehingga pemain dengan APK
    lama diberi tahu bahwa mereka perlu memasang APK baru (dan tetap bisa
    memainkan versi lama sampai memasangnya).
+
+---
+
+## 12. Paket karakter & pipeline sprite (tahap sprite)
+
+### Isi `characters.pck`
+
+Paket ini sekarang memuat **seluruh** lapisan karakter: skrip
+(`CharacterDef`, `CharacterAssets`, `Actor`, `Npc`, `Enemy`, `CharacterWorld`,
+`TouchControls`, `DialogueBox`), dua shader kecil (`blob_shadow`, `dust_puff`),
+tiga definisi (`characters/data/{knight,soldier,orc}.tres`), dan semua strip
+PNG di `game/assets/characters/<id>/` berikut berkas lisensinya. Daftar
+lengkapnya ada di `launcher/tests/FixtureBuilder.gd` (`PACK_FILES["characters"]`)
+— **setiap berkas baru wajib didaftarkan di sana**, kalau tidak ia tidak akan
+pernah ikut ke dalam paket.
+
+`world.pck` tetap sama sejak tahap 1. `core.pck` ikut berubah karena `Main.gd`
+sekarang menambahkan lapisan karakter ke dalam diorama.
+
+### Nama berkas paket sengaja tidak berubah
+
+Rilis memakai nama stabil (`characters_100.pck`, `core_100.pck`, …) dan
+`version.json` menyebut versi **0.2.0**. Alasannya: launcher menghitung selisih
+dari **hash**, bukan dari nama. Kalau nama berkas dinaikkan versinya, URL semua
+paket berubah dan HP akan mengunduh ulang paket yang sebenarnya tidak berubah.
+Dengan nama stabil, update tahap ini hanya mengunduh `core.pck` +
+`characters.pck`; `world.pck`, `ui.pck`, `enemies.pck`, `audio.pck` dilewati
+karena hash-nya sama.
+
+### Memeriksa aset karakter (dijalankan CI, bisa juga manual)
+
+```bash
+# 1. kontrak strip: lebar PNG harus = jumlah frame x lebar frame
+python3 -m venv /tmp/venv && /tmp/venv/bin/pip install pillow       # sekali
+/tmp/venv/bin/python tools/import_character_sprites.py --check       # gagal = exit 1
+/tmp/venv/bin/python tools/import_character_sprites.py --report      # inventaris + pivot
+
+# 2. data + SpriteFrames di dalam Godot (gagal = exit 1)
+godot --headless --path game res://game/tests/ValidateCharacters.tscn
+
+# 3. dua scene uji visual
+godot --path game res://game/tests/CharacterTest.tscn
+godot --path game res://game/tests/VisualTest.tscn -- --time=night
+```
+
+Kalau `--check` gagal, **jangan** mengakali dengan memotong gambar: perbaiki
+sumbernya di `assets_src/characters/<id>/`, lalu jalankan
+`--import` untuk menyalin ulang dan memperbarui pivot di `.tres`.
+
+### Menambah karakter baru
+
+1. Taruh strip di `assets_src/characters/<id>/` (huruf kecil, `snake_case`,
+   tanpa spasi atau `&` di nama berkas).
+2. Tambahkan satu entri di `SPEC` pada `tools/import_character_sprites.py`
+   (kanvas, daftar animasi + jumlah frame + fps + loop, `pixel_scale`,
+   `walk_stride_m`, `body_radius_m`).
+3. `python3 tools/import_character_sprites.py --import` → menyalin PNG ke
+   `game/game/assets/characters/<id>/` dan menulis `characters/data/<id>.tres`.
+4. Daftarkan berkas-berkasnya di `PACK_FILES["characters"]`.
+5. Taruh di dunia lewat `CharacterWorld.gd` (satu baris `_spawn(...)`).
+
+Tidak ada nama karakter yang ditulis di kode game; semuanya membaca `.tres`.
+
+### Save pemain
+
+Tahap ini **belum punya sistem save** (yang ada hanya `user://retraveller/active.json`
+dan `boot_ok.json` milik peluncur, dan keduanya tidak disentuh). Jadi tidak ada
+data pemain yang bisa hilang oleh pembaruan paket. Sistem save berversi adalah
+tahap berikutnya.

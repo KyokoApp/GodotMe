@@ -306,3 +306,37 @@ func _build_camera() -> void:
 func reset_view() -> void:
 	if _camera != null:
 		_camera.reset()
+
+
+# ------------------------------------------------------- actor interface ----
+## Footprints the character controller must not walk through. The props are
+## billboards without collision bodies, so the actors resolve against these
+## circles instead: no physics layer, no extra node per tree, and the layout
+## above stays the only place a prop position is written down.
+func blockers() -> Array:
+	var out: Array = []
+	for entry in LAYOUT:
+		var kind := String(entry[0])
+		var radius := 0.0
+		match kind:
+			"cottage":
+				radius = 2.1
+			"oak":
+				radius = 0.75
+			"pine":
+				radius = 0.5
+			"rock":
+				radius = 0.65
+			"bush":
+				radius = 0.5
+			_:
+				radius = 0.0
+		if radius <= 0.0:
+			continue
+		out.append({"x": float(entry[1]), "z": float(entry[2]), "r": radius, "kind": kind})
+	return out
+
+
+## Walkable area in world XZ, used as the outer fence for the actors.
+func ground_rect() -> Rect2:
+	return Rect2(-GROUND_SIZE.x * 0.5, -GROUND_SIZE.y * 0.5, GROUND_SIZE.x, GROUND_SIZE.y)

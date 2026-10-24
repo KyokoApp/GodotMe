@@ -191,3 +191,108 @@ dipaksa APK (`gl_compatibility`), tanpa satu pun sprite karakter.
   edge-blend, kalau tidak seam-nya terlihat sebagai grid.
 * `alpha_scissor` butuh tepi alpha keras; PNG hasil `pixelate()` sudah dibuat
   biner (ambang 110/255).
+
+---
+
+## 9. Fase 2 — tahap 2: karakter (sprite, pivot, langkah)
+
+Tambahan 25 Okt 2026. Tiga karakter hidup di lembah: **Ksatria = pemain**,
+**Penjaga = NPC**, **Orc = musuh**. Semua data, bukan kode: satu
+`CharacterDef.tres` per karakter (id, peran, folder sprite, daftar animasi,
+frame size, frame count, fps, loop, pivot, pixel size, langkah). Menambah
+karakter = tambah PNG + satu entri di `tools/import_character_sprites.py`.
+
+**Frame yang diverifikasi (jangan diubah tanpa ukur ulang)**
+
+| Karakter | Kanvas | Animasi (frame) | fps awal | Tinggi dunia |
+| --- | --- | --- | --- | --- |
+| Ksatria | 112×96 | idle 14, walk 8, run 8, attack_1 8, attack_2 9, attack_3 11, block 6, hurt 8, death 15, jump_start/transition/fall 3/3/3 (disimpan, belum dipakai) | 9 / 11 / 13 / 14 / 14 / 15 / 10 / 12 / 11 | 1,80 m |
+| Penjaga | 100×100 | idle 6, walk 8, attack_1 6, attack_2 6, attack_3 9, hurt 4, death 4 (+ arrow 100×100 & 32×32 disimpan) | 8 / 10 / 13 / 13 / 14 / 12 / 11 | 1,65 m |
+| Orc | 100×100 | idle 6, walk 8, attack_1 6, attack_2 6, hurt 4, death 4 | 9 / 10 / 13 / 13 / 12 / 11 | 1,40 m |
+
+`tools/import_character_sprites.py --check` menghitung ulang
+`lebar PNG == jumlah frame × lebar frame`; kalau tidak cocok, **build gagal**
+(bukan ditebak atau dipotong paksa). Pemeriksaan yang sama dijalankan ulang di
+runtime (`CharacterAssets.problems_for`) dan di `ValidateCharacters.tscn`.
+
+**Pivot kaki, bukan tengah kanvas**
+
+Pivot = `(tengah bbox IDLE horizontal, bawah bbox IDLE)` dalam piksel sumber:
+Ksatria `(53, 85)`, Penjaga `(49.5, 60)`, Orc `(55, 57)`. Node aktor berdiri di
+titik itu, jadi karakter menapak di tanah. Kuad sprite digeser sebesar
+`(w/2 − pivot.x, pivot.y − h/2) × pixel_world`; saat `flip_h` aktif, komponen X
+dibalik supaya kaki tidak bergeser saat menghadap kiri.
+
+**Satu `pixel_size` dunia, pengali per karakter (dicatat, disengaja)**
+
+`world_pixel_size = 0,05 m/piksel`. Ketiga pack digambar pada resolusi berbeda
+(tinggi badan: Ksatria 36 px, Penjaga 22 px, Orc 16 px), jadi `pixel_scale`
+per karakter 1,0 / 1,5 / 1,75 menghasilkan 1,80 / 1,65 / 1,40 m. Tanpa pengali,
+penjaga akan setinggi anak-anak. Pengali 1,5 dan 1,75 dipilih (bukan angka
+aneh) supaya grid piksel tetap berkelipatan rapi.
+
+> **Risiko visual yang harus disebut jujur:** Ksatria dan Penjaga/Orc berasal
+> dari dua pack dengan gaya, kerapatan piksel, dan palet berbeda. Ini arahan
+> pemilik (tiga peran itu yang diminta), tetapi secara tampilan mereka tidak
+> satu keluarga. Pack **Blacksmith** yang ikut terkirim gayanya sejalan dengan
+> pack Ksatria; kalau nanti penjaga perlu seragam dengan ksatria, itu kandidat
+> yang paling murah. Belum dipakai di tahap ini.
+
+**Tanpa foot sliding — dihitung, bukan dikira**
+
+Tiap karakter punya `walk_stride_m` (jarak tanah per satu siklus animasi):
+Ksatria 0,90 m (lari 1,90 m), Penjaga 0,75 m, Orc 0,70 m. Kecepatan nominal
+diturunkan dari situ:
+
+```
+speed = stride / (frames / fps)      # mis. Ksatria: 0.90 / (8/11) = 1.24 m/s
+speed_scale = speed_sekarang / speed_nominal
+```
+
+Dorongan stik setengah berarti kecepatan setengah **dan** irama langkah
+setengah, jadi kaki tetap menapak. Nilai rasionya dicetak oleh
+`ValidateCharacters.tscn` (harus 1,000).
+
+**Tampilan**
+
+| Unsur | Keputusan | Alasan |
+| --- | --- | --- |
+| Sprite aktor | `AnimatedSprite3D`, billboard, `alpha_cut = DISCARD` 0,45, Nearest, `shaded = true`, `pixel_size = 0,05 × pixel_scale` | Menerima cahaya matahari dan bisa diurutkan terhadap pohon, bukan stiker datar. Bayangan asli dimatikan (`cast_shadow = OFF`) karena penggantinya blob. |
+| Tekstur | PNG mentah di dalam `.pck`, didekode runtime menjadi RGBA8, **tanpa mipmap**, Nearest | Tidak ada `.import`, jadi tidak ada kompresi ETC2/ASTC yang mengotori tepi piksel atau mipmap yang mengaburkan saat zoom jauh. Biayanya memori, dan untuk ~25 strip kecil itu tidak terasa. |
+| Bayangan | satu `blob_shadow.gdshader` (oval lembut, unshaded) di semua aktor | Semua pack dipakai **tanpa bayangan bawaan**, jadi tidak ada bayangan ganda dan tidak ada karakter yang "melayang". |
+| Anti-shimmer | posisi aktor di-snap ke **¼ piksel sumber** (`SNAP_FRACTION = 0.25`) | Snap satu piksel penuh (≈3,5 px layar di zoom 19) membuat jalan terasa patah-patah; ¼ piksel menghapus getaran tepi tanpa mengorbankan kehalusan. Sisa shimmer saat menggeser kamera tidak bisa hilang total di 3D — dicatat sebagai batas, dicek di `VisualTest`. |
+| Debu langkah | `CPUParticles3D` + `dust_puff.gdshader` (billboard, radial) | Tidak perlu tekstur tambahan; muncul tiap setengah langkah. |
+| Flash hurt | `modulate` 1,0 → 2,3 selama 0,09 s | Putih sesaat tanpa mengubah tekstur. |
+| Hit-stop | 0,05 s (≈3 frame @60 fps) saat kena pukulan | Memberi bobot pukulan tanpa menambah animasi. |
+| Squash/stretch | skala `Visual` 9%/11% selama 0,18 s | Ringan saja; sumbu X/Y dari kaki, jadi tidak menggeser tapak. |
+| Getar kamera | rotasi rig ±0,35° dengan redaman | Halus; bukan shake ala game aksi. |
+
+**State machine & aturan main**
+
+* `idle → walk → run` mengikuti besaran stik; `run` hanya untuk karakter yang
+  punya animasi lari (Ksatria). Penjaga/Orc berjalan.
+* Serangan pemain bersiklus `attack_1 → attack_2 → attack_3 → idle`; menekan
+  lagi saat masih menyerang menyiapkan serangan berikutnya. Orc memilih
+  `attack_1`/`attack_2` secara acak (pack-nya tidak punya attack_3).
+* Blok: animasi diputar sekali lalu **menahan frame terakhir** selama tombol
+  ditahan.
+* Hurt: sekali, lalu kembali ke idle; memotong serangan yang sedang berjalan.
+* Death: menahan frame terakhir. Orc lalu memudar (~0,9 s) dan disembunyikan.
+* Orc: patroli antar titik; radius deteksi 4,5 m → mendekat pelan; jarak ≤1,0 m
+  → `battle_triggered` (belum ada sistem pertempuran, jadi tidak ada yang
+  dipalsukan) dan pemberitahuan di layar.
+
+**Animasi yang TIDAK ada di aset — jangan dipalsukan**
+
+Tidak ada `cast`, `victory`, `boost`, atau panah yang ditembakkan pada ketiga
+pack ini. Tahap ini tidak membuatnya dari kode. **Butuh aset tambahan** kalau
+nanti mau: sihir, kemenangan, lompatan (Ksatria sudah punya 3 frame lompat yang
+disimpan), dan pemanah (panahnya sudah ada, busurnya belum).
+
+**Kontrol sentuh**
+
+Stik 196 px di kiri bawah (dorong kecil = jalan, penuh = lari); tiga tombol
+kanan bawah: **Serang** 140 px, **Tahan** 120 px, **Bicara** 120 px. Semua
+≥96 px agar nyaman dijempol. Saat salah satu disentuh, kamera tidak ikut
+menggeser (`DioramaCamera.touch_blockers`); kamera juga mengikuti pemain dengan
+redaman dan berhenti mengikuti 2,5 s setelah pengguna menggeser sendiri.
