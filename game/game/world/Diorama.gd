@@ -85,10 +85,10 @@ const LAYOUT := [
 
 ## Winding dirt path towards the cottage door, in world XZ.
 const PATH := [
-	Vector2(-11.0, 8.4), Vector2(-7.6, 5.4), Vector2(-5.4, 2.6),
-	Vector2(-3.8, 0.2), Vector2(-3.0, -0.7),
+	Vector2(5.2, 9.6), Vector2(3.0, 6.2), Vector2(0.8, 3.2),
+	Vector2(-1.2, 1.0), Vector2(-2.6, -0.4),
 ]
-const PATH_WIDTH := 1.7
+const PATH_WIDTH := 1.9
 
 const GROUND_SIZE := Vector2(26.0, 20.0)
 
@@ -209,7 +209,11 @@ func _build_path() -> void:
 	mi.name = "Path"
 	mi.mesh = mesh
 	var dirt := WorldArt.tex(TEX_DIR + "path_tile.png")
-	mi.material_override = WorldArt.ground_material(dirt, 1.0, 1.0)
+	var mat := WorldArt.ground_material(dirt, 1.0, 1.0)
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.uv1_triplanar = false
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 
 

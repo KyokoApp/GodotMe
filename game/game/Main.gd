@@ -184,12 +184,12 @@ func _build_hud() -> void:
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_hint.anchor_left = 0.0
 	_hint.anchor_right = 1.0
-	_hint.anchor_top = 0.0
-	_hint.anchor_bottom = 0.0
-	_hint.offset_left = 380.0
-	_hint.offset_right = -200.0
-	_hint.offset_top = 40.0
-	_hint.offset_bottom = 68.0
+	_hint.anchor_top = 1.0
+	_hint.anchor_bottom = 1.0
+	_hint.offset_left = 470.0
+	_hint.offset_right = -26.0
+	_hint.offset_top = -44.0
+	_hint.offset_bottom = -16.0
 	root.add_child(_hint)
 	var tw := create_tween()
 	tw.tween_interval(5.0)
