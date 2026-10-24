@@ -262,9 +262,6 @@ jobs:
           export/android/debug_keystore = "/tmp/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
-          export/android/release_keystore = "/tmp/debug.keystore"
-          export/android/release_keystore_user = "androiddebugkey"
-          export/android/release_keystore_pass = "android"
           export/android/force_system_user = false
           export/android/shutdown_adb_on_exit = true
           EOF
@@ -280,8 +277,15 @@ jobs:
           mkdir -p dist
           godot --headless --path launcher --export-debug "Android" \
             "$PWD/dist/re-traveller-launcher-debug.apk" >> /tmp/apk.log 2>&1
+          # release signing keys are per-preset (never committed): patch a copy
+          cp launcher/export_presets.cfg /tmp/preset.bak
+          sed -i 's|^keystore/release=".*"|keystore/release="/tmp/debug.keystore"|; \
+                  s|^keystore/release_user=".*"|keystore/release_user="androiddebugkey"|; \
+                  s|^keystore/release_password=".*"|keystore/release_password="android"|' \
+            launcher/export_presets.cfg
           godot --headless --path launcher --export-release "Android" \
             "$PWD/dist/re-traveller-launcher.apk" >> /tmp/apk.log 2>&1
+          cp /tmp/preset.bak launcher/export_presets.cfg
           code=$?
           tail -60 /tmp/apk.log
           ls -la dist >> /tmp/apk.log
