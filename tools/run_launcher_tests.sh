@@ -23,23 +23,21 @@ fail() { printf '\033[31mFAILED: %s\033[0m\n' "$*"; FAILED=1; }
 scen() { # scen <name> <data-root> [extra args...]
   local name=$1; local root=$2; shift 2
   note "scenario: $name ($root)"
-  "$GODOT" --headless --path launcher res://tests/TestRunner.tscn -- \
-      --scenario="$name" --data-root="user://$root" "$@"
+  timeout -k 5 100 "$GODOT" --headless --path launcher res://tests/TestRunner.tscn -- \
+      --scenario="$name" --data-root="user://$root" --budget=70 "$@"
   local code=$?
   if [ $code -ne 0 ]; then fail "$name (exit $code)"; fi
   return $code
 }
 
 note "importing launcher project"
-"$GODOT" --headless --path launcher --import >/dev/null 2>&1 || \
-  "$GODOT" --headless --path launcher --editor --quit >/dev/null 2>&1
-"$GODOT" --headless --path game --import >/dev/null 2>&1 || \
-  "$GODOT" --headless --path game --editor --quit >/dev/null 2>&1
+timeout 180 "$GODOT" --headless --path launcher --import 2>&1 | tail -5
+timeout 180 "$GODOT" --headless --path game --import 2>&1 | tail -5
 
 note "building fixtures into $FIX"
 rm -rf "$FIX"
 mkdir -p "$FIX"
-"$GODOT" --headless --path launcher res://tests/FixtureBuilder.tscn -- \
+timeout -k 5 120 "$GODOT" --headless --path launcher res://tests/FixtureBuilder.tscn -- \
     --game-dir="$PWD/game" --out="$FIX" ${KEY:+--private-key="$KEY"}
 if [ ! -f "$FIX/manifests/v100.json" ]; then
   fail "fixtures were not built"; exit 1
@@ -65,9 +63,9 @@ scen launcher_too_old t_old --manifest="$HOST/manifests/v100_toonew.json"
 # rollback: healthy install -> broken install that crashes on boot -> recovery
 scen first_install t_rb --manifest="$HOST/manifests/v100.json"
 note "scenario: install_and_boot (the sample pack is rigged to crash)"
-"$GODOT" --headless --path launcher res://tests/TestRunner.tscn -- \
-    --scenario=install_and_boot --data-root="user://t_rb" --manifest="$HOST/manifests/v120_broken.json" \
-    2>&1 | tail -12
+timeout -k 5 100 "$GODOT" --headless --path launcher res://tests/TestRunner.tscn -- \
+    --scenario=install_and_boot --data-root="user://t_rb" --budget=70 \
+    --manifest="$HOST/manifests/v120_broken.json" 2>&1 | tail -12
 code=${PIPESTATUS[0]}
 if [ "$code" -eq 0 ]; then fail "broken pack did NOT crash the app (rollback test is meaningless)"; fi
 scen startup_rollback t_rb

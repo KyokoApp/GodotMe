@@ -39,7 +39,17 @@ jobs:
           openssl rsa -in /tmp/rt_priv.pem -pubout -out launcher/signing/public_key.pem 2>/dev/null
           ls -l launcher/signing
 
+      - name: Smoke test (fast feedback)
+        timeout-minutes: 3
+        env:
+          GODOT: ${{ github.workspace }}/.tools/godot
+        run: |
+          timeout 180 "$GODOT" --headless --path launcher --import 2>&1 | tail -20
+          timeout -k 5 90 "$GODOT" --headless --path launcher res://tests/TestRunner.tscn -- \
+            --scenario=unit --data-root=user://t_unit --budget=40 2>&1 | tail -40
+
       - name: Run launcher test suite
+        timeout-minutes: 20
         env:
           GODOT: ${{ github.workspace }}/.tools/godot
           SIGN_KEY: /tmp/rt_priv.pem

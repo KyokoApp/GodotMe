@@ -13,6 +13,16 @@ var checks := 0
 
 
 func _ready() -> void:
+	# hard stop: a stuck scenario must fail fast, not burn the CI budget
+	var budget := 75.0
+	for arg in OS.get_cmdline_user_args():
+		if String(arg).begins_with("--budget="):
+			budget = float(String(arg).substr("--budget=".length()))
+	if budget > 0.0:
+		get_tree().create_timer(budget).timeout.connect(func():
+			print("RESULT %s TIMEOUT after %.0fs (%d failures so far)" % [scenario, budget, failures])
+			get_tree().quit(3)
+		)
 	for arg in OS.get_cmdline_user_args():
 		var a := String(arg)
 		if a.begins_with("--scenario="):
@@ -63,7 +73,7 @@ func _check(cond: bool, label: String, extra: String = "") -> void:
 		print("CHECK %s FAIL %s" % [label, extra])
 
 
-func _wait_state(targets: Array, timeout_s: float = 90.0) -> Dictionary:
+func _wait_state(targets: Array, timeout_s: float = 30.0) -> Dictionary:
 	var deadline := Time.get_ticks_msec() + int(timeout_s * 1000.0)
 	while Time.get_ticks_msec() < deadline:
 		if targets.has(Updater.state):
@@ -72,7 +82,7 @@ func _wait_state(targets: Array, timeout_s: float = 90.0) -> Dictionary:
 	return {"state": -1, "ctx": {}}
 
 
-func _wait_until(cond: Callable, timeout_s: float = 90.0) -> bool:
+func _wait_until(cond: Callable, timeout_s: float = 30.0) -> bool:
 	var deadline := Time.get_ticks_msec() + int(timeout_s * 1000.0)
 	while Time.get_ticks_msec() < deadline:
 		if cond.call():
