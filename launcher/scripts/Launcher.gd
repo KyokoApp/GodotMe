@@ -27,6 +27,10 @@ extends Control
 @onready var _pack_rows: GridContainer = $SafeArea/Columns/Right/Pad/Content/PackSection/PackRows
 @onready var _pack_heading: Label = $SafeArea/Columns/Right/Pad/Content/PackSection/PackHeading
 @onready var _retry_button: Button = $SafeArea/Columns/Right/Pad/Content/ButtonRow/RetryButton
+
+const ICON_RETRY := "res://ui/textures/icon_retry.png"
+const ICON_PAUSE := "res://ui/textures/icon_pause.png"
+var _retry_icon := ""
 @onready var _play_button: Button = $SafeArea/Columns/Right/Pad/Content/ButtonRow/PlayButton
 @onready var _dust: CPUParticles2D = $Dust
 @onready var _dim: ColorRect = $ModalLayer/Dim
@@ -192,7 +196,7 @@ func _on_state_changed(state: int, ctx: Dictionary) -> void:
 		Updater.State.DOWNLOADING:
 			_show_progress(true, false)
 			_retry_button.visible = true
-			_retry_button.text = "  Jeda"
+			_set_retry_action("  Jeda", ICON_PAUSE)
 		Updater.State.VERIFYING:
 			_show_progress(true, false)
 			_retry_button.visible = false
@@ -202,28 +206,30 @@ func _on_state_changed(state: int, ctx: Dictionary) -> void:
 		Updater.State.READY:
 			_show_progress(false)
 			_retry_button.visible = true
-			_retry_button.text = "  Periksa Lagi"
+			_set_retry_action("  Periksa Lagi", ICON_RETRY)
 			_pulse_play_button(true)
 		Updater.State.OFFLINE_READY:
 			_show_progress(false)
 			_retry_button.visible = true
-			_retry_button.text = "  Coba Lagi"
+			_set_retry_action("  Coba Lagi", ICON_RETRY)
 			_state_title.add_theme_color_override("font_color", Color(0.45, 0.32, 0.14))
 			_pulse_play_button(true)
 		Updater.State.LAUNCHER_UPDATE_REQUIRED:
 			_show_progress(false)
 			_retry_button.visible = true
-			_retry_button.text = "  Periksa Lagi"
+			_set_retry_action("  Periksa Lagi", ICON_RETRY)
 			_state_title.add_theme_color_override("font_color", UiTheme.COL_RUST)
 		Updater.State.ERROR:
 			_show_progress(false)
 			_retry_button.visible = true
-			_retry_button.text = "  Coba Lagi"
+			_set_retry_action("  Coba Lagi", ICON_RETRY)
 			_state_title.add_theme_color_override("font_color", UiTheme.COL_RUST)
 			_pulse_play_button(false)
 		_:
+			# IDLE = the download was paused by the player: the button resumes it.
 			_show_progress(false)
 			_retry_button.visible = true
+			_set_retry_action("  Lanjutkan", ICON_RETRY)
 	if not can_play:
 		_pulse_play_button(false)
 
@@ -373,6 +379,16 @@ func _on_play_pressed() -> void:
 	_pulse_play_button(false)
 	Log.info("Pemain menekan Main.")
 	Updater.play()
+
+
+func _set_retry_action(text: String, icon_path: String) -> void:
+	## Keeps the secondary button's label and its icon in agreement.
+	_retry_button.text = text
+	if _retry_icon == icon_path:
+		return
+	_retry_icon = icon_path
+	# runtime load: preload() fails on the very first import of a new texture
+	_retry_button.icon = load(icon_path) as Texture2D
 
 
 func _on_retry_pressed() -> void:

@@ -387,6 +387,24 @@ def icons():
     px(im, 16, 3, INK); px(im, 19, 6, INK)
     save(im, "icon_retry.png")
 
+    # pause (two solid bars) - the download can be paused, and a retry arrow on
+    # a button labelled "Jeda" is misleading
+    im = new(S, S)
+    for bx in (7, 14):
+        rect(im, bx, 5, bx + 3, 18, CREAM)
+        rect(im, bx, 5, bx + 3, 5, BRASS_H)
+    out = []
+    for y in range(S):
+        for x in range(S):
+            if im.getpixel((x, y))[3]:
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < S and 0 <= ny < S and not im.getpixel((nx, ny))[3]:
+                        out.append((nx, ny))
+    for x, y in out:
+        px(im, x, y, INK)
+    save(im, "icon_pause.png")
+
     # check
     im = new(S, S)
     for i in range(5):
