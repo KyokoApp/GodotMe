@@ -184,37 +184,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.inputs.tag || 'demo-v0.1.0' }}
+          REPO: ${{ github.repository }}
         run: |
-          set -euo pipefail
-          cd /tmp/rel
-          cat > NOTES.md <<'MD'
-          ## Re - Traveller — demo launcher + paket contoh
+          # /tmp/rel is not a git checkout, so every gh call needs an explicit
+          # --repo; without it gh cannot infer the repository and bails out.
+          set -o pipefail
+          bash tools/publish_release.sh 2>&1 | tee /tmp/rel_pub.log
 
-          **Cara pakai di HP (sekali pasang):**
-
-          1. Unduh `re-traveller-launcher.apk`, izinkan "instal dari sumber tidak dikenal", lalu buka.
-          2. Launcher membaca `version.json` dari rilis ini (default `MANIFEST_URL`),
-             memeriksa ukuran + SHA-256, lalu mengunduh enam paket.
-          3. Tekan **MAIN** — dunia contoh dimuat dari paket `.pck`, bukan dari APK.
-
-          Paket yang ada: `core`, `characters`, `enemies`, `world`, `ui`, `audio`.
-          Rilis berikutnya yang hanya mengubah satu paket akan diunduh sebagai
-          selisih (delta), bukan unduh ulang semuanya.
-
-          APK ini ditandatangani dengan kunci uji. Untuk distribusi, buat APK
-          bertanda tangan kunci Anda sendiri (`docs/BUILD_AND_RELEASE.md`).
-          MD
-          # prune stale assets so the manifest always matches what is attached
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release delete-asset "$TAG" version.json -y || true
-            gh release upload "$TAG" version.json packs/*.pck re-traveller-launcher.apk --clobber
-            gh release edit "$TAG" --notes-file NOTES.md --latest
-          else
-            gh release create "$TAG" version.json packs/*.pck re-traveller-launcher.apk \
-              --title "Re - Traveller demo (launcher + paket)" \
-              --notes-file NOTES.md --latest
-          fi
-          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"'
+      - name: Publish release log
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          [ -z "$PR" ] && { echo "no PR"; exit 0; }
+          { echo "### release-demo publish log"; echo '```'; tail -c 12000 /tmp/rel_pub.log 2>/dev/null || echo "(empty)"; echo '```'; } > /tmp/rel_pub.md
+          gh pr comment "$PR" --body-file /tmp/rel_pub.md --repo "$GITHUB_REPOSITORY" || true
 
       - name: Verify the release is reachable exactly like the launcher does
         run: |
