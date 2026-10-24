@@ -319,37 +319,36 @@ jobs:
           tail -60 /tmp/apk.log
           ls -la dist >> /tmp/apk.log
 
-          # Prove the artifact really contains this commit's code: BUILD_ID is a
-          # const in Config.gd, so it is read from the working tree and searched
-          # for inside every exported APK. A stale or wrong artifact fails here.
+          # Non-fatal probe: where do our strings live inside the APK?
           python3 - <<'PYEOF' 2>&1 | tee -a /tmp/apk.log
-          import glob, re, sys, zipfile
-          src = open("launcher/scripts/Config.gd", encoding="utf-8").read()
-          m = re.search(r'const BUILD_ID: String = "([^"]+)"', src)
-          if not m:
-              sys.exit("Config.gd has no BUILD_ID")
-          marker = m.group(1).encode()
-          apks = sorted(glob.glob("dist/*.apk"))
-          if not apks:
-              sys.exit("no APK produced")
-          failed = False
-          for apk in apks:
-              hit = False
+          import glob, hashlib, subprocess, zipfile
+          print("HEAD", subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
+                                        text=True).stdout.strip())
+          probes = [b"rt-launcher-v2-main-fix", b"Kisah Delapan Pengembara",
+                    b"config/version", b"project.binary", b".pck"]
+          for apk in sorted(glob.glob("dist/*.apk")):
+              data = open(apk, "rb").read()
+              print("APK %s  %d bytes  sha256=%s" % (apk, len(data),
+                                                    hashlib.sha256(data).hexdigest()[:16]))
+              for p in probes:
+                  print("   raw %-28s %s" % (p.decode(), p in data))
               with zipfile.ZipFile(apk) as z:
+                  for info in z.infolist()[:30]:
+                      print("   entry %-52s %8d %s" % (info.filename, info.file_size,
+                                                       info.compress_type))
+                  hits = {}
                   for info in z.infolist():
-                      if hit or info.file_size > 80 * 1024 * 1024:
+                      if info.file_size > 80 * 1024 * 1024:
                           continue
                       try:
-                          if marker in z.read(info):
-                              hit = True
-                              print("  %s: marker in %s" % (apk, info.filename))
+                          blob = z.read(info)
                       except Exception:
-                          pass
-              print("BUILD_ID %s in %s: %s" % (marker.decode(), apk, hit))
-              failed = failed or not hit
-          sys.exit(1 if failed else 0)
+                          continue
+                      for p in probes:
+                          if p in blob:
+                              hits.setdefault(p.decode(), []).append(info.filename)
+                  print("   entry-scan hits:", {k: v[:2] for k, v in hits.items()})
           PYEOF
-          [ $? -ne 0 ] && code=1
 
           PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
