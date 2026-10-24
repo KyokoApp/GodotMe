@@ -5,6 +5,7 @@ dan rilis demo sudah terbit sehingga seluruh pipa unduh → verifikasi → muat
 paket bisa dicoba di HP hari ini tanpa hosting sendiri.
 
 * Repo rilis: <https://github.com/KyokoApp/GodotMe/releases/tag/demo-v0.1.0>
+  (APK di rilis ini sudah memuat perbaikan tombol MAIN — lihat §4a)
 * Manifest yang dibaca launcher secara default:
   <https://github.com/KyokoApp/GodotMe/releases/latest/download/version.json>
 * Pull Request kerja: [#3](https://github.com/KyokoApp/GodotMe/pull/3)
@@ -103,7 +104,8 @@ mendukung Range, throttle, dan penghitung permintaan.
 | 9 | Manifest menuntut launcher baru | `launcher_too_old` | ✅ 2 check; versi lama tetap bisa dimainkan |
 | 10 | Tanda tangan manifest | `signed_ok`, `signed_bad` | ✅ 2 + 2 check; rusak ditolak |
 | 11 | Versi rusak tidak dipasang ulang | `blocked` | ✅ 5 check; ditahan sampai pengguna menekan Coba Lagi |
-| 12 | Unit (format, URL, hash, validasi manifest) | `unit` | ✅ 17 check |
+| 12 | Sentuhan sampai ke tombol (real input) | `ui_input` | ✅ 11 check; MAIN/tombol sekunder bereaksi, modal menahan latar |
+| 13 | Unit (format, URL, hash, validasi manifest) | `unit` | ✅ 17 check |
 
 Tidak ada kegagalan. Rincian cara uji + tabel manual di HP ada di
 [`TEST_PLAN.md`](TEST_PLAN.md).
@@ -131,7 +133,15 @@ Bukti visual (diambil otomatis oleh CI, 1280×720, dijalankan terhadap
 | `build launcher APK` (debug + release, keduanya `apksigner verify` = 0) | ✅ |
 | `release-demo` (bangun 6 paket → APK → terbitkan rilis → verifikasi URL live) | ✅ |
 
-Catatan perbaikan penting selama Fase 1: ekspor *release* sebelumnya menulis APK
+Catatan perbaikan penting selama Fase 1:
+
+* **Tombol MAIN mati di HP.** `CenterContainer` selebar layar di dalam lapisan
+  modal selalu `visible` dan menelan semua sentuhan. Sekarang lapisan itu ikut
+  disembunyikan, container tengahnya `mouse_filter = IGNORE`, dan skenario
+  `ui_input` menekan tombol lewat `Viewport.push_input` sehingga bug seperti ini
+  tidak bisa lolos lagi. Dua jaring pengaman tambahan: skenario dengan 0 check
+  dianggap gagal, dan `parse check` kini gagal bila ada `Parse Error`.
+* ekspor *release* sebelumnya menulis APK
 tetapi gagal menandatanganinya, dan CI tidak menyadarinya karena kode keluaran
 diambil setelah perintah lain. Sekarang kunci rilis diberikan lewat variabel
 lingkungan yang memang dibaca Godot
@@ -145,7 +155,9 @@ diperiksa, dan setiap APK diverifikasi dengan `apksigner verify`.
 ### a. Di HP (paling cepat, tanpa alat apa pun)
 
 1. Buka <https://github.com/KyokoApp/GodotMe/releases/tag/demo-v0.1.0>.
-2. Unduh `re-traveller-launcher.apk`, izinkan "instal dari sumber tidak dikenal".
+2. Unduh `re-traveller-launcher.apk` (versi terbaru di rilis itu), izinkan
+   "instal dari sumber tidak dikenal". Jika APK lama sudah terpasang dengan kunci
+   yang sama, cukup pasang di atasnya — data unduhan tetap ada.
 3. Buka aplikasi → launcher memeriksa `version.json` dari rilis itu (default
    `MANIFEST_URL`), menampilkan changelog, lalu mengunduh 6 paket (± 1,23 MB).
 4. Tekan **MAIN** → dunia contoh dimuat dari paket `.pck`.

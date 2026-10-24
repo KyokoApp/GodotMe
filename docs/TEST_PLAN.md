@@ -29,6 +29,14 @@ request), lalu menjalankan tiap skenario di sandbox `user://` sendiri.
 | 9 | Manifest butuh launcher baru | `launcher_too_old`: `min_launcher_version = 99` | ✅ state `LAUNCHER_UPDATE_REQUIRED`, versi lama tetap bisa dimainkan |
 | 10 | Tanda tangan manifest | `signed_ok` (RSA-SHA256 valid) dan `signed_bad` (tanda tangan dirusak) | ✅ valid diterima, rusak ditolak |
 | 11 | Versi bermasalah tidak dipasang ulang otomatis | `blocked`: v1.1.0 ditandai rusak, manifest menawarkan v1.1.0 | ✅ ditahan; tombol Coba Lagi memaksa pasang ulang |
+| 12 | Sentuhan benar-benar sampai ke tombol | `ui_input`: menekan tombol lewat `Viewport.push_input` (bukan memanggil fungsi) | ✅ 11 check; MAIN & tombol sekunder bereaksi, modal menahan latar, dan tombol aktif lagi setelah modal ditutup |
+
+> **Kenapa ada skenario 12:** pada APK pertama, menekan **MAIN** tidak
+> menghasilkan apa pun di HP. Penyebabnya `CenterContainer` selebar layar di
+> dalam lapisan modal yang selalu `visible` — sentuhan ditelan sebelum sampai ke
+> tombol. Skrip tangkapan layar tidak menemukannya karena memanggil handler
+> secara langsung, jadi sekarang ada uji yang menekan tombol lewat jalur input
+> sungguhan.
 
 Tambahan: `unit` (17 check) menguji format ukuran/kecepatan bahasa Indonesia,
 resolusi URL relatif/absolut, SHA-256, dan validasi manifest (kolom hilang,
