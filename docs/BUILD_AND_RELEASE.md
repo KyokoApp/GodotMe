@@ -402,3 +402,39 @@ Tahap ini **belum punya sistem save** (yang ada hanya `user://retraveller/active
 dan `boot_ok.json` milik peluncur, dan keduanya tidak disentuh). Jadi tidak ada
 data pemain yang bisa hilang oleh pembaruan paket. Sistem save berversi adalah
 tahap berikutnya.
+
+### Rilis demo-v0.1.0, paket versi 0.2.0 (tahap sprite) — terbit 25 Okt 2026
+
+Rilis yang sama (`demo-v0.1.0`, selalu jadi `releases/latest`) diperbarui lewat
+`.github/workflows/release-demo.yml`; `RELEASE_DEMO` di akar repo adalah
+pemicunya. Isi rilis setelah pembaruan:
+
+| Aset | Ukuran | Berubah di tahap ini? |
+| --- | --- | --- |
+| `re-traveller-launcher.apk` | 29.428.024 B | tidak (APK tetap peluncur; build id `rt-launcher-v2-main-fix`) |
+| `characters_100.pck` | 153.884 B | **ya** — 3 `.tres`, 9 skrip, 25 strip PNG, lisensi/sumber |
+| `world_100.pck` | 1.614.884 B | **ya** — warna jalur (`path.gdshader`), `Diorama.gd` |
+| `core_100.pck` | 41.056 B | **ya** — penanda build |
+| `enemies_100.pck` | 612 B | tidak |
+| `ui_100.pck` | 26.540 B | tidak |
+| `audio_100.pck` | 352 B | tidak |
+| `version.json` | 1.735 B | **ya** — `version` 0.2.0 + changelog + SHA-256 tiap paket |
+
+**Kenapa namanya tetap `characters_100.pck`, bukan `characters_101.pck`?**
+Nomor di nama berkas adalah tag build internal (fixture CI memakai `100` dan
+`110` untuk menguji delta), sedangkan yang dibaca launcher adalah
+`version.json` → `url: "characters.pck"` dari `releases/latest/download/`.
+Menambah angka di nama berkas hanya akan membuat URL baru tanpa memberi tahu
+launcher apa pun; yang menentukan "perlu unduh atau tidak" adalah **SHA-256**
+per paket di manifest. Isi paket berubah, hash berubah, launcher mengunduh
+`characters.pck` + `world.pck` saja.
+
+Langkah di HP: buka launcher → **Periksa Lagi** → unduh paket yang berubah →
+**MAIN**. Save pemain tidak tersentuh karena **belum ada sistem save** di tahap
+ini; satu-satunya state di `user://retraveller/` milik launcher
+(`active.json`, `boot_ok.json`) dan tidak diubah oleh tahap sprite.
+
+Verifikasi yang dijalankan CI untuk rilis ini: `periksa` strip
+(`tools/import_character_sprites.py --check`), gate headless
+`ValidateCharacters.tscn`, empat scene tangkapan (09/10/11/12/13), 13 skenario
+peluncur, dan pemeriksaan `BUILD_ID` di dalam APK sebelum aset diunggah.
