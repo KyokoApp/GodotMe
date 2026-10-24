@@ -43,6 +43,9 @@ var _sparkle_tweens: Array[Tween] = []
 
 func _ready() -> void:
 	theme = UiTheme.get_theme()
+	# the modal lives under a CanvasLayer, which does not take part in theme
+	# propagation, so it gets the same theme explicitly
+	_modal.theme = theme
 	_dim.visible = false
 	_modal.visible = false
 	_modal_ok.pressed.connect(func(): _hide_modal())

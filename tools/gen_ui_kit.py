@@ -520,16 +520,15 @@ def ornaments():
     px(im, 2, 2, (255, 220, 150, 160))
     save(im, "fx_mote.png")
 
-    # vignette overlay 256x144, stretched over the screen. Warm, banded.
-    W, H = 256, 144
+    # vignette overlay 320x180, stretched over the screen (smooth alpha)
+    W, H = 320, 180
     im = new(W, H)
     for y in range(H):
         for x in range(W):
             nx = abs(x - (W - 1) / 2) / ((W - 1) / 2)
             ny = abs(y - (H - 1) / 2) / ((H - 1) / 2)
             v = max(nx ** 2.4, ny ** 2.6)
-            a = int(min(1.0, v * 1.15) ** 1.5 * 205)
-            a = (a // 10) * 10
+            a = int(min(1.0, v * 1.12) ** 1.45 * 196)
             px(im, x, y, (28, 18, 14, a))
     save(im, "overlay_vignette.png")
 

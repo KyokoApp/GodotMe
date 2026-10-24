@@ -82,8 +82,7 @@ def make_scrim() -> None:
             # 32 alpha steps keeps it banded-but-smooth instead of blocky.
             left = max(0.0, 1.0 - nx / 0.34) ** 1.15
             bottom = max(0.0, (ny - 0.62) / 0.38) ** 1.7
-            a = min(0.80, left * 0.62 + bottom * 0.30)
-            a = round(a * 32) / 32
+            a = min(0.82, left * 0.66 + bottom * 0.34)
             if a > 0:
                 px[x, y] = (20, 14, 11, int(a * 255))
     im.save(os.path.join(TEX, "overlay_scrim_left.png"))

@@ -413,6 +413,7 @@ func _scenario_capture() -> void:
 	await get_tree().create_timer(0.6).timeout
 	await _shot(dir, "05_luring")
 
+	await get_tree().create_timer(0.2).timeout
 	launcher._show_modal("Pemulihan Otomatis",
 		"Game tidak merespons dalam 25 detik. Kembali ke versi 1.0.0 yang terakhir stabil.",
 		"Mengerti")
