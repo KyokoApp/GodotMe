@@ -62,8 +62,10 @@ jobs:
             --game-dir="$PWD/game" --out=/tmp/rel
           VERSION="${{ github.event.inputs.pack_version || '0.1.0' }}"
           python3 - "$VERSION" <<'PY'
-          import json, sys, os
+          import json, os, shutil, sys
           version = sys.argv[1]
+          rel = "/tmp/rel/release"
+          os.makedirs(rel, exist_ok=True)
           with open("/tmp/rel/v100.json", encoding="utf-8") as fh:
               manifest = json.load(fh)
           manifest["version"] = version
@@ -72,19 +74,29 @@ jobs:
               "Dunia contoh dimuat dari paket .pck, bukan dari APK.",
               "Uji: update karakter hanya mengunduh characters.pck.",
           ]
-          with open("/tmp/rel/version.json", "w", encoding="utf-8") as fh:
+          # GitHub Release assets are flat: the manifest must point at bare file
+          # names, so rewrite "packs/<file>" -> "<file>" and copy just the packs
+          # the manifest actually references (the fixture also builds packs for
+          # the rollback / bad-hash / slow-download scenarios).
+          for pkg in manifest["packages"]:
+              src = os.path.join("/tmp/rel", pkg["url"])
+              name = os.path.basename(pkg["url"])
+              shutil.copy2(src, os.path.join(rel, name))
+              pkg["url"] = name
+              pkg["size"] = os.path.getsize(os.path.join(rel, name))
+          with open(os.path.join(rel, "version.json"), "w", encoding="utf-8") as fh:
               json.dump(manifest, fh, indent=2)
               fh.write("\n")
-          print(json.dumps(manifest, indent=2)[:400])
+          print("manifest:", version, [p["name"] for p in manifest["packages"]])
           PY
-          ls -la /tmp/rel /tmp/rel/packs
+          ls -la /tmp/rel/release
           # sanity: every listed package must exist with the recorded size
           python3 - <<'PY'
-          import json, os, sys
-          m = json.load(open("/tmp/rel/version.json"))
+          import json, os
+          rel = "/tmp/rel/release"
+          m = json.load(open(os.path.join(rel, "version.json")))
           for p in m["packages"]:
-              path = os.path.join("/tmp/rel", p["url"])
-              size = os.path.getsize(path)
+              size = os.path.getsize(os.path.join(rel, p["url"]))
               assert size == p["size"], (p["name"], size, p["size"])
           print("manifest verified:", len(m["packages"]), "packages")
           PY
@@ -158,8 +170,8 @@ jobs:
           else
             code=1
           fi
-          cp dist/re-traveller-launcher.apk /tmp/rel/ 2>/dev/null || true
-          ls -la /tmp/rel/re-traveller-launcher.apk || true
+          cp dist/re-traveller-launcher.apk /tmp/rel/release/ 2>/dev/null || true
+          ls -la /tmp/rel/release/re-traveller-launcher.apk || true
           if [ $code -ne 0 ]; then
             PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
             if [ -n "$PR" ]; then

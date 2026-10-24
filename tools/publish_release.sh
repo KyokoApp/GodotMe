@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
-# Publish a ready-built demo release from a directory of artifacts.
+# Publish a ready-built demo release from a flat directory of artifacts.
 #
-# Expected layout (produced by the release-demo workflow):
-#   $REL/version.json  $REL/packs/*.pck  $REL/re-traveller-launcher.apk
+# Expected layout (produced by .github/workflows/release-demo.yml):
+#   $REL/version.json                 <- manifest, package urls are bare file names
+#   $REL/<pack>.pck                   <- exactly the packs the manifest lists
+#   $REL/re-traveller-launcher.apk
+#
+# GitHub Release assets live in one flat namespace (no sub-directories), which
+# is why the manifest inside $REL must reference "<pack>.pck" and not
+# "packs/<pack>.pck": `releases/latest/download/<url>` has to resolve.
 #
 # Environment:
 #   GH_TOKEN  token with contents:write (provided by GitHub Actions)
-#   REPO      owner/name  (required: this script runs outside a git checkout,
-#             so gh cannot infer the repository from a remote)
+#   REPO      owner/name  (required: this script can run outside a git checkout,
+#             where gh cannot infer the repository from a remote)
 #   TAG       release tag, e.g. demo-v0.1.0
-#   REL       artifact directory, defaults to /tmp/rel
+#   REL       artifact directory, defaults to /tmp/rel/release
 set -euo pipefail
 
-REL="${REL:-/tmp/rel}"
+REL="${REL:-/tmp/rel/release}"
 TAG="${TAG:-demo-v0.1.0}"
 if [ -z "${REPO:-}" ]; then
   echo "REPO is required (owner/name)" >&2
@@ -25,16 +31,28 @@ fi
 
 cd "$REL"
 
-# Fail early with a readable message instead of letting gh complain.
 for f in version.json re-traveller-launcher.apk; do
   [ -f "$f" ] || { echo "missing artifact: $REL/$f" >&2; exit 3; }
 done
 shopt -s nullglob
-packs=(packs/*.pck)
+packs=(*.pck)
 shopt -u nullglob
-[ ${#packs[@]} -gt 0 ] || { echo "no packs in $REL/packs" >&2; exit 3; }
-echo "publishing tag=$TAG repo=$REPO"
-ls -l version.json re-traveller-launcher.apk "${packs[@]}"
+[ ${#packs[@]} -gt 0 ] || { echo "no .pck in $REL" >&2; exit 3; }
+files=(version.json "${packs[@]}" re-traveller-launcher.apk)
+echo "publishing tag=$TAG repo=$REPO from $REL"
+ls -l "${files[@]}"
+
+# Every package the manifest lists must be present, and vice versa: a stale pack
+# left in the release would silently never be used.
+python3 - "${files[@]}" <<'PY'
+import json, sys
+listed = {p["url"] for p in json.load(open("version.json"))["packages"]}
+present = {f for f in sys.argv[1:] if f.endswith(".pck")}
+if listed != present:
+    sys.exit("manifest/asset mismatch: only-in-manifest=%s only-on-disk=%s"
+             % (sorted(listed - present), sorted(present - listed)))
+print("manifest matches", len(listed), "packages on disk")
+PY
 
 cat > NOTES.md <<'MD'
 ## Re - Traveller — demo launcher + paket contoh
@@ -54,23 +72,23 @@ APK ini ditandatangani dengan kunci uji. Untuk distribusi, buat APK
 bertanda tangan kunci Anda sendiri (`docs/BUILD_AND_RELEASE.md`).
 MD
 
-# Creating a release for a tag that does not exist yet needs --target, otherwise
-# gh points the new tag at the repository's default branch, which may not even
-# contain this workflow yet.
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-  echo "release $TAG exists -> updating assets"
-  for a in version.json "${packs[@]}" re-traveller-launcher.apk; do
-    gh release delete-asset "$TAG" "$(basename "$a")" -y --repo "$REPO" >/dev/null 2>&1 || true
-  done
-  gh release upload "$TAG" version.json "${packs[@]}" re-traveller-launcher.apk \
-    --clobber --repo "$REPO"
+  echo "release $TAG exists -> replacing assets"
+  # Drop everything first so removed/renamed packs do not linger in the release.
+  gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' |
+    while read -r name; do
+      [ -n "$name" ] || continue
+      gh release delete-asset "$TAG" "$name" -y --repo "$REPO" >/dev/null 2>&1 || true
+    done
+  gh release upload "$TAG" "${files[@]}" --repo "$REPO"
   gh release edit "$TAG" --notes-file NOTES.md --latest --repo "$REPO"
 else
   echo "release $TAG does not exist -> creating"
-  gh release create "$TAG" version.json "${packs[@]}" re-traveller-launcher.apk \
+  gh release create "$TAG" "${files[@]}" \
     --title "Re - Traveller demo (launcher + paket)" \
     --notes-file NOTES.md --latest --repo "$REPO"
 fi
 
+echo "assets now on the release:"
 gh release view "$TAG" --repo "$REPO" --json assets \
-  --jq '.assets[] | "\(.name) \(.size)"'
+  --jq '.assets[] | "  \(.name) \(.size)"'
