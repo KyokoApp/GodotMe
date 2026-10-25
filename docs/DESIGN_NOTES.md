@@ -1099,7 +1099,7 @@ GDScript.
 | `grid_height` | 36 864 bita, tinggi 0–5 per ubin, base64 |
 | `grid_terrain` | 0 rumput, 1 rumput tinggi, 2 tanah/jalan, 3 batu, 4 pasir, 5 lumpur, 6 salju, 7 air dangkal, 8 air dalam, 9 lantai kayu, 10 lantai batu |
 | `grid_structure` | nibble bawah = kode (0 tidak ada, 1 tangga, 2 jembatan, 3 pagar, 4 dinding, 5 gerbang, 6 pintu, 7 ramp), nibble atas = arah 0–3 (+x, +y, −x, −y) |
-| `decor` | 2 959 prop, dikelompokkan per jenis; koordinat dalam persepuluh meter |
+| `decor` | 2 947 prop, dikelompokkan per jenis; koordinat dalam persepuluh meter |
 | `markers` | 33 titik: `player_start`, `home_plot`, `npc_spawn` ×5, `enemy_camp` ×4, `landmark` ×6, `region_gate`, `cave_entrance`, `bridge_broken`, `fast_travel`, `chest` ×6, `resource_node` ×8 |
 | `zones` | 10 zona bernama + `subtitle`, `weather`, `music` per zona |
 | `routes` | jalur utama 460 ubin + empat cabang (70/14/11/20) |
@@ -1215,10 +1215,40 @@ menambah zona cukup menambah satu entri di spesifikasi.
 | ukuran | nilai |
 | --- | --- |
 | berkas peta | 197,4 KB |
-| ubin bisa dijalankan | 29 748 |
+| ubin bisa dijalankan | 29 747 |
 | jalur utama | 460 ubin → 131 s jalan (2,2 menit) / 84 s lari |
-| dekorasi | 2 959 |
+| dekorasi | 2 947 |
 | marker | 33 (2 sengaja terhalang) |
 | zona | 10 |
 | draw call saat berdiam (radius 1) | 3 chunk × (tanah + air) + prop ≈ 27 |
 | paket dunia | 710 KB (atlas medan 144 KB, atlas prop 225 KB, peta 197 KB) |
+
+### 20.7 Apa yang ditemukan saat dunia pertama kali dilihat
+
+Empat kegagalan, semuanya lolos dari uji statis dan hanya terlihat di tangkapan
+layar. Dicatat di sini karena ketiganya akan terulang di langkah berikutnya bila
+tidak disebut.
+
+1. **Impor sRGB.** Tekstur yang di-`load()` sebagai resource diimpor sebagai sRGB,
+   sehingga GPU men-decode tiap sampel sebelum shader melihatnya. Sel rumput yang
+   hijau tua tiba hampir hitam, dan seluruh lembah keluar cokelat. Dunia kini
+   membaca PNG sebagai byte mentah (`RegionView._tex`, sama seperti `WorldArt.tex`
+   sejak langkah 1) dan shader tidak memakai hint `source_color`.
+2. **Tonemap.** `TONE_MAPPER_ACES` dengan white point 6,0 dipilih untuk lembah
+   kecil berlampu hangat; pada region 192 m di bawah langit terbuka itu memetakan
+   masukan 1,0 ke sekitar 0,45. Prop yang unshaded (sprite) tidak ikut tonemap,
+   jadi tanah dan sprite berpisah warna. Kini `TONE_MAPPER_LINEAR`, dan tanah
+   punya `ground_gain` sendiri (rumput 2,0) agar sejalan dengan sprite.
+3. **Bobot sudut medan.** Merata-ratakan empat ubin di satu sudut membuat jalur
+   selebar satu ubin larut ke rumput; memakai maksimum membuat 15% ubin tanah
+   mewarnai setengah hutan. Yang dipakai: 55% ubin sendiri + 45% tetangga
+   terkuat.
+4. **Teardown.** `quit()` saat masih ada tugas baker di WorkerThreadPool atau
+   partikel yang memancar = SIGABRT (exit 134) walau semua pemeriksaan lulus.
+   `drain()` berhenti dulu baru menunggu, dan di jalur headless chunk dibakar di
+   satu thread.
+
+Air tetap digambar per ubin pada ketinggiannya sendiri. Satu muka air untuk
+seluruh region sudah dicoba dan dibatalkan: danau Yaros bertangga, jadi satu
+bidang datar di ketinggian terendah tenggelam di bawah dasar danau di terrace
+atas - danau malah hilang.
