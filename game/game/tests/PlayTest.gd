@@ -304,7 +304,7 @@ func _test_dynamic_stick() -> void:
 ## the knight wakes where he stood, and the guard tells the later story.
 func _test_cleared_valley_stays_clear() -> void:
 	for suffix in ["", ".bak", ".tmp"]:
-		var f := "user://playsave/slot1.json" + suffix
+		var f: String = "user://playsave/slot1.json" + suffix
 		if FileAccess.file_exists(f):
 			DirAccess.remove_absolute(f)
 	OS.set_environment("RT_SAVE_DIR", "user://playsave")
@@ -344,7 +344,7 @@ func _test_cleared_valley_stays_clear() -> void:
 	world.queue_free()
 	await get_tree().process_frame
 	for suffix in ["", ".bak", ".tmp"]:
-		var f := "user://playsave/slot1.json" + suffix
+		var f: String = "user://playsave/slot1.json" + suffix
 		if FileAccess.file_exists(f):
 			DirAccess.remove_absolute(f)
 	OS.set_environment("RT_SAVE_DIR", "")
