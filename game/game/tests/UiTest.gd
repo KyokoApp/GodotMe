@@ -163,6 +163,10 @@ func _test_menu() -> void:
 	_main.call("_on_pause_pressed")
 	await get_tree().process_frame
 	_check(sheet.visible and get_tree().paused, "jeda membuka lembar dan menghentikan dunia")
+	# and it must actually be on screen: a sheet at alpha 0 freezes the world and
+	# shows the player nothing (that was the first version of this menu)
+	await get_tree().create_timer(0.4).timeout
+	_check(sheet.modulate.a > 0.95, "lembar jeda benar-benar tampak", str(sheet.modulate.a))
 
 	var page_jeda: Control = _main.get("_page_jeda")
 	var page_set: Control = _main.get("_page_set")

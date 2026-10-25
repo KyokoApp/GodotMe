@@ -424,6 +424,11 @@ func _show_page(page: Control, title: String) -> void:
 	page.visible = true
 	page.modulate.a = 0.0
 	var tw := create_tween()
+	# The tree is paused while this sheet is open, and a tween bound to a paused
+	# tree simply never runs - the first version of this menu showed nothing at
+	# all and only froze the world (caught by the 20_menu capture, not by a test
+	# that only looked at `visible`).
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tw.tween_property(page, "modulate:a", 1.0, 0.16).set_trans(Tween.TRANS_SINE)
 
 
@@ -542,9 +547,11 @@ func _on_pause_pressed() -> void:
 		sheet.scale = Vector2(0.96, 0.96)
 		sheet.pivot_offset = sheet.size * 0.5
 		var st := create_tween()
+		st.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		st.set_parallel(true)
 		st.tween_property(sheet, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK)
 	var tw := create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tw.tween_property(_pause_root, "modulate:a", 1.0, 0.16).set_trans(Tween.TRANS_SINE)
 	get_tree().paused = true
 
