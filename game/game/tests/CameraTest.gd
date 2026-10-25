@@ -203,10 +203,16 @@ func _test_spring() -> void:
 	_check(gap < 0.12, "follow sama pada 60 fps dan 30 fps", "selisih %.3f m" % gap)
 	_check(not bool(fast["overshoot"]), "follow tidak melewati target (tanpa overshoot)",
 		"kelebihan %.3f m" % float(fast["overshoot_by"]))
-	_check(float(fast["settle_error"]) < 0.02,
-		"follow berhenti tepat di titik bidik (look-ahead %.1f m) setelah pemain diam"
+	# The dead zone is part of the design: once the knight is inside it the camera
+	# stops, so the resting distance is look-ahead +/- dead zone. What must never
+	# happen is the camera still creeping afterwards.
+	_check(float(fast["still"]) < 0.002, "kamera benar-benar diam setelah pemain berhenti",
+		"masih bergerak %.4f m/frame" % float(fast["still"]))
+	_check(float(fast["settle_error"]) <= float(fast["deadzone"]) + 0.02,
+		"tinggal di dalam dead zone di sekitar titik bidik (%.1f m)"
 			% float(fast["look_ahead"]),
-		"selisih %.4f m (jarak %.2f m)" % [float(fast["settle_error"]), float(fast["gap"])])
+		"selisih %.3f m, dead zone %.2f m" % [float(fast["settle_error"]),
+			float(fast["deadzone"])])
 
 
 ## Run the rig's own `_process` by hand with a walker that steps along +x, so the
@@ -240,9 +246,12 @@ func _simulate_follow(delta: float) -> Dictionary:
 			overshoot = true
 			overshoot_by = maxf(overshoot_by, pos.x - walker.position.x)
 	# then let it settle with the walker standing still
+	var before_settle := Vector3.ZERO
 	for i in range(int(round(1.5 / delta))):
+		before_settle = rig.position
 		rig.call("_process", delta)
 	var end_pos := rig.position
+	var still := before_settle.distance_to(end_pos)
 	# The rig aims `look_ahead_m` PAST the walker on purpose (that is what puts
 	# the knight slightly below the middle of the frame), so "settled" means the
 	# distance between camera and walker equals that look-ahead, not zero.
@@ -250,7 +259,8 @@ func _simulate_follow(delta: float) -> Dictionary:
 	var look: float = float(rig.get("look_ahead_m"))
 	var err := absf(gap.length() - look)
 	var out := {"pos": end_pos, "overshoot": overshoot, "overshoot_by": overshoot_by,
-		"settle_error": err, "look_ahead": look, "gap": gap.length()}
+		"settle_error": err, "look_ahead": look, "gap": gap.length(),
+		"still": still, "deadzone": float(rig.get("deadzone_m"))}
 	walker.queue_free()
 	rig.queue_free()
 	return out
