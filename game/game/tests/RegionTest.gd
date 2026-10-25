@@ -52,11 +52,21 @@ func _ready() -> void:
 	await _test_streaming()
 	_test_travel_time()
 	print("[REGION] %d pemeriksaan, %d gagal" % [checks, failures])
-	# a baker task still running when the process quits is an abort waiting to
-	# happen; the probe is done, so let it finish first
+	await _shutdown()
+
+
+## Wait for every baker thread, free the probe, and only then quit. The first
+## version of this called quit() with the streaming probe still in the tree and
+## the process died of SIGABRT at teardown - every check green, exit code 134.
+func _shutdown() -> void:
 	for node in get_children():
 		if node.has_method("drain"):
 			node.call("drain")
+			print("[REGION] %s dikuras" % node.name)
+		node.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("[REGION] siap keluar")
 	get_tree().quit(0 if failures == 0 else 1)
 
 

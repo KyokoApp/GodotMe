@@ -549,7 +549,8 @@ func clear() -> void:
 func drain() -> void:
 	for cc in _pending.keys():
 		var task: int = _pending[cc]
-		WorkerThreadPool.wait_for_task_completion(task)
+		if not WorkerThreadPool.is_task_completed(task):
+			WorkerThreadPool.wait_for_task_completion(task)
 	_pending.clear()
 	_pending_arrays.clear()
 	_task_chunk.clear()
@@ -557,6 +558,11 @@ func drain() -> void:
 
 
 func _exit_tree() -> void:
+	# nothing may be left in flight once this node starts going away: the task
+	# holds the byte grid and the baker script, and the scene tree is free to drop
+	# both the moment we return
+	set_process(false)
+	_queue.clear()
 	for cc in _pending.keys():
 		var task: int = _pending[cc]
 		if not WorkerThreadPool.is_task_completed(task):
