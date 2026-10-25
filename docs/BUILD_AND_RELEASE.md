@@ -584,3 +584,30 @@ Catatan: versi pertama tekstur atmosfer memakai alpha ber-dither, dan tangkapan
 layarnya penuh kotak-kotak abu-abu (kuad kabut 7 m membuat pola dither membesar
 jadi papan catur). Sekarang kabut/cahaya memakai alpha halus; benda tetap piksel
 keras. Rincian di `DESIGN_NOTES.md` §15.3.
+
+### 0.5.0 — UI lengkap, pengaturan, menu
+
+| Paket | 0.4.0 | 0.5.0 | Catatan |
+| --- | --- | --- | --- |
+| `core_100.pck` | 49.056 B | **36.832 B** | parchment/crest/font pindah ke ui; `Main.gd` bertambah, `UiKit.gd`/`Settings.gd` masuk |
+| `ui_100.pck` | 26.540 B | **39.196 B** | font, parchment, crest, divider, 7 ikon 24×24 |
+| `characters_100.pck` | 187.436 B | **187.112 B** | parchment tidak lagi diduplikasi di sini |
+| `world_100.pck` | 1.634.320 B | **465.172 B** | `bg.png` 1,17 MB yang **tidak dipakai game** dibuang |
+| `version.json` | 3.980 B | 4.572 B | `version: 0.5.0` |
+
+APK tetap 29.428.024 B. Ukuran unduhan total turun ±1,2 MB karena satu
+latar 1,17 MB ternyata hanya ikut dipaketkan tanpa pernah dimuat skrip mana pun
+(dicek dengan `grep -rn "bg.png" game/`). Menghapusnya adalah perbaikan paket,
+bukan perubahan tampilan — tangkapan layar 20/21 tidak berubah karenanya.
+
+Isi: menu dua halaman (Jeda + Pengaturan) dengan baris status, simpan manual,
+tilt-shift/getar/kualitas yang tersimpan di perangkat, HUD hati berbasis ikon,
+ikon fase matahari/bulan, dan jarak aman notch untuk semua jangkar HUD.
+
+Uji: `UiTest` **30 pemeriksaan, 0 gagal**. Verifikasi rilis: `release-demo`
+**40158792245** (terakhir) dan `ci` **40158331605**.
+
+Bug yang tertangkap fase ini: tween menu dibuat saat `get_tree().paused = true`,
+sehingga tidak pernah berjalan — lembar jeda `visible` tetapi alpha 0, jadi
+menekan Jeda hanya membekukan dunia. Sekarang semua tween menu memakai
+`TWEEN_PAUSE_PROCESS`, dan UiTest memeriksa `modulate.a`, bukan hanya `visible`.
