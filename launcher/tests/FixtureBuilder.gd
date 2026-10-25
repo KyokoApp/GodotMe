@@ -98,6 +98,10 @@ const PACK_FILES := {
 			"game/world/RegionMesh.gd",
 			"game/world/RegionView.gd",
 			"game/world/DioramaCamera.gd",
+			# step 3A: the one file that defines the lens, and the horizon
+			"game/world/camera.json",
+			"game/world/FarScenery.gd",
+			"game/world/far_ridge.gdshader",
 			"game/world/WorldArt.gd",
 			"game/world/WorldClock.gd",
 			"game/world/Atmosphere.gd",

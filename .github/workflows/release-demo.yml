@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.8.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.9.0' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,6 +70,12 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
+              "Kamera kini miring seperti Octopath: pitch 30 derajat, FOV 32, jarak tetap 18 m, semuanya dari satu berkas game/world/camera.json.",
+              "Zoom hilang sepenuhnya. Penyebab kamera yang zoom sendiri: penangan sentuhan lama menganggap DUA jari di layar (stik + tombol aksi) sebagai pinch. Sekarang rig tidak punya penangan input sama sekali.",
+              "Kamera mengikuti dengan spring kritis: tanpa overshoot, sama pada 30 maupun 60 fps, dead zone 32 cm, dan titik bidik 1,7 m di depan ksatria.",
+              "Horizon baru: langit bergradien mengikuti fase hari, dua lapis pegunungan jauh, dan hamparan kabut, jadi tepi peta dan ujung dunia tidak lagi terlihat.",
+              "Tilt-shift disetel ulang untuk sudut baru; pohon dan rumah yang menghalangi memudar dengan dither bertingkat sehingga ksatria tetap terlihat.",
+              "Paket yang berubah: world.pck (camera.json, FarScenery, shader ridge, occlusion) dan core.pck (pita tilt-shift, tangkapan kamera). Paket lain tidak diunduh ulang, APK tetap.",
               "Dunia baru: region Yaros 192x192 ubin dengan tinggi 0-5 level, dibangun dari data (tools/region/yaros_spec.json).",
               "Sepuluh zona bernama: Lembah Senja, Ladang Timur, Hutan Pinus, Sungai Sedu, Menara Penjaga, Dataran Batu, Gua Berbisik, Danau Cermin, Pos Gunung, Jalan Tua.",
               "Jalan utama 460 ubin dari desa ke Pos Gunung: sekitar 2,2 menit berjalan atau 84 detik berlari.",

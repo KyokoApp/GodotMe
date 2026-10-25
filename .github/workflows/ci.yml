@@ -175,6 +175,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Camera rules (fixed lens, smooth follow, occlusion)
+        # Headless: the bug this step fixes was "the camera zooms by itself", and
+        # only a frame-by-frame recording of pitch, FOV and distance can prove it
+        # stopped. A screenshot cannot.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/CameraTest.tscn 2>&1 | tee /tmp/camera.log
+          code=${PIPESTATUS[0]}
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### camera rules (exit $code)"; echo '```'; tail -c 20000 /tmp/camera.log; echo '```'; } > /tmp/camera.md
+            gh pr comment "$PR" --body-file /tmp/camera.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Region rules (Yaros - reachability, seams, streaming, travel)
         # Headless: a screenshot proves the region looks finished, not that the
         # mountain gate is reachable, that no terrace is a trap, that two chunks
@@ -433,6 +451,43 @@ jobs:
             "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
             -- --hud=map --capture="$GITHUB_WORKSPACE/docs/screenshots" \
             --capture-name=46_peta_penuh 2>&1 | tee -a /tmp/capture.log | tail -8
+          # --- step 3A: the village at the new octopath angle, and the knight
+          # --- standing behind a tall prop (dither occlusion)
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            -- --hud=zone --zone="Lembah Senja" --phase=siang \
+            --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+            --capture-name=47_kamera_desa 2>&1 | tee -a /tmp/capture.log | tail -8
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            -- --hud=occlusion --phase=sore \
+            --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+            --capture-name=48_kamera_halangan 2>&1 | tee -a /tmp/capture.log | tail -8
+
+          # --- step 3A: pitch x FOV, the grid the owner picks the angle from.
+          # --- 560x315 keeps eighteen shots small enough to live in the repo;
+          # --- the lens values come from the command line, never from
+          # --- camera.json, so no cell of this grid is a "setting".
+          mkdir -p "$GITHUB_WORKSPACE/docs/screenshots/camera"
+          for pitch in 25 30 35 40 50 38; do
+            for fov in 25 32 40; do
+              name=$(printf "p%02df%02d" "$pitch" "$fov")
+              xvfb-run -a -s "-screen 0 560x315x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+                "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 560x315 \
+                -- --hud=zone --zone="Lembah Senja" --phase=siang \
+                --pitch="$pitch" --fov="$fov" \
+                --capture="$GITHUB_WORKSPACE/docs/screenshots/camera" \
+                --capture-name="$name" 2>&1 | tee -a /tmp/capture.log | tail -3
+            done
+          done
+          python3 -m venv /tmp/sheetvenv >/dev/null
+          /tmp/sheetvenv/bin/pip install --quiet pillow
+          /tmp/sheetvenv/bin/python tools/camera_sheet.py \
+            --dir docs/screenshots/camera \
+            --out docs/screenshots/camera/sudut_kamera.png \
+            --pitches 25,30,35,40,50,38 --fovs 25,32,40 \
+            --recommend 30,32 --current 38,30 2>&1 | tee -a /tmp/capture.log | tail -3
+
           ls -la docs/screenshots
 
       - name: Publish capture log to the PR
@@ -471,7 +526,7 @@ jobs:
         if: always()
         with:
           name: launcher-screenshots
-          path: docs/screenshots/*.png
+          path: docs/screenshots/**/*.png
           if-no-files-found: warn
 
   # ----------------------------------------------------------------- apk ----

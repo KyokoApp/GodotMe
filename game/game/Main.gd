@@ -314,10 +314,27 @@ func _on_toggle(key: String) -> void:
 		_menu.call("refresh_values")
 
 
+## The tilt-shift band has to sit where the new pitch puts the player: the band
+## is in screen space, and a 30-degree lens frames the knight lower than the old
+## top-down one did. Focus line and band width come from camera.json (one place),
+## the blur amount from the quality preset.
+func _apply_lens_post() -> void:
+	if _tilt_mat == null:
+		return
+	var band := {"focus_line": 0.54, "sharp_band": 0.30}
+	if _diorama != null and _diorama.has_method("camera_rig"):
+		var rig: Node3D = _diorama.call("camera_rig")
+		if rig != null and rig.has_method("tilt_shift"):
+			band = rig.call("tilt_shift")
+	_tilt_mat.set_shader_parameter("focus_line", float(band.get("focus_line", 0.54)))
+	_tilt_mat.set_shader_parameter("sharp_band", float(band.get("sharp_band", 0.30)))
+
+
 func _apply_settings() -> void:
 	# --- tilt-shift blur follows the quality preset
 	if _tilt_mat != null:
 		_tilt_mat.set_shader_parameter("blur_pixels", float(_settings.call("tilt_blur")))
+	_apply_lens_post()
 	if _hud != null:
 		_hud.call("apply_ui_scale", float(_settings.call("ui_scale")))
 		_hud.call("set_fps_visible", bool(_settings.call("fps_visible")))
@@ -485,6 +502,8 @@ func _maybe_capture_or_quit() -> void:
 	var zone_key := ""
 	var phase_want := ""
 	var zoom_want := 0.0
+	var pitch_want := 0.0
+	var fov_want := 0.0
 	for raw in OS.get_cmdline_user_args():
 		var a := String(raw)
 		if a.begins_with("--capture="):
@@ -502,7 +521,14 @@ func _maybe_capture_or_quit() -> void:
 		elif a.begins_with("--phase="):
 			phase_want = a.substr("--phase=".length())
 		elif a.begins_with("--zoom="):
+			# the old name for the camera distance; the lens itself never zooms
 			zoom_want = float(a.substr("--zoom=".length()))
+		elif a.begins_with("--distance="):
+			zoom_want = float(a.substr("--distance=".length()))
+		elif a.begins_with("--pitch="):
+			pitch_want = float(a.substr("--pitch=".length()))
+		elif a.begins_with("--fov="):
+			fov_want = float(a.substr("--fov=".length()))
 		elif a.begins_with("--test-quit-after="):
 			hug = float(a.substr("--test-quit-after=".length()))
 	if hug > 0.0:
@@ -532,7 +558,7 @@ func _maybe_capture_or_quit() -> void:
 				pad.call("preview_stick", true)
 		await get_tree().create_timer(0.3).timeout
 	if zone_key != "":
-		await _go_to_zone(zone_key, phase_want, zoom_want)
+		await _go_to_zone(zone_key, phase_want, zoom_want, pitch_want, fov_want)
 	if scenario == "dialogue":
 		await _open_dialogue_for_capture()
 	elif scenario == "map":
@@ -541,6 +567,8 @@ func _maybe_capture_or_quit() -> void:
 		await get_tree().create_timer(0.6).timeout
 	elif scenario == "fog":
 		await _walk_far()
+	elif scenario == "occlusion":
+		await _occlude_for_capture()
 	elif scenario == "banner":
 		if _hud != null:
 			_hud.call("show_banner", _area_constant("AREA_NAME", "Lembah Senja"),
@@ -569,6 +597,44 @@ func _maybe_capture_or_quit() -> void:
 	get_tree().quit(0)
 
 
+## Stand the knight on the far side of a tall prop so it covers him, which is the
+## shot that proves the dithering occlusion works at the new, lower pitch.
+func _occlude_for_capture() -> void:
+	if _cast == null or _diorama == null:
+		return
+	var rig: Node3D = _diorama.call("camera_rig") if _diorama.has_method("camera_rig") else null
+	var view: Node3D = _diorama.call("view") if _diorama.has_method("view") else null
+	var player: Node3D = _cast.call("player")
+	if rig == null or view == null or player == null:
+		return
+	var cam_xz := Vector2(rig.global_position.x, rig.global_position.z)
+	var here := Vector2(player.position.x, player.position.z)
+	var layout: Array = view.call("prop_layout")
+	var best: Array = []
+	var best_d := 1.0e9
+	for raw in layout:
+		var row: Array = raw
+		if row.size() < 5:
+			continue
+		if float(row[4]) < 2.2:
+			continue
+		var d: float = Vector2(float(row[1]), float(row[2])).distance_to(here)
+		if d < best_d:
+			best_d = d
+			best = row
+	if best.is_empty():
+		print("[GAME] tidak ada prop tinggi di dekat pemain untuk tangkapan occlusion")
+		return
+	var prop := Vector2(float(best[1]), float(best[2]))
+	var away := (prop - cam_xz).normalized()
+	var spot := prop + away * 1.5
+	_cast.call("teleport_player", spot)
+	# the occluder pass runs four times a second and the rig glides after the
+	# teleport, so give both time to arrive before the shutter
+	await get_tree().create_timer(1.1).timeout
+	print("[GAME] tangkapan occlusion: prop %s, pemain di %s" % [str(prop), str(spot)])
+
+
 ## Walk with the same virtual stick a thumb would push.
 func _drive_walk(seconds: float) -> void:
 	if _cast == null or not is_instance_valid(_cast):
@@ -583,7 +649,8 @@ func _drive_walk(seconds: float) -> void:
 ## region ("Hutan Pinus"), or one of the three shapes the brief asks to see -
 ## "stairs", "cliff" and "water" - found by scanning the map instead of by
 ## remembering a coordinate.
-func _go_to_zone(key: String, phase_want: String, zoom_want: float) -> void:
+func _go_to_zone(key: String, phase_want: String, zoom_want: float,
+		pitch_want: float = 0.0, fov_want: float = 0.0) -> void:
 	if _cast == null or not is_instance_valid(_cast) or _diorama == null:
 		return
 	var spot: Variant = _spot_for(key)
@@ -595,9 +662,17 @@ func _go_to_zone(key: String, phase_want: String, zoom_want: float) -> void:
 	if phase_want != "" and _diorama.has_method("set_phase"):
 		_diorama.call("set_phase", phase_want)
 	var rig: Node3D = _diorama.call("camera_rig") if _diorama.has_method("camera_rig") else null
-	if rig != null and zoom_want > 0.0 and rig.has_method("set_zoom"):
-		rig.call("set_zoom", zoom_want)
+	if rig != null and rig.has_method("set_lens"):
+		# Scripted framing for a capture, the same door a cutscene uses. The
+		# player never gets here: nothing on the touch screen reaches set_lens.
+		rig.call("set_lens",
+			pitch_want if pitch_want > 0.0 else NAN,
+			fov_want if fov_want > 0.0 else NAN,
+			zoom_want if zoom_want > 0.0 else NAN)
 		rig.call("set_follow_target", _cast.call("player"))
+		if rig.has_method("snap_to_target"):
+			rig.call("snap_to_target")
+	_apply_lens_post()
 	await get_tree().create_timer(0.7).timeout
 	print("[GAME] tangkapan zona %s di %s" % [key, str(spot)])
 

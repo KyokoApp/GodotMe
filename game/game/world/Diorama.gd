@@ -31,6 +31,7 @@ const CAMERA_RIG := preload("res://game/world/DioramaCamera.gd")
 const CLOCK_SCRIPT := WORLD_DIR + "WorldClock.gd"
 const ATMOSPHERE_SCRIPT := WORLD_DIR + "Atmosphere.gd"
 const MAP_SCRIPT := WORLD_DIR + "WorldMap.gd"
+const FAR_SCRIPT := WORLD_DIR + "FarScenery.gd"
 
 ## Kept because Main.gd reads these two constants through the script's constant
 ## map to write the opening banner. The ZONE banner (below) is the live one.
@@ -40,8 +41,10 @@ const AREA_SUBTITLE := "Yaros, awal perjalanan"
 ## How far the player sees for the map's fog, in metres. Bigger than the old
 ## valley's 6: a region has landmarks worth seeing coming.
 const SIGHT_M := 11.0
-## Chunks kept around the player. 1 => 3x3 chunks = 96x96 m, comfortably wider
-## than the camera sees at its widest zoom.
+## Chunks kept around the player. 1 => 3x3 chunks = at least 32 m in every
+## direction from the player. Step 3A checked the lens against this: the camera
+## stands 15,6 m behind the knight and sees 22 m of ground past him at the top of
+## the frame, so 3x3 still covers every pixel it can draw.
 const VIEW_RADIUS := 1
 
 ## Emitted when the player walks into another named zone: Main turns it into the
@@ -58,6 +61,10 @@ var _clock: Node
 var _atmosphere: Node
 var _lamp: OmniLight3D
 var _map: RefCounted
+var _far: Node3D
+## Occlusion corridor, from camera.json through the rig.
+var _occl_radius := 1.05
+var _occl_reach := 2.5
 var _zone := ""
 var _last_tile := Vector2i(-9999, -9999)
 var _stream_timer := 0.0
@@ -72,6 +79,9 @@ func _ready() -> void:
 	_build_clock()
 	_build_camera()
 	_stream_now(_start_position())
+	if _camera != null:
+		# no fly-in from the middle of the map: the first frame is already framed
+		_camera.call("place_at", _start_position())
 	print("[WORLD] %s %dx%d ubin, %d chunk, %d prop, %d marker, %d zona" % [
 		String(_region.get("label")) if _region != null else "(tanpa peta)",
 		int(_region.get("width")) if _region != null else 0,
@@ -117,7 +127,10 @@ func _build_view() -> void:
 func _build_environment() -> void:
 	print("[WORLD] renderer=%s, membangun Yaros" % RenderingServer.get_video_adapter_name())
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
+	# BG_SKY, not BG_COLOR: step 3A tilted the camera to 30 degrees, the horizon
+	# is in frame, and a flat colour there read as a grey wall. FarScenery builds
+	# the gradient and paints the phases onto it.
+	env.background_mode = Environment.BG_SKY
 	env.background_color = Color(0.42, 0.35, 0.30)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.56, 0.60, 0.72)
@@ -143,7 +156,7 @@ func _build_environment() -> void:
 	# thinner than the valley's: the region is 192 m across and the camera looks
 	# 60 m, so the old density would paint a wall of haze at the far chunk
 	env.fog_density = 0.006
-	env.fog_sky_affect = 0.0
+	env.fog_sky_affect = 0.35
 	env.glow_enabled = true
 	env.glow_intensity = 0.30
 	env.glow_bloom = 0.04
@@ -157,6 +170,17 @@ func _build_environment() -> void:
 	we.name = "WorldEnvironment"
 	we.environment = env
 	add_child(we)
+
+	# everything past the edge of the map: sky, two ridge rings, haze plain
+	if ResourceLoader.exists(FAR_SCRIPT):
+		var far_script: Script = load(FAR_SCRIPT)
+		if far_script != null:
+			_far = far_script.new() as Node3D
+			_far.name = "FarScenery"
+			add_child(_far)
+			_far.call("setup", env)
+	else:
+		push_warning("[WORLD] FarScenery.gd tidak ada: horizon kosong")
 
 	_sun = DirectionalLight3D.new()
 	_sun.name = "Sun"
@@ -214,7 +238,7 @@ func _build_clock() -> void:
 	_clock = script.new()
 	_clock.name = "WorldClock"
 	add_child(_clock)
-	_clock.call("setup", _sun, _env, _lamp)
+	_clock.call("setup", _sun, _env, _lamp, _far)
 	_clock.connect("phase_changed", Callable(self, "_on_phase_changed"))
 	# RT_WORLD_PHASE lets a capture or a QA run open the game at dusk without
 	# waiting eight minutes; a normal build starts in the late afternoon gold.
@@ -360,24 +384,30 @@ func _paint_marker_tiles(map: RefCounted, raw: Variant, radius: int, kind: int) 
 func _build_camera() -> void:
 	_camera = CAMERA_RIG.new()
 	_camera.name = "CameraRig"
-	_camera.start_zoom = 20.0
+	# The lens (pitch, fov, distance) is camera.json's business: the rig reads it
+	# in its own _ready and puts it on its Camera3D. Nothing here may set it, or
+	# the file stops being the one place the angle lives.
+	var cam := Camera3D.new()
+	cam.name = "Camera3D"
+	cam.current = true
+	_camera.add_child(cam)
+	# added last of all: entering the tree runs the rig's `_ready`, which reads
+	# camera.json, and only then is the map leash worth computing
+	add_child(_camera)
 	if _map != null:
 		# the leash comes from the map, so a bigger region widens it with no new
 		# number here
 		_camera.call("set_map_bounds", (_map.call("bounds") as Rect2).grow(-2.0))
 		_camera.bounds = (_map.call("bounds") as Rect2).size * 0.5 - Vector2(4.0, 4.0)
-	var cam := Camera3D.new()
-	cam.name = "Camera3D"
-	cam.fov = 30.0
-	cam.near = 0.5
-	# 160 m: the far chunk is inside the frame at the widest zoom, and the fog
-	# hides the cut
-	cam.far = 160.0
-	cam.position = Vector3(0.0, 0.0, _camera.start_zoom)
-	cam.current = true
-	_camera.add_child(cam)
-	add_child(_camera)
-	print("[WORLD] kamera siap, cam ada=%s" % (_camera.get_node_or_null("Camera3D") != null))
+	if _camera.has_method("occlusion"):
+		var occ: Dictionary = _camera.call("occlusion")
+		_occl_radius = float(occ.get("radius_m", 1.05))
+		_occl_reach = float(occ.get("reach_m", 2.5))
+	var lens: Dictionary = _camera.call("lens")
+	print("[WORLD] kamera siap, cam ada=%s pitch=%.1f fov=%.1f jarak=%.1f" % [
+		_camera.get_node_or_null("Camera3D") != null,
+		float(lens.get("pitch_deg", 0.0)), float(lens.get("fov_deg", 0.0)),
+		float(lens.get("distance_m", 0.0))])
 
 
 # ------------------------------------------------------------------ frame ----
@@ -395,16 +425,18 @@ func _process(delta: float) -> void:
 		_last_tile = tile
 		if _view != null:
 			_view.call("set_view_centre", pos)
-			_view.call("update_occluders", pos, _camera_xz())
+			_view.call("update_occluders", pos, _camera_xz(), _occl_radius, _occl_reach)
 		_announce_zone(pos)
 	if _atmosphere != null:
 		# the pollen belongs to the camera, not to the origin of the world
 		_atmosphere.position = Vector3(pos.x, 0.0, pos.y)
+	if _far != null:
+		_far.call("follow", _camera_xz())
 	_stream_timer += delta
 	if _stream_timer > 0.25:
 		_stream_timer = 0.0
 		if _view != null:
-			_view.call("update_occluders", pos, _camera_xz())
+			_view.call("update_occluders", pos, _camera_xz(), _occl_radius, _occl_reach)
 			_view.call("set_player_xz", pos)
 
 
@@ -473,6 +505,10 @@ func clock() -> Node:
 
 func map() -> RefCounted:
 	return _map
+
+
+func far_scenery() -> Node3D:
+	return _far
 
 
 func camera_rig() -> Node3D:

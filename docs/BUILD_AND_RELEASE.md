@@ -679,3 +679,11 @@ sebagai bahan atlas, tetapi **tidak lagi dipaket**: atlas sudah membawanya.
    Lagi**: hanya paket yang berubah (core, world, characters, ui) yang diunduh.
 5. Di HP, jalankan `adb logcat | grep -E "PERF|REGION|WORLD"` dan catat fps,
    `chunk`, `draw`, `build_maks`.
+
+## Sudut kamera ikut paket dunia
+
+Sejak 0.9.0 lensa kamera (pitch, FOV, jarak, dead zone, pita tilt-shift, koridor
+occlusion) tinggal di `game/world/camera.json`, bukan di kode. Berkas itu masuk
+`world.pck`, jadi mengubah sudut pandang cukup dengan mengubah JSON itu lalu
+merilis ulang paket world (launcher mengunduh ±750 KB, APK tidak berubah).
+`CameraTest` gagal bila angka di layar dan angka di berkas tidak sama.

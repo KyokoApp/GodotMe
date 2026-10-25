@@ -361,3 +361,21 @@ Tangkapan layar baru (job `screenshots`): `30_zona_lembah` … `38_zona_pos`
 peta dibangun ulang), `39_tangga`, `40_tebing_luar`, `41_tebing_dalam`,
 `42_air_dekat`, `43_danau_jauh` (zoom 30), `44_desa_siang`, `45_hutan_senja`,
 `46_peta_penuh`.
+
+## Langkah 3A — kamera (0.9.0)
+
+| # | Yang diuji | Cara | Lulus bila |
+| --- | --- | --- | --- |
+| C1 | Lensa dari berkas | `CameraTest`, bandingkan `lens_state()` dengan `camera.json` | pitch, FOV, jarak sama persis |
+| C2 | Perspektif & arti pitch | vektor maju `Camera3D` | `PROJECTION_PERSPECTIVE`; sudut di bawah horizon = `pitch_deg` ± 0,5° |
+| C3 | Tidak ada zoom | roda mouse, pinch trackpad, pan, dua jari sentuh dikirim ke rig | lensa tidak bergeser > 5 mm; rig tidak punya `_input`; tidak ada setelan "zoom" |
+| C4 | Lensa tetap sepanjang rute | rekam tiap frame: jalan, berhenti, belok, dekat penjaga, dialog, menu, tepi peta | pitch/FOV/jarak tidak bergeser > 5 mm di seluruh rute |
+| C5 | Spring tanpa overshoot | simulasi 2 s jalan + 1,5 s diam | kamera tidak pernah melewati target; sisa < 2 cm |
+| C6 | Frame-rate independent | simulasi yang sama pada 1/60 s dan 1/30 s | selisih posisi akhir < 12 cm |
+| C7 | Kehalusan | rekam 2,5 s jalan lurus | langkah per frame < 0,6 m; ayunan offset < 0,9 m; kamera tetap < 8 m dari pemain |
+| C8 | Occlusion | `RegionView.occluders_for()` pada layout prop asli | prop di garis kamera–pemain memudar (0,25–1,0); koridor tidak menyapu hutan |
+
+Tangkapan layar baru (job `screenshots`): `47_kamera_desa` (lensa default),
+`48_kamera_halangan` (ksatria di belakang pohon), dan
+`docs/screenshots/camera/sudut_kamera.png` — grid 6 pitch × 3 FOV berlabel, dengan
+rekomendasi P30 F32 ditandai dan nilai lama P38 F30 ditandai terpisah.

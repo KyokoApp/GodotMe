@@ -86,7 +86,9 @@ func _build() -> void:
 
 	_cam_rig = _diorama.get_node_or_null("CameraRig") as Node3D
 	if _cam_rig != null:
-		_cam_rig.call("set_zoom", 16.0)
+		# fixed lens: step 3A removed player zoom, so the stage frames itself at a
+		# distance of its own and then leaves the lens alone
+		_cam_rig.call("set_distance", 16.0)
 		# keep the follow lens on the actors, not the far trees
 		_cam_rig.set("bounds", Vector2(7.5, 5.5))
 	print("[TEST] VisualTest fase=%s cast=%s atmosfer=%s" % [
@@ -119,10 +121,8 @@ func _process(delta: float) -> void:
 		_cast.call("set_virtual_stick", Vector2(-0.45, -0.62))
 	else:
 		_cast.call("set_virtual_stick", Vector2.ZERO)
-	if _cam_rig != null:
-		# slow zoom so a single capture proves the sprite stays crisp and the
-		# billboard keeps facing the camera at a non-default distance
-		_cam_rig.call("set_zoom", 15.0 + 2.5 * sin(_elapsed * 0.55))
+	# The lens is no longer animated: a moving camera was hiding the very jitter
+	# this stage exists to show. The knight walks past a standing camera instead.
 
 
 ## Three orc hits' worth of damage, spaced out so the knight's own

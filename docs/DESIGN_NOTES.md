@@ -1252,3 +1252,114 @@ Air tetap digambar per ubin pada ketinggiannya sendiri. Satu muka air untuk
 seluruh region sudah dicoba dan dibatalkan: danau Yaros bertangga, jadi satu
 bidang datar di ketinggian terendah tenggelam di bawah dasar danau di terrace
 atas - danau malah hilang.
+
+## 21. Kamera HD-2D seperti Octopath (langkah 3A, 0.9.0)
+
+### 21.1 Bug "kamera zoom sendiri" — penyebabnya, bukan gejalanya
+
+`DioramaCamera.gd` versi langkah 1 punya empat pintu yang mengubah jarak lensa,
+dan yang paling berbahaya bukan yang paling kelihatan:
+
+| Baris (versi lama) | Apa yang terjadi |
+| --- | --- |
+| `_input()` → `InputEventScreenTouch` / `InputEventScreenDrag` | **penyebab utamanya**. Semua sentuhan dikumpulkan di `_touches`, dan begitu ada **dua** jari di layar, kode menganggapnya pinch lalu memanggil `_set_zoom_snapped()`. Di HP, ibu jari kiri menahan stik dan ibu jari kanan menekan tombol aksi = dua jari. Jadi berjalan sambil menekan tombol diam-diam memperkecil jarak. |
+| `_unhandled_input()` → `InputEventMagnifyGesture` | pinch trackpad (desktop) |
+| `_unhandled_input()` → `InputEventMouseButton` roda atas/bawah | scroll mouse = zoom |
+| `_unhandled_input()` → `InputEventPanGesture` | dua jari geser juga menggeser kamera |
+| `focus_pair()` | **mengalikan zoom dengan 0,86 setiap dialog dibuka** |
+| `clear_focus()` dan `recentre()` | mengembalikan zoom ke `start_zoom` saat dialog ditutup, jadi lensa bergerak lagi |
+| `_set_zoom_snapped()` | membulatkan ke `ZOOM_LADDER`, jadi gerakan kecil pun "menempel" ke nilai berikutnya |
+
+Semuanya dihapus. Berkas ini sekarang **tidak punya `_input` maupun
+`_unhandled_input` sama sekali**; `CameraTest` memeriksa itu, lalu menembakkan
+roda mouse, pinch trackpad, pan, dan dua jari sentuh ke rig, dan menuntut lensa
+tidak bergeser lebih dari 5 mm.
+
+### 21.2 Satu berkas untuk sudut pandang
+
+`game/world/camera.json` adalah satu-satunya tempat lensa diatur:
+
+| Nilai | 0.9.0 | Catatan |
+| --- | --- | --- |
+| `pitch_deg` | **30** | derajat menunduk di bawah garis horizontal (90 = tegak lurus ke bawah) |
+| `fov_deg` | **32** | sudut vertikal |
+| `distance_m` | **18** | jarak tetap sepanjang sumbu pandang (kamera 9 m di atas tanah, 15,6 m di belakang titik bidik) |
+| `yaw_deg` | −22 | sedikit miring, supaya dinding dan atap bangunan tidak tampak sejajar layar |
+| `look_ahead_m` | 1,7 | titik bidik 1,7 m di depan ksatria → ia duduk sedikit di bawah tengah layar |
+| `follow.deadzone_m` | 0,32 | kamera mengabaikan 32 cm pertama |
+| `follow.smooth_time_s` | 0,20 | spring kritis |
+| `tilt_shift` | fokus 0,54 / band 0,30 / blur 2,1 | pita tajam mengikuti sudut baru |
+| `occlusion` | radius 1,05 m / jangkauan 2,5 m | koridor dither |
+
+Nilai lama (langkah 2): **pitch 38°, FOV 30°, jarak 11–32 m dengan tangga zoom**.
+Pitch 38 dengan jarak 20 memang sudah perspektif, tetapi kamera menunjuk hampir
+lurus ke bawah pada jarak dekat, jadi tidak ada dinding yang terlihat.
+
+Berkas ini dibaca `DioramaCamera._ready()`; bila hilang, rig memakai nilai
+bawaan yang sama dan menulis satu peringatan, jadi paket world lama tetap jalan.
+
+### 21.3 Gerak: spring kritis, bukan lerp
+
+```
+omega = 2 / smooth_time
+x     = omega * delta
+out   = goal + (change + temp) * 1/(1 + x + 0,48x² + 0,235x³)
+```
+
+Bentuk eksponensial ini dipakai supaya **satu pemanggilan per frame** menghasilkan
+gerak yang sama pada 30 fps dan 120 fps (lerp `delta * rate` tidak: laju
+per detiknya berubah ketika fps turun). Tidak ada overshoot karena redaman kritis,
+dan rig diproses **setelah** `CharacterWorld` (`process_priority = 200`), jadi
+kamera menjawab gerak yang sudah terjadi di frame yang sama, bukan frame
+sebelumnya.
+
+Dead zone diterapkan pada titik bidik, bukan pada pemain: kamera hanya bergerak
+kalau pemain keluar 32 cm dari titik bidiknya. Hasilnya titik bidik bergerak
+seperti gigi gergaji selebar dead zone, dan spring yang menghaluskannya — inilah
+yang membuat gambar diam saat pemain berhenti dan tidak "memompa" saat berjalan.
+
+Di tepi peta batasnya masih keras (titik bidik dijepit ke `map.bounds()`), tetapi
+yang bergerak menuju batas itu adalah spring, jadi kecepatannya melambat sendiri
+(ease-out) dan tidak pernah tersentak.
+
+### 21.4 Horizon: langit bergradien, dua lapis pegunungan, hamparan kabut
+
+Dengan pitch 30° ujung atas layar hanya 14° di bawah garis horizontal, jadi
+horizon masuk gambar dan latar bekas "satu warna" berubah menjadi dinding kelabu.
+`FarScenery.gd` menambahkan tiga hal, semuanya statis dan murah:
+
+1. **Langit gradien** (`ProceduralSkyMaterial`) — warna puncak & kaki langit per
+   fase, diambil `WorldClock` dari tabel `PHASES` (`sky_top` dan `fog`). Kaki
+   langit sengaja sama dengan warna kabut supaya tidak ada jahitan.
+2. **Dua cincin pegunungan** di radius 175 m dan 320 m, 96 segmen, tinggi dari
+   tiga sinus berbeda (jadi tidak terlihat berulang). Shader `far_ridge.gdshader`
+   tanpa cahaya, gradien dari warna kabut di kaki ke warna punggungan di puncak.
+   Cincin mengikuti posisi kamera tiap frame: tidak pernah mendekat, tidak pernah
+   habis.
+3. **Hamparan kabut** 2400×2400 m di y = −0,6, jauh di bawah ubin terendah
+   (0,12 m) dan di bawah permukaan air (−0,14 m), jadi tepi peta tidak lagi
+   menjadi lubang hitam.
+
+`far` kamera naik 160 → 420 m supaya cincin terjauh masuk; `fog_sky_affect`
+0 → 0,35 supaya langit ikut berkabut di kaki langit.
+
+### 21.5 Occlusion pada sudut rendah
+
+Koridor lama 0,85 m dibuat untuk kamera yang menunjuk hampir lurus ke bawah. Pada
+30° kamera melihat sepanjang koridor, jadi koridornya dilebarkan ke 1,05 m dan
+pemudarannya dibuat bertingkat: pohon yang tepat di garis kamera–pemain turun ke
+**0,25** (dither 8×8 di shader prop), yang menyentuh tepi koridor hampir tidak
+berubah. Keputusan "prop mana yang memudar, seberapa" dipisah ke
+`RegionView.occluders_for()` — fungsi murni tanpa akses node — karena headless
+tidak bisa membaca warna instance MultiMesh kembali (jebakan langkah 2).
+
+### 21.6 Yang belum bisa diverifikasi di sini
+
+- Rasa gerak di HP (60/90/120 Hz, jitter sentuh). Di CI hanya bisa dibuktikan
+  bahwa lensa tidak berubah dan spring-nya sama pada 30 dan 60 fps.
+- `ProceduralSkyMaterial` di GPU HP (Mali/Adreno) — di CI memakai Mesa software.
+- Apakah pitch 30 memang yang dipilih; itu keputusan pemilik setelah melihat
+  `docs/screenshots/camera/sudut_kamera.png` (6 pitch × 3 FOV). Nilai di
+  `camera.json` **belum final** sampai dipilih.
+- Bangunan masih sprite billboard (dinding tampak datar dari sudut rendah);
+  diganti model 3D di langkah 3B.

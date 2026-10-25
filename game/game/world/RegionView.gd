@@ -484,18 +484,54 @@ func _upload(cc: Vector2i, arrays: Dictionary) -> void:
 
 
 # --------------------------------------------------------------- occlusion ---
-## Dither away the props standing between the camera and the knight. The list is
-## only the tall props (a tuft never hides anybody) and the caller runs this on a
-## tile change or four times a second, so this is not a per-frame scan of 2 959
-## instances.
-func update_occluders(player: Vector2, camera_xz: Vector2) -> void:
+## Dither away the props standing between the camera and the knight.
+##
+## The list is only the tall props (a tuft never hides anybody) and the caller
+## runs this on a tile change or four times a second, so this is not a per-frame
+## scan of 2 959 instances.
+##
+## The maths lives in `occluders_for()` so it can be tested without a renderer:
+## a headless run cannot read instance colours back out of a MultiMesh (the known
+## dead end from step 2), but the DECISION of which prop fades is pure geometry.
+##
+## 3A changed the shape of the decision. The old test was binary (hide / show)
+## with a fixed 0.85 m corridor, tuned for a camera looking almost straight down.
+## At pitch 30 the camera looks along the corridor at a shallow angle, so the
+## corridor has to be wider than the prop and the fade has to be partial: a tree
+## turns to a half-dithered veil so the knight's silhouette still reads through
+## it, instead of vanishing and leaving a hole in the forest.
+func update_occluders(player: Vector2, camera_xz: Vector2,
+		radius: float = 1.05, reach: float = 2.5) -> void:
 	if _tall.is_empty():
 		return
+	var plan := occluders_for(player, camera_xz, radius, reach)
+	# anything that was fading and is not in the plan goes back to solid
+	for key in _faded.keys():
+		if plan.has(key):
+			continue
+		_set_fade(key, 1.0)
+		_faded.erase(key)
+	for key in plan.keys():
+		var fade := float(plan[key])
+		var was := float(_faded.get(key, 1.0))
+		if is_equal_approx(was, fade):
+			continue
+		_set_fade(key, fade)
+		_faded[key] = fade
+
+
+## Which props must fade, and how much: {"kind/idx": fade 0..1}. Pure function of
+## the prop layout, the knight and the camera; no node access at all.
+func occluders_for(player: Vector2, camera_xz: Vector2,
+		radius: float = 1.05, reach: float = 2.5) -> Dictionary:
+	var out := {}
+	if _tall.is_empty():
+		return out
 	var dir := player - camera_xz
-	var reach := dir.length()
-	if reach < 0.5:
-		return
-	var dirn := dir / reach
+	var dist := dir.length()
+	if dist < 0.5:
+		return out
+	var dirn := dir / dist
 	for item in _tall:
 		var kind: String = item[0]
 		var idx: int = item[1]
@@ -503,21 +539,29 @@ func update_occluders(player: Vector2, camera_xz: Vector2) -> void:
 		var z: float = item[3]
 		var to_prop := Vector2(x, z) - camera_xz
 		var along := to_prop.dot(dirn)
+		if along < 0.5 or along > dist + reach:
+			continue
 		var lateral := absf(to_prop.cross(dirn))
-		var hide := along > 0.5 and along < reach + 1.5 and lateral < 0.85
-		var key := "%s/%d" % [kind, idx]
-		var was := _faded.has(key)
-		if hide == was:
+		if lateral > radius:
 			continue
-		var mmi: MultiMeshInstance3D = _prop_mms.get(kind, null)
-		if mmi == null or mmi.multimesh == null or idx >= mmi.multimesh.instance_count:
-			continue
-		var c: Color = mmi.multimesh.get_instance_color(idx)
-		mmi.multimesh.set_instance_color(idx, Color(0.0 if hide else 1.0, c.g, c.b, c.a))
-		if hide:
-			_faded[key] = true
-		else:
-			_faded.erase(key)
+		# straight on the line = fully dithered down to a quarter, at the edge of
+		# the corridor = barely touched
+		var strength := 1.0 - lateral / maxf(radius, 0.001)
+		out["%s/%d" % [kind, idx]] = clampf(1.0 - 0.75 * strength, 0.25, 1.0)
+	return out
+
+
+func _set_fade(key: String, fade: float) -> void:
+	var parts := key.split("/")
+	if parts.size() != 2:
+		return
+	var kind := parts[0]
+	var idx := int(parts[1])
+	var mmi: MultiMeshInstance3D = _prop_mms.get(kind, null)
+	if mmi == null or mmi.multimesh == null or idx < 0 or idx >= mmi.multimesh.instance_count:
+		return
+	var c: Color = mmi.multimesh.get_instance_color(idx)
+	mmi.multimesh.set_instance_color(idx, Color(fade, c.g, c.b, c.a))
 
 
 # --------------------------------------------------------------------- api ---

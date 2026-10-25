@@ -34,7 +34,7 @@ func _ready() -> void:
 	_test_fog_payload()
 	_test_window_sizes()
 	await _test_camera_limits()
-	await _test_zoom_ladder()
+	await _test_fixed_lens()
 	await _test_minimap_sizes()
 	await _test_menu_fits()
 	await _test_action_button()
@@ -204,31 +204,42 @@ func _test_camera_limits() -> void:
 		await get_tree().process_frame
 
 
-func _test_zoom_ladder() -> void:
+## Step 3A: there is no zoom. This used to test a pinch ladder; now it tests the
+## opposite - the three numbers that define the frame never move, no matter what
+## the player's fingers do.
+func _test_fixed_lens() -> void:
 	var rig: Node3D = CAMERA_SCRIPT.new()
 	var cam := Camera3D.new()
 	cam.name = "Camera3D"
 	cam.current = true
 	rig.add_child(cam)
 	add_child(rig)
-	await get_tree().process_frame
 	rig.call("set_map_bounds", Rect2(-13.0, -10.0, 26.0, 20.0))
-	var cam_script: Script = CAMERA_SCRIPT
-	var ladder: Array = cam_script.get_script_constant_map()["ZOOM_LADDER"]
-	rig.call("set_zoom", 17.43)
-	var snapped := float(rig.call("zoom"))
-	var on_ladder := false
-	for step_variant in ladder:
-		if is_equal_approx(float(step_variant), snapped):
-			on_ladder = true
-	_check(on_ladder, "zoom menempel ke tangga (tidak 17,43)", "%.2f" % snapped)
-	rig.call("set_zoom", 999.0)
-	_check(float(rig.call("zoom")) <= float(rig.call("max_zoom")) + 0.001,
-		"zoom maksimum mengikuti ukuran peta",
-		"%.2f <= %.2f" % [float(rig.call("zoom")), float(rig.call("max_zoom"))])
-	rig.call("set_zoom", 0.1)
-	_check(float(rig.call("zoom")) >= 11.0 - 0.001, "zoom minimum dijaga",
-		"%.2f" % float(rig.call("zoom")))
+	var before: Dictionary = rig.call("lens_state")
+
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed = true
+	Input.parse_input_event(wheel)
+	var pinch := InputEventScreenTouch.new()
+	pinch.index = 0
+	pinch.position = Vector2(100.0, 100.0)
+	pinch.pressed = true
+	Input.parse_input_event(pinch)
+	var second := InputEventScreenTouch.new()
+	second.index = 1
+	second.position = Vector2(400.0, 400.0)
+	second.pressed = true
+	Input.parse_input_event(second)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var after: Dictionary = rig.call("lens_state")
+	var drift := 0.0
+	for key in before.keys():
+		drift = maxf(drift, absf(float(after[key]) - float(before[key])))
+	_check(drift < 0.001, "lensa tidak berubah karena input (tidak ada zoom)",
+		"selisih %.5f" % drift)
+	_check(not rig.has_method("_input"), "rig tidak menangani sentuhan sama sekali")
 	rig.queue_free()
 	await get_tree().process_frame
 

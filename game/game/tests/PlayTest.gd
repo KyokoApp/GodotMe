@@ -278,8 +278,11 @@ func _test_camera_follows_player() -> void:
 	var moved: float = Vector2(rig.position.x - start.x, rig.position.z - start.z).length()
 	_check(moved > 2.5, "kamera mengikuti karakter yang berjalan",
 		"pindah %.2f m dari %.2f" % [moved, start.length()])
+	# Step 3A: the rig aims 1,7 m PAST the knight (look-ahead), so the knight sits
+	# a little below the centre of the frame instead of dead on the crosshair.
+	# "Stops near him" therefore means 1,7 m, not 0 m.
 	var err: float = Vector2(rig.position.x - goal.x, rig.position.z - goal.z).length()
-	_check(err < 1.2, "kamera berhenti dekat karakter (bukan jauh tertinggal)",
+	_check(err < 2.6, "kamera berhenti dekat karakter (bukan jauh tertinggal)",
 		"selisih %.2f m" % err)
 	walker.queue_free()
 	world.queue_free()

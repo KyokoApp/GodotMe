@@ -34,6 +34,8 @@ const PHASES := [
 		"fog": Color(0.80, 0.80, 0.80),
 		"fog_density": 0.0090,
 		"sky": Color(0.52, 0.50, 0.50),
+		"sky_top": Color(0.44, 0.56, 0.74),
+		"ridge": Color(0.45, 0.50, 0.60),
 		"lamp": 0.10,
 	},
 	{
@@ -46,6 +48,8 @@ const PHASES := [
 		"fog": Color(0.74, 0.71, 0.67),
 		"fog_density": 0.0034,
 		"sky": Color(0.46, 0.40, 0.36),
+		"sky_top": Color(0.33, 0.51, 0.76),
+		"ridge": Color(0.47, 0.53, 0.62),
 		"lamp": 0.0,
 	},
 	{
@@ -58,6 +62,10 @@ const PHASES := [
 		"fog": Color(0.76, 0.70, 0.64),
 		"fog_density": 0.0038,
 		"sky": Color(0.44, 0.36, 0.32),
+		# golden hour: the one phase where the sky is warm at the horizon and
+		# already violet overhead. This is the Octopath dusk the brief asks for.
+		"sky_top": Color(0.34, 0.34, 0.56),
+		"ridge": Color(0.31, 0.28, 0.40),
 		"lamp": 0.45,
 	},
 	{
@@ -70,6 +78,8 @@ const PHASES := [
 		"fog": Color(0.24, 0.29, 0.42),
 		"fog_density": 0.0048,
 		"sky": Color(0.12, 0.15, 0.24),
+		"sky_top": Color(0.05, 0.07, 0.16),
+		"ridge": Color(0.14, 0.16, 0.26),
 		"lamp": 1.25,
 	},
 ]
@@ -77,6 +87,8 @@ const PHASES := [
 var sun: DirectionalLight3D
 var env: Environment
 var lamp: OmniLight3D
+## FarScenery: sky gradient and ridge tint follow the phase too.
+var far: Node
 ## 0..1 through the whole cycle. 0 = first instant of pagi.
 var day := 0.0
 var running := true
@@ -85,10 +97,11 @@ var _last_phase := ""
 
 
 func setup(sun_node: DirectionalLight3D, env_ref: Environment,
-		lamp_node: OmniLight3D = null) -> void:
+		lamp_node: OmniLight3D = null, far_node: Node = null) -> void:
 	sun = sun_node
 	env = env_ref
 	lamp = lamp_node
+	far = far_node
 	_apply()
 
 
@@ -175,6 +188,14 @@ func _apply() -> void:
 
 	if lamp != null:
 		lamp.light_energy = lerpf(float(a["lamp"]), float(b["lamp"]), t)
+
+	if far != null and far.has_method("set_phase"):
+		# The horizon is painted from the same two colours the fog uses, so the
+		# far hills, the edge of the map and the sky can never disagree.
+		var top: Color = (a["sky_top"] as Color).lerp(b["sky_top"] as Color, t)
+		var ridge: Color = (a["ridge"] as Color).lerp(b["ridge"] as Color, t)
+		var haze: Color = (a["fog"] as Color).lerp(b["fog"] as Color, t)
+		far.call("set_phase", top, haze, ridge)
 
 	var id := phase_name()
 	if id != _last_phase:
