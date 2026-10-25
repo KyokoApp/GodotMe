@@ -43,9 +43,11 @@ var view_radius := 1
 ## Chunks are built one ring further out than they are shown, so the next chunk
 ## is ready before the player walks into it.
 var prefetch := true
-## Bake chunks on WorkerThreadPool tasks. The rules test turns this off so the
-## measurement is the worst case (one thread) and so the process can quit without
-## a baker task alive underneath it.
+## Bake chunks on WorkerThreadPool tasks. Off on a headless run: building the
+## arrays needs no GPU, so nothing is gained by threads there, the tests get the
+## worst case (one thread) as their measurement, and the process can exit without
+## a baker task alive underneath it - which is what the intermittent
+## "all checks green, exit 134" crash at teardown turned out to be.
 var threaded := true
 
 var _terrain_mat: ShaderMaterial
@@ -75,6 +77,8 @@ var _stats := {
 func setup(region: RefCounted, radius: int = 1) -> void:
 	data = region
 	view_radius = clampi(radius, 0, RADIUS_MAX)
+	if OS.has_feature("headless"):
+		threaded = false
 	_stats["build_ms_total"] = 0.0
 	_build_materials()
 	_build_quad()
