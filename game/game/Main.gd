@@ -494,6 +494,17 @@ func _maybe_capture_or_quit() -> void:
 		await get_tree().create_timer(0.5).timeout
 	elif walk_secs > 0.0:
 		await _drive_walk(walk_secs)
+	if scenario == "stick" and _cast != null and is_instance_valid(_cast):
+		# near the guard, so the contextual button is up too, with the floating
+		# stick drawn pushed in: at rest it is invisible and proves nothing
+		_cast.call("teleport_player", Vector2(3.4, 5.2))
+		await get_tree().create_timer(0.55).timeout
+		var pad: Variant = _cast.call("touch_controls") if _cast.has_method("touch_controls") else null
+		if pad != null:
+			pad.call("show_controls", true)
+			if pad.has_method("preview_stick"):
+				pad.call("preview_stick", true)
+		await get_tree().create_timer(0.3).timeout
 	if scenario == "dialogue":
 		await _open_dialogue_for_capture()
 	elif scenario == "map":

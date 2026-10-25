@@ -255,7 +255,9 @@ func _build_action_button() -> void:
 	_action_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(_action_icon)
 
-	_action_label = KIT.label("Bicara", 20, CREAM, true)
+	# Upper case on purpose: at 20 px the pixel font's lower-case "c" reads
+	# as a "g" ("Bicara" looked like "Bigara" on a phone-sized screenshot).
+	_action_label = KIT.label("BICARA", 18, CREAM, true)
 	_action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_action_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(_action_label)
@@ -277,11 +279,11 @@ func set_action(kind: String, label_text: String) -> void:
 		hide_action()
 		return
 	if kind == _action_kind and _action_shown:
-		_action_label.text = label_text
+		_action_label.text = label_text.to_upper()
 		return
 	_action_kind = kind
 	_action_icon.texture = KIT.icon(kind if KIT.ICONS.has(kind) else "inspect")
-	_action_label.text = label_text
+	_action_label.text = label_text.to_upper()
 	if not _action_shown:
 		_action_shown = true
 		_action_btn.visible = true

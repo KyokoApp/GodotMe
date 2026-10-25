@@ -176,6 +176,22 @@ func _steer(pos: Vector2) -> void:
 	stick_changed.emit(stick_vector)
 
 
+## Draw the stick as if a thumb were pushing it, without moving anybody. Only
+## the capture harness calls this: the stick is floating, so at rest it is
+## invisible and a screenshot of "the HUD" would never show it.
+func preview_stick(shown: bool, push: Vector2 = Vector2(56.0, -28.0)) -> void:
+	if _base == null:
+		return
+	if not shown:
+		_reset()
+		return
+	var vp := get_viewport().get_visible_rect().size
+	_place_stick(Vector2(vp.x * 0.22, vp.y - 150.0))
+	_knob.position = Vector2(STICK_SIZE, STICK_SIZE) * 0.5 - _knob.size * 0.5 + push
+	_base.visible = true
+	_knob.visible = true
+
+
 ## Dead zone, then response curve, then the player's sensitivity. Written as one
 ## function so "the stick feels wrong" is a single place to look.
 func _shape(raw: Vector2) -> Vector2:

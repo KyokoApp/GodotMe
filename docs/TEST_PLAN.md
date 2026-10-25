@@ -328,7 +328,8 @@ peluncur minta konfirmasi, peta penuh buka/tutup).
 lapangan memang sudah tidak ada lagi.
 
 Tangkapan layar baru di CI: `22_lapangan`, `22b_lapangan_kosong` (tidak ada
-siapa pun dalam jangkauan: HUD paling kosong), `23_banner`, `24_dialog`,
+siapa pun dalam jangkauan: HUD paling kosong), `22c_stik` (stik mengambang
+dalam keadaan didorong — saat diam ia memang tidak terlihat), `23_banner`, `24_dialog`,
 `25_jurnal`, `26_peta`, `27_fog`, `28_rasio_20x9`, `29_rasio_4x3`, ditambah
 `20_menu` / `21_pengaturan` yang digambar ulang.
 

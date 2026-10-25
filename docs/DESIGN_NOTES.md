@@ -1046,7 +1046,8 @@ tidak bisa keluar peta di tiga arah pada dua ukuran peta, tangga zoom, minimap
 pada peta 26×20 dan 160×120, tombol aksi yang muncul/memudar menurut jarak, dan
 dialog yang tidak menimpa minimap/tombol menu.
 
-Tangkapan layar CI bertambah: `22_lapangan`, `23_banner`, `24_dialog`,
+Tangkapan layar CI bertambah: `22_lapangan`, `22b_lapangan_kosong`, `22c_stik`,
+`23_banner`, `24_dialog`,
 `25_jurnal`, `26_peta`, `27_fog`, `28_rasio_20x9`, `29_rasio_4x3`, plus
 `20_menu`/`21_pengaturan` yang digambar ulang.
 
@@ -1063,3 +1064,20 @@ Tangkapan layar CI bertambah: `22_lapangan`, `23_banner`, `24_dialog`,
 * `KIND_WATER` sudah ada di data dan palet, tetapi diorama belum punya kolam.
   Saya tidak menambahkan air yang tidak ada di dunia hanya agar legendanya genap.
 * FPS di HP tetap belum diukur dari sandbox ini.
+
+### 19.10 Dua perbaikan kecil dari tangkapan layar
+
+**Label tombol aksi ditulis kapital.** Pada 20 px, huruf kecil "c" di Pixelify
+Sans punya ekor bawah yang membuat **"Bicara"** terbaca **"Bigara"** — terlihat
+di tangkapan layar `22_lapangan` versi 1280×720. Alih-alih menebak ukuran font
+yang lebih besar (yang bisa mendorong label keluar dari lingkaran 132 px),
+label sekarang memakai huruf kapital pada 18 px: perbedaan huruf besar/kecil
+selalu terbaca, berapa pun kerapatan pikselnya. Semua label tombol
+(`BICARA`/`MASUK`/`PERIKSA`/`AMBIL`) lewat satu jalur `to_upper()`.
+
+**Stik difoto dalam keadaan didorong.** Stik mengambang hanya muncul saat ibu
+jari menyentuh layar, jadi tangkapan layar HUD kosong selalu tampak "tanpa
+stik". Harness tangkapan memanggil `TouchControls.preview_stick(true)`, yang
+menggambar pangkalan + kenop pada posisi dorong **tanpa** menggerakkan ksatria
+(tidak menyentuh `stick_vector`). Hanya dipakai CI; permainan tidak pernah
+memanggilnya.
