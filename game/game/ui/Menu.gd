@@ -180,7 +180,7 @@ func _well_style() -> StyleBoxFlat:
 
 ## One page: a stack of rows, shown alone. Pages are children of the same
 ## container, so switching is a visibility flip - no rebuild, no flicker.
-func _page(parent: Control, id: String) -> VBoxContainer:
+func _make_page(parent: Control, id: String) -> VBoxContainer:
 	var box := VBoxContainer.new()
 	box.name = "Page_" + id
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -192,7 +192,7 @@ func _page(parent: Control, id: String) -> VBoxContainer:
 
 
 func _build_page_lanjut(parent: Control) -> void:
-	var box := _page(parent, "lanjut")
+	var box := _make_page(parent, "lanjut")
 	var blurb := KIT.label(
 		"Dunia berhenti selagi panel ini terbuka.\n" +
 		"Progres tersimpan sendiri setiap beberapa detik, dan sekali lagi saat kau menutup panel ini.",
@@ -205,7 +205,7 @@ func _build_page_lanjut(parent: Control) -> void:
 
 
 func _build_page_jurnal(parent: Control) -> void:
-	var box := _page(parent, "jurnal")
+	var box := _make_page(parent, "jurnal")
 	var head := KIT.label("TUJUAN AKTIF", 15, KIT.INK_SOFT, true)
 	box.add_child(head)
 	_journal_objective = KIT.label("—", 22, KIT.INK)
@@ -229,7 +229,7 @@ func _build_page_jurnal(parent: Control) -> void:
 
 
 func _build_page_peta(parent: Control) -> void:
-	var box := _page(parent, "peta")
+	var box := _make_page(parent, "peta")
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -271,7 +271,7 @@ func _map_well() -> StyleBoxFlat:
 
 
 func _build_page_inventori(parent: Control) -> void:
-	var box := _page(parent, "inventori")
+	var box := _make_page(parent, "inventori")
 	var text := KIT.label(
 		"Belum ada isi.\nBarang pertama akan muncul di sini, dan tiap kotak memuat satu benda.",
 		17, KIT.INK_SOFT)
@@ -303,7 +303,7 @@ func _slot_style() -> StyleBoxFlat:
 
 
 func _build_page_pengaturan(parent: Control) -> void:
-	var box := _page(parent, "pengaturan")
+	var box := _make_page(parent, "pengaturan")
 	var grid := VBoxContainer.new()
 	grid.add_theme_constant_override("separation", 6)
 	box.add_child(grid)
@@ -339,7 +339,7 @@ func _setting_row(key: String, label_text: String) -> Control:
 
 
 func _build_page_simpan(parent: Control) -> void:
-	var box := _page(parent, "simpan")
+	var box := _make_page(parent, "simpan")
 	var text := KIT.label(
 		"Simpan manual menulis berkas yang sama dengan simpan otomatis, " +
 		"lengkap dengan cadangan .bak.",
@@ -354,7 +354,7 @@ func _build_page_simpan(parent: Control) -> void:
 
 
 func _build_page_peluncur(parent: Control) -> void:
-	var box := _page(parent, "peluncur")
+	var box := _make_page(parent, "peluncur")
 	var text := KIT.label(
 		"Kembali ke peluncur akan menutup dunia ini. Progres sudah tersimpan di perangkat.",
 		17, KIT.INK_SOFT)

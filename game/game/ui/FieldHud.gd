@@ -69,7 +69,6 @@ func _ready() -> void:
 	_build_menu_button()
 	_build_action_button()
 	_build_banner()
-	_build_phase()
 	_build_fullmap()
 	# The window can change under us (rotation, 16:9 vs 20:9 vs 4:3 windows, the
 	# phone's own resize): every corner has to be re-anchored, not just once at

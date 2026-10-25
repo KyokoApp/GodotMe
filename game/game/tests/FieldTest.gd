@@ -81,7 +81,8 @@ func _test_map_data() -> void:
 	# the outside of the map is not walkable, inside grass is
 	_check(not bool(map.call("walkable_at", Vector2(400.0, 0.0))), "di luar peta tidak bisa dijalankan")
 	_check(bool(map.call("walkable_at", Vector2.ZERO)), "rumput bisa dijalankan")
-	var kinds: Dictionary = MAP_SCRIPT.get_script_constant_map()
+	var map_script: Script = MAP_SCRIPT
+	var kinds: Dictionary = map_script.get_script_constant_map()
 	var dirt := int(kinds.get("KIND_DIRT", 1))
 	map.call("paint_disc", Vector2.ZERO, 1.0, dirt)
 	_check(int(map.call("tile_at", 13, 10)) == dirt, "ubin bisa dicat jadi tanah")
@@ -211,7 +212,8 @@ func _test_zoom_ladder() -> void:
 	add_child(rig)
 	await get_tree().process_frame
 	rig.call("set_map_bounds", Rect2(-13.0, -10.0, 26.0, 20.0))
-	var ladder: Array = CAMERA_SCRIPT.get_script_constant_map()["ZOOM_LADDER"]
+	var cam_script: Script = CAMERA_SCRIPT
+	var ladder: Array = cam_script.get_script_constant_map()["ZOOM_LADDER"]
 	rig.call("set_zoom", 17.43)
 	var snapped := float(rig.call("zoom"))
 	var on_ladder := false

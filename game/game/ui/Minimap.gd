@@ -182,12 +182,12 @@ func _draw() -> void:
 	if _texture == null:
 		return
 	var tiles := window_tiles()
-	var size := Vector2(box.size, box.size)
+	var box_size := box.size
 	# the map image is drawn 1:1 on the box: the window is square, the box is
 	# square, so there is no stretching and no half-pixel sampling
-	draw_texture_rect(_texture, Rect2(box.position, size), false)
+	draw_texture_rect(_texture, Rect2(box.position, box_size), false)
 	# a 1 px brass line inside the frame, so the map reads as a chart in a case
-	draw_rect(Rect2(box.position - Vector2.ONE, size + Vector2.ONE * 2.0),
+	draw_rect(Rect2(box.position - Vector2.ONE, box_size + Vector2.ONE * 2.0),
 		Color(BRASS.r, BRASS.g, BRASS.b, 0.55), false, 1.0)
 	_draw_markers(box, tiles)
 	_draw_player(box, tiles)
