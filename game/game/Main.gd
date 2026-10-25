@@ -488,7 +488,11 @@ func _maybe_capture_or_quit() -> void:
 		return
 	# let the curtain finish and one bloom frame settle
 	await get_tree().create_timer(1.0).timeout
-	if walk_secs > 0.0:
+	if scenario == "field_only" and _cast != null and is_instance_valid(_cast):
+		# stand in the open, far from anybody: the HUD at its emptiest
+		_cast.call("teleport_player", Vector2(-8.5, 6.0))
+		await get_tree().create_timer(0.5).timeout
+	elif walk_secs > 0.0:
 		await _drive_walk(walk_secs)
 	if scenario == "dialogue":
 		await _open_dialogue_for_capture()

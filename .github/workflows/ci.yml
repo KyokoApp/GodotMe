@@ -329,7 +329,8 @@ jobs:
           # Each run goes through the real game (Main.tscn) and the same doors a
           # thumb uses; nothing is drawn by a test-only path.
           for variant in "menu:lanjut 20_menu" "menu:pengaturan 21_pengaturan" \
-                         "field 22_lapangan" "banner 23_banner" \
+                         "field 22_lapangan" "field_only 22b_lapangan_kosong" \
+                         "banner 23_banner" \
                          "dialogue 24_dialog" "menu:jurnal 25_jurnal" \
                          "map 26_peta" "fog 27_fog"; do
             arg="${variant% *}"; name="${variant#* }"

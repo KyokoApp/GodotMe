@@ -255,7 +255,7 @@ func _build_action_button() -> void:
 	_action_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(_action_icon)
 
-	_action_label = KIT.label("Bicara", 18, CREAM, true)
+	_action_label = KIT.label("Bicara", 20, CREAM, true)
 	_action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_action_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(_action_label)
