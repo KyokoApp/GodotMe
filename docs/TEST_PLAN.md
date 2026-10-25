@@ -189,7 +189,8 @@ Tambahan `PlayTest` (25 Okt 2026, fase taruhan):
 | P27 | terjatuh tidak menghapus progres orc | hukuman bukan penghapusan |
 | P28 | tujuan berganti ke "Kembali ke Penjaga Bram" lalu "Jalur aman" | HUD dibaca dari save |
 | P29 | "Simpan sekarang" menulis berkas dan count `deaths` ikut tersimpan | jalur simpan manual = autosave |
-| P30 | `16_terjatuh.png` memotret ksatria di tanah dengan HUD 0/3 | bukti visual, bukan klaim |
+| P30 | `16_terjatuh.png` memotret ksatria di tanah dengan pesan terjatuh | bukti visual, bukan klaim |
+| P31 | animasi `death` yang dimainkan saat terjatuh (bukan `hurt`) | pukulan terakhir dulu menimpa animasi mati sehingga ksatria "mati sambil berdiri" |
 
 Yang **belum** teruji otomatis: tombol di lembar jeda (butuh layar sungguhan
 untuk menilai tata letaknya) — diperiksa manual di HP: Jeda → Simpan sekarang →

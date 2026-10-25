@@ -20,7 +20,7 @@ on:
         required: true
       pack_version:
         description: "Version written into version.json"
-        default: "0.3.1"
+        default: "0.3.2"
         required: true
   push:
     branches: ["arena/**"]
@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.3.1' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.3.2' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,6 +70,12 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
+              "Ksatria kini punya tiga hati: orc benar-benar berbahaya, dan menahan perisai membuat pukulan tidak memakan hati.",
+              "Hati habis: ksatria terjatuh, lalu bangun di awal jalan tanpa kehilangan progres apa pun.",
+              "Panel tujuan di kiri atas mengikuti progres (bersihkan jalur, kembali ke penjaga, jalur aman) dan menampilkan nyawa.",
+              "Tombol Jeda: lanjutkan, simpan sekarang, atau kembali ke peluncur. Dunia berhenti, tombolnya tetap hidup.",
+              "Perbaikan: pukulan terakhir tidak lagi menimpa animasi mati, jadi ksatria jatuh sungguhan, bukan mati sambil berdiri.",
+              "Paket yang berubah: core.pck dan characters.pck. Paket lain tidak diunduh ulang, APK tetap.",
               "Cerita penjaga kini berganti sesuai progres: pertemuan pertama, kunjungan ulang, lalu kisah setelah ketiga orc dibersihkan.",
               "Progres permainan tersimpan: orc yang sudah dikalahkan tidak muncul lagi dan ksatria bangun di tempat ia berhenti.",
               "Save berversi dengan cadangan otomatis: tulisan atomik, pulih dari .bak bila berkas rusak, dan save dari versi lebih baru tidak pernah ditimpa.",

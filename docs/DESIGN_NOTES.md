@@ -642,3 +642,10 @@ berhenti. "Simpan sekarang" memanggil jalur yang sama dengan autosave
 
 Catatan kecil: teks lama "Orc menghadang — pertempuran menyusul." dihapus. Itu
 janji fitur yang tidak ada, dan sekarang orc memang menghadang.
+
+Satu bug ditemukan justru lewat tangkapan layar ini: pukulan terakhir memanggil
+`take_hit()` → sinyal `hurt` → dunia memanggil `die()` → **lalu** `take_hit()`
+melanjutkan barisnya dan memutar animasi `hurt`, menimpa animasi `death`. Hasilnya
+ksatria "mati sambil berdiri". Perbaikannya: `take_hit()` berhenti setelah sinyal
+bila aktornya sudah mati. Pelajarannya: uji status saja tidak cukup, animasi yang
+sedang diputar juga harus diperiksa.
