@@ -519,3 +519,22 @@ dikendalikan setelah orc memukul" dan "semua prop menapak di tanah".
 Isi perubahan: billboard sumbu Y untuk karakter dan prop (akar "melayang"),
 kamera mengikuti pemain dengan deadzone, stik dinamis di zona kiri layar.
 Uji penjaga: `PlayTest` naik dari 12 menjadi **24 pemeriksaan**.
+
+### 0.3.1 — cerita bertema dan save berversi
+
+`characters_100.pck` 182.412 B (naik 24.208 B), `version.json` 2.831 B
+(`version: 0.3.1`). Paket lain **tidak berubah**, jadi di HP cukup
+**Periksa Lagi → MAIN**: hanya `characters.pck` yang diunduh. APK tetap
+(29.428.024 B), tidak perlu dipasang ulang.
+
+Yang ikut di `characters.pck`: `game/characters/data/bram.json` (cerita penjaga),
+`game/dialogue/DialogueTree.gd` (pemilih cabang), `game/save/SaveGame.gd` (save
+skema 1), dan `CharacterWorld.gd`/`DialogueBox.gd` yang kini memakai keduanya.
+
+Save pemain berada di `user://save/slot1.json` — **di luar** `user://retraveller/`
+milik peluncur, jadi memperbarui atau menghapus paket tidak menyentuh progres.
+Save 0.2.x/0.3.0 (tanpa `schema`) dimigrasi ke skema 1 saat pertama dibaca.
+
+Verifikasi rilis: run `release-demo` **40149814165** (success) dan `ci`
+**40149814128** (success) — `play rules` 30 pemeriksaan, `story rules` (save 25 +
+dialog 18) 43 pemeriksaan, semuanya 0 gagal.
