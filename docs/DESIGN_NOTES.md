@@ -649,3 +649,89 @@ melanjutkan barisnya dan memutar animasi `hurt`, menimpa animasi `death`. Hasiln
 ksatria "mati sambil berdiri". Perbaikannya: `take_hit()` berhenti setelah sinyal
 bila aktornya sudah mati. Pelajarannya: uji status saja tidak cukup, animasi yang
 sedang diputar juga harus diperiksa.
+
+---
+
+## 15. Siklus hari dan atmosfer (0.4.0)
+
+### 15.1 Satu angka, empat fase
+
+Sebelum fase ini "waktu" hanyalah boolean: `set_time_of_day(true/false)` menukar
+matahari ke satu malam tetap. Sekarang `WorldClock.gd` memegang satu angka 0–1
+yang berjalan **480 detik per hari penuh** dan menurunkan semua yang berhubungan
+dengan cahaya dari angka itu:
+
+| Fase | Matahari | Ambien | Kabut | Lampu pondok |
+| --- | --- | --- | --- | --- |
+| pagi | 0,78 · putih kebiruan | 0,50 · biru lembut | **paling tebal (0,0090)** | 0,10 |
+| siang | 1,15 · putih | 0,46 · netral | paling tipis (0,0034) | 0,00 |
+| sore | 1,10 · emas | 0,47 · hangat | 0,0048 | 0,45 |
+| malam | 0,30 · biru pucat | 0,34 · biru tua | 0,0048 | **1,25** |
+
+Transisi memakai `smoothstep(0.62, 1.0, frac)`: cahaya duduk tenang di sebagian
+besar fase lalu bergeser halus di sepertiga terakhir, jadi pemain membaca "sore"
+sebagai sore, bukan sebagai slider yang terus bergerak.
+
+`set_time_of_day(bool)` lama tetap ada dan hanya melompat ke fase; `VisualTest`
+dan paket dunia lama tidak perlu diubah.
+
+### 15.2 Atmosfer: empat sistem, bukan empat node yang lahir-mati
+
+| Sistem | Muncul saat | Isi |
+| --- | --- | --- |
+| `dust` | pagi & siang | serbuk sari 4×4 px, melayang pelan |
+| `petals` | sore | daun 12×7 px, jatuh miring |
+| `fireflies` | malam | kunang-kunang 11×11 px, aditif (cahaya, bukan cat) |
+| `fog` | pagi & malam | kabut tanah, kuad 7×4 m, alpha rendah |
+
+Semua memakai `CPUParticles3D`, bukan GPU: renderer Compatibility di Android
+kelas menengah tidak perlu membayar particle GPU untuk empat puluh butir debu.
+`amount` tetap; yang berubah hanya alpha dan `emitting`, jadi tidak ada alokasi
+saat jam berputar dan tidak ada "ledakan" partikel di pergantian fase.
+
+Tekstur dibuat `tools/gen_atmosphere.py` (PNG sungguhan, skrip disimpan bersama
+hasilnya, sama seperti `gen_ui_kit.py`).
+
+### 15.3 Pelajaran mahal: dither pada kabut = kotak-kotak
+
+Versi pertama memberi alpha ber-dither Bayer pada keempat tekstur, karena aturan
+proyek melarang anti-aliasing. Tangkapan layar pertama fase ini memperlihatkan
+akibatnya: **seluruh layar penuh kotak-kotak abu-abu**. Kuad kabut lebarnya 7 m,
+jadi satu pola dither 2 px membesar menjadi ±7 px di layar dan mata membacanya
+sebagai papan catur, bukan kabut.
+
+Aturan yang sekarang dipegang:
+
+* **cahaya dan kabut** (firefly, fog, dust) memakai alpha halus — cahaya memang
+  kontinu, dan di ukuran itu dither terbaca sebagai artefak;
+* **benda** (daun, sprite karakter, prop) tetap piksel keras tanpa anti-alias.
+
+Daun juga diperbesar dari 6×4 ke 12×7: pada 6×4, saat diperbesar menjadi 20 px di
+layar, bentuknya jadi kotak oranye yang tidak terbaca sebagai daun.
+
+### 15.4 Yang bisa dilihat pemain
+
+`docs/screenshots/17_pagi.png`, `18_sore.png`, `10_visual_siang.png`,
+`11_visual_malam.png` — empat fase, satu diorama. Lampu jendela pondok menyala
+sendiri saat sore dan menerangi ambang pintu sepanjang malam; kunang-kunang hanya
+muncul setelah gelap.
+
+---
+
+## 16. Keputusan ukuran kanvas karakter (25 Okt 2026)
+
+Brief §3 meminta kanvas **48×64**; aset yang sudah diverifikasi di Fase 2–3
+adalah ksatria **112×96** dan penjaga/orc **100×100**. Pemilik memilih:
+**48×64 untuk semua karakter baru** (FASE 4 dan seterusnya).
+
+Konsekuensi yang dicatat:
+
+* karakter yang ada **tidak** digambar ulang diam-diam; mereka tetap dipakai
+  sampai ada aset 48×64 dari pemilik. Mengubahnya tanpa aset berarti mengarang
+  sprite, dan itu dilarang;
+* `world_pixel_size` 0,05 m tetap satu angka global; karakter 48×64 akan memakai
+  `pixel_scale` per karakter supaya tingginya tetap ±1,6–1,8 m (dicatat di
+  `characters/data/*.tres`, bukan ditebak di kode);
+* uji `ValidateCharacters` + `CharacterTest` akan melaporkan ukuran frame
+  sebenarnya, jadi kalau ada aset baru yang ukurannya beda, build gagal sebelum
+  terlihat aneh di HP.

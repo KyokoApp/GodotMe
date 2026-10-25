@@ -109,7 +109,13 @@ entri `CREDITS.md` akan ditulis **"lisensi: DIISI PEMILIK (TODO)"** — saya tid
 akan mengarang izin. Pack yang dipakai sekarang (Tiny RPG Soldier/Orc) masih
 berstatus TODO itu.
 
-## Satu keputusan yang harus Anda ambil: ukuran kanvas
+## Keputusan ukuran kanvas — SUDAH DIAMBIL (25 Okt 2026)
+
+**Semua karakter baru: 48×64** (brief §3). Karakter lama tetap dipakai apa adanya
+sampai ada aset 48×64 dari pemilik — saya tidak akan menggambar ulang sendiri.
+Lihat `DESIGN_NOTES.md` §16.
+
+## Rincian keputusan
 
 Brief §3 menyebut kanvas **48×64**. Kenyataan di game sekarang: ksatria
 **112×96**, penjaga/orc **100×100** — dan spesifikasi itu sudah Anda verifikasi

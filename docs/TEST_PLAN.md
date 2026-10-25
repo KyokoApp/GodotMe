@@ -195,3 +195,38 @@ Tambahan `PlayTest` (25 Okt 2026, fase taruhan):
 Yang **belum** teruji otomatis: tombol di lembar jeda (butuh layar sungguhan
 untuk menilai tata letaknya) — diperiksa manual di HP: Jeda → Simpan sekarang →
 tutup aplikasi → buka lagi, tujuan dan posisi harus sama.
+
+## FASE 6 — siklus hari & atmosfer (0.4.0)
+
+`WorldTest` — `godot --headless --path game res://game/tests/WorldTest.tscn`
+(**26 pemeriksaan**, 0 gagal):
+
+| # | Yang diuji | Kenapa |
+| --- | --- | --- |
+| W1 | diorama punya `WorldClock` dan `Atmosphere` | fase ini tidak boleh diam-diam tidak terpasang |
+| W2 | mulai di fase `sore` | tampilan default game |
+| W3 | empat fase (`pagi/siang/sore/malam`) dikenal | daftar fase satu sumber |
+| W4 | tiap fase bisa dipilih dan namanya benar | jam tidak boleh "nyangkut" |
+| W5 | cahaya malam > 0,3 lebih redup dari siang | malam harus malam |
+| W6 | cahaya malam kebiruan (b > r), bukan neon | aturan tema |
+| W7 | matahari siang lebih tinggi dari pagi | arah bayangan ikut berubah |
+| W8 | kabut pagi lebih tebal dari siang | lembah berkabut saat subuh |
+| W9 | ambient tiap fase dalam 0,15–0,75 | tidak ada fase yang hitam pekat/putih jebol |
+| W10 | lampu pondok < 0,05 saat siang, > 0,8 saat malam | lampu menyala sendiri |
+| W11 | empat sistem atmosfer ada | debu, kelopak, kunang-kunang, kabut |
+| W12 | keempat tekstur partikel termuat dari paket | PNG hilang = partikel tak terlihat, bukan error |
+| W13 | kunang-kunang > 0,25 saat malam, < 0,1 saat siang | tidak ada kunang-kunang siang hari |
+| W14 | debu > 0,4 saat siang, < 0,1 saat malam | debu hanya di cahaya |
+| W15 | kelopak > 0,5 saat sore | daun jatuh saat sore |
+| W16 | jam berjalan siang → sore, dan sehari penuh kembali | siklus tidak macet/drift |
+| W17 | `set_time_of_day(true/false)` masih kompatibel | VisualTest & paket dunia lama |
+
+Tangkapan layar wajib: `17_pagi`, `10_visual_siang`, `18_sore`, `11_visual_malam`
+(satu diorama, empat fase), diperiksa manual untuk: warna hijau tidak hilang saat
+sore, kabut tidak menjadi kotak-kotak, kunang-kunang bulat (bukan kotak), lampu
+pondok menerangi ambang pintu.
+
+Catatan jujur: uji ini headless (CPU) dan tidak mengukur FPS di GPU HP. Beban
+baru: 4 sistem `CPUParticles3D` (46 + 26 + 34 + 10 partikel). Kalau di HP terasa
+berat, angka `amount` di `Atmosphere.gd` adalah tombol pertama, bukan mematikan
+seluruh atmosfer.
