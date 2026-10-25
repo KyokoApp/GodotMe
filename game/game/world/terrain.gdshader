@@ -31,7 +31,7 @@ uniform vec3 light_tint : source_color = vec3(1.0, 1.0, 1.0);
 // them; in linear space, under this sun, the meadow's own sRGB value comes back
 // unchanged and reads as a dark olive field. This lifts the GROUND only - the
 // props are separate unshaded sprites and keep their approved brightness.
-uniform float ground_gain : hint_range(0.5, 4.0) = 2.2;
+uniform float ground_gain : hint_range(0.5, 4.0) = 2.0;
 
 vec3 sample_cell(vec2 origin, vec2 uv) {
 	// v grows downwards in the atlas, uv grows upwards in the world
@@ -50,7 +50,9 @@ void fragment() {
 	// sequential mixes keep the arithmetic to four lerps; the weights sum to at
 	// most one per vertex, so nothing clips
 	vec3 c = grass;
-	c = mix(c, dirt, COLOR.r);
+	// the path tile is far brighter than the grass, and at full strength a metre of
+	// it outshouts ten metres of meadow
+	c = mix(c, dirt, COLOR.r * 0.92);
 	c = mix(c, rock, COLOR.g);
 	c = mix(c, sand, COLOR.b);
 	c = mix(c, snow * snow_tint, COLOR.a);

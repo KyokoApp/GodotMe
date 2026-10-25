@@ -32,9 +32,17 @@ func _ready() -> void:
 	await _test_atmosphere()
 	await _test_clock_runs()
 	print("[WORLD] %d pemeriksaan, %d gagal" % [checks, failures])
+	# Quit only after the diorama has actually left the tree. Calling quit() with
+	# the region, its chunk tasks and its particles still alive killed the process
+	# at teardown (exit 134 with every check green), which reads in CI as a failed
+	# rule when no rule failed.
 	var view: Node = _world.call("view") if _world.has_method("view") else null
 	if view != null and view.has_method("drain"):
 		view.call("drain")
+	_world.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("[WORLD] siap keluar")
 	get_tree().quit(0 if failures == 0 else 1)
 
 
