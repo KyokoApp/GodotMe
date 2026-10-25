@@ -28,7 +28,7 @@ void fragment() {
 	// COLOR.rgb is the depth tint written per water tile, COLOR.a marks a tile
 	// that touches land. The foam lives on the lattice of the world UV, so it
 	// runs along the shore of every tile that touches ground.
-	vec3 base = COLOR.rgb * sky_tint * 1.6;
+	vec3 base = COLOR.rgb * sky_tint;
 	vec2 cell = fract(UV);
 	float edge = min(min(cell.x, 1.0 - cell.x), min(cell.y, 1.0 - cell.y));
 	float shore = (1.0 - smoothstep(0.0, foam_width, edge)) * COLOR.a;
@@ -38,11 +38,12 @@ void fragment() {
 	// flat navy sheet with faint grey lines, which is water the colour of a
 	// shuttered window. The swell is the thing that makes it water, so it gets
 	// most of the range, and the foam rides on top.
-	vec3 lit = base * (1.45 + 0.85 * swell);
-	lit = mix(lit, foam_tint * base * 2.4, shore * lace * 0.8);
+	vec3 lit = base * (1.10 + 0.60 * swell);
+	lit = mix(lit, foam_tint * base * 1.8, shore * lace * 0.8);
 	ALBEDO = lit;
-	ROUGHNESS = mix(0.14, 0.55, shore);
-	METALLIC = 0.10;
+	// wet slate, not plastic: a mirror-smooth sheet at dusk reads as a blue floor
+	ROUGHNESS = mix(0.34, 0.62, shore);
+	METALLIC = 0.0;
 	ALPHA = mix(0.93, 0.99, shore);
 	// a whisper of normal variation so the sun leaves a moving glint
 	NORMAL = normalize(NORMAL + vec3((a.r - 0.5) * 0.25, 0.0, (b.g - 0.5) * 0.25));
