@@ -65,8 +65,6 @@ var label := "Yaros"
 var seed_value := 0
 ## World XZ of the centre of tile (0, 0).
 var origin := Vector2.ZERO
-## Metres above the world floor of the region's single water surface.
-var water_y := 0.0
 var decor: Dictionary = {}
 var markers: Array = []
 var zones: Array = []
@@ -126,24 +124,8 @@ func load_file(path: String) -> bool:
 	var st: Variant = data.get("stats", {})
 	stats = st if typeof(st) == TYPE_DICTIONARY else {}
 	_index_blockers()
-	_measure_water()
 	loaded = true
 	return true
-
-
-## One water level for the whole region.
-##
-## The first version drew every water tile at its own height - 1.8 m * tile height
-## - 0.14, so a lake whose floor stepped down by one level had a stack of flat
-## sheets at different heights, and from the shore they read as rectangular slabs
-## floating over the water. A lake has ONE surface: take the lowest water tile and
-## let the deep tiles be deeper below it.
-func _measure_water() -> void:
-	var lowest := 1.0e9
-	for i in range(_t.size()):
-		if _t[i] == T_SHALLOW or _t[i] == T_DEEP:
-			lowest = minf(lowest, float(_h[i]) * level_h)
-	water_y = (lowest if lowest <= 1.0e8 else 0.0) - 0.14
 
 
 func _decode(b64: String, expect: int) -> PackedByteArray:

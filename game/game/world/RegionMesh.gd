@@ -566,9 +566,7 @@ static func _add_bed(data: RefCounted, tx: int, tz: int, base: Vector3, cell: fl
 
 static func _add_water(data: RefCounted, tx: int, tz: int, base: Vector3, cell: float,
 		level_h: float, ter: int, water: Dictionary) -> void:
-	# one surface for the whole region (see RegionData._measure_water): a lake with
-	# a stepped floor must not be a stack of floating sheets
-	var y: float = float(data.get("water_y"))
+	var y := float(int(data.call("tile_height", tx, tz))) * level_h - 0.14
 	var shallow := ter == T_SHALLOW
 	var foam := 0.0
 	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
