@@ -41,10 +41,10 @@ func setup() -> void:
 		Vector2(0.10, 0.10), Color(1.0, 0.96, 0.88), false,
 		Vector3(0.02, -0.02, 0.0), Vector2(0.10, 0.30))
 	_build("petals", "petal.png", 26, 7.0, 4.4,
-		Vector2(0.22, 0.16), Color(1.0, 0.92, 0.82), false,
+		Vector2(0.34, 0.20), Color(1.0, 0.92, 0.82), false,
 		Vector3(0.30, -0.45, 0.15), Vector2(0.18, 0.45))
 	_build("fireflies", "firefly.png", 34, 6.5, 0.95,
-		Vector2(0.17, 0.17), Color(1.0, 0.92, 0.62), true,
+		Vector2(0.22, 0.22), Color(1.0, 0.92, 0.62), true,
 		Vector3(0.0, 0.0, 0.0), Vector2(0.05, 0.22))
 	_build("fog", "fog_puff.png", 10, 16.0, 0.45,
 		Vector2(7.0, 4.0), Color(0.93, 0.90, 0.86, 0.55), false,

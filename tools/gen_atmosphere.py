@@ -66,50 +66,68 @@ def mote_dust() -> Image.Image:
 
 
 def firefly() -> Image.Image:
-    """Warm lamp-glow bug: 9x9, gold core fading to amber, additive.
+    """Warm lamp-glow bug: 11x11, gold core fading to amber, additive.
 
     Light is continuous, so this sprite's alpha is smooth on purpose; a dithered
     halo around forty of them turned the night into a field of grey squares.
+    Four soft rings keep the dot round instead of square when it is magnified.
     """
-    w = h = 9
+    w = h = 11
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     px = img.load()
     for y in range(h):
         for x in range(w):
-            dx, dy = x - 4, y - 4
+            dx, dy = x - 5, y - 5
             d = (dx * dx + dy * dy) ** 0.5
-            if d > 4.3:
+            if d > 5.1:
                 continue
-            if d <= 1.3:
-                px[x, y] = (255, 246, 198, 255)
-            elif d <= 2.6:
-                px[x, y] = (250, 214, 120, 190)
+            if d <= 1.2:
+                px[x, y] = (255, 248, 206, 255)
+            elif d <= 2.4:
+                px[x, y] = (252, 224, 140, 215)
+            elif d <= 3.6:
+                px[x, y] = (238, 184, 88, 140)
             else:
-                px[x, y] = (214, 152, 62, 90)
+                px[x, y] = (206, 142, 58, 70)
     return img
 
 
 def petal() -> Image.Image:
-    """A leaf/petal on the wind: 6x4, gold-to-rust, hard edge, 1 px dark lip."""
-    w, h = 6, 4
+    """A leaf on the wind: 12x7, gold-to-rust, pointed tip, 1 px dark lip.
+
+    Was 6x4, which magnified into an orange square. A leaf has to read as a leaf
+    even when it is twenty screen pixels wide - that is the whole point of it.
+    """
+    w, h = 12, 7
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     px = img.load()
-    rows = [
-        "..##..",
-        ".####.",
-        ".####.",
-        "..##..",
+    body = [
+        ".....##.....",
+        "...####.....",
+        "..######....",
+        ".########...",
+        "..######....",
+        "...####.....",
+        ".....##.....",
     ]
+    dark = (126, 74, 38, 240)
+    mid = (196, 126, 60, 250)
+    light = (232, 174, 92, 250)
     for y in range(h):
+        row = body[y]
         for x in range(w):
-            if rows[y][x] != "#":
+            if row[x] != "#":
                 continue
-            if y == 0 or y == 3 or x == 1 or x == 4:
-                px[x, y] = (150, 88, 44, 235)
-            elif x <= 2:
-                px[x, y] = (226, 168, 88, 250)
+            edge = (
+                x == 0 or x == w - 1 or row[x - 1] != "#" or row[x + 1] != "#"
+                or y == 0 or y == h - 1
+            )
+            if edge:
+                px[x, y] = dark
+            elif x <= 3:
+                px[x, y] = light
             else:
-                px[x, y] = (198, 132, 66, 250)
+                px[x, y] = mid
     return img
 
 
