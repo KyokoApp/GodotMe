@@ -39,6 +39,16 @@ func _ready() -> void:
 	var view: Node = _world.call("view") if _world.has_method("view") else null
 	if view != null and view.has_method("drain"):
 		view.call("drain")
+	# Emitting particles are the one thing here that the other rule tests never
+	# leave running: stop them before the node goes, so teardown has nothing live.
+	_world.call("set_atmosphere_scale", 0.05)
+	var atm: Node = _world.call("atmosphere")
+	if atm != null:
+		for child in atm.get_children():
+			var p := child as CPUParticles3D
+			if p != null:
+				p.emitting = false
+				p.queue_free()
 	_world.queue_free()
 	await get_tree().process_frame
 	await get_tree().process_frame

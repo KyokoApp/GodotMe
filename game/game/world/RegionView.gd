@@ -77,7 +77,10 @@ var _stats := {
 func setup(region: RefCounted, radius: int = 1) -> void:
 	data = region
 	view_radius = clampi(radius, 0, RADIUS_MAX)
-	if OS.has_feature("headless"):
+	# DisplayServer, not OS.has_feature("headless"): the feature tag is only set on
+	# a headless export template, so `godot --headless` in CI kept threading on and
+	# the process could abort at teardown with a baker task in flight.
+	if DisplayServer.get_name() == "headless":
 		threaded = false
 	_stats["build_ms_total"] = 0.0
 	_build_materials()
@@ -575,6 +578,11 @@ func clear() -> void:
 ## while a baker thread is still walking the byte grids tears the data out from
 ## under it, and the engine answers with a crash instead of a failure.
 func drain() -> void:
+	# stop FIRST: every frame this node lives it can spawn another prefetch task,
+	# and a task started after the wait below is a task that outlives the process
+	set_process(false)
+	_queue.clear()
+	_centres.clear()
 	for cc in _pending.keys():
 		var task: int = _pending[cc]
 		if not WorkerThreadPool.is_task_completed(task):
@@ -582,7 +590,6 @@ func drain() -> void:
 	_pending.clear()
 	_pending_arrays.clear()
 	_task_chunk.clear()
-	set_process(false)
 
 
 func _exit_tree() -> void:
