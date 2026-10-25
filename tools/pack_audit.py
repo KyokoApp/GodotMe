@@ -101,7 +101,7 @@ def main() -> int:
     seen: dict[str, list[str]] = {}
     total = 0
     print("[PACK] %d paket" % len(packs))
-    for name in sorted(packs, key=lambda k: packs[k][0]):
+    for name in sorted(packs):
         files = packs[name]
         size = 0
         unused: list[str] = []
