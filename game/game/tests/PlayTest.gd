@@ -387,18 +387,12 @@ func _test_hearts_and_knockout() -> void:
 	_check(int(st.get("hearts", 0)) == 2, "pukulan beruntun tidak menggerus hati",
 		str(st.get("hearts")))
 
-	# shield up: the blow is free
-	await _wait(1.0)
-	cast.call("set_virtual_block", true)
-	await _wait(0.2)
-	knight.call("take_hit")
-	await _wait(0.1)
-	st = cast.call("hud_state")
-	_check(int(st.get("hearts", 0)) == 2, "perisai menahan pukulan tanpa kehilangan hati",
-		str(st.get("hearts")))
-	_check(String(knight.get("state")) == "block", "ksatria tidak keluar dari tahanan perisai",
-		String(knight.get("state")))
-	cast.call("set_virtual_block", false)
+	# Step 1 removed the shield from the field along with the rest of the
+	# real-time combat (the game is turn-based and the battle screen is not built
+	# yet), so there is no shield to raise here any more. The check is that the
+	# old door is really gone, not that it silently does nothing.
+	_check(not cast.has_method("set_virtual_block"),
+		"perisai tidak lagi bisa dipakai di lapangan (tombol Tahan dihapus)")
 
 	# down to zero: fall, then wake up at the start of the path
 	await _wait(1.0)

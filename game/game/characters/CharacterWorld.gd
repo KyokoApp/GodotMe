@@ -930,20 +930,12 @@ func set_virtual_stick(v: Vector2) -> void:
 		_controls.set("stick_vector", v.limit_length(1.0))
 
 
-## Hold the shield without a thumb. The world re-applies `block_held` to the
-## knight every frame, so a test that called `set_block(true)` directly would be
-## overwritten on the next frame - this goes through the same door a finger does.
 ## Settings hook: "Getar kamera: Mati" means the hits still flash and knock the
 ## knight back, they just stop moving the lens.
 func set_shake_scale(scale: float) -> void:
 	_shake_scale = clampf(scale, 0.0, 1.0)
 	if _shake_scale <= 0.0 and _camera_rig != null:
 		_camera_rig.rotation_degrees = _shake_base
-
-
-func set_virtual_block(on: bool) -> void:
-	if _controls != null:
-		_controls.set("block_held", on)
 
 
 func player() -> Node3D:
