@@ -329,6 +329,17 @@ func _test_menu_fits() -> void:
 		var rect := sheet.get_global_rect()
 		var inside: bool = rect.position.x >= -1.0 and rect.position.y >= -1.0 \
 			and rect.end.x <= pair.x + 1.0 and rect.end.y <= pair.y + 1.0
+		var frame: Control = menu.get("_frame")
+		var tabs2: Control = menu.get("_tabs_row")
+		var column: Control = (menu.get("_sheet") as Control).get_child(0) as Control
+		print("[FIELD] diag %dx%d sheet=%s min=%s frame_custom=%s frame_min=%s tabs=%s tabs_min=%s column_min=%s" % [
+			int(pair.x), int(pair.y), str(rect.size), str(sheet.get_combined_minimum_size()),
+			str(frame.custom_minimum_size), str(frame.get_combined_minimum_size()),
+			str(tabs2.size), str(tabs2.get_combined_minimum_size()),
+			str(column.get_combined_minimum_size())])
+		for child in column.get_children():
+			print("[FIELD] diag   kolom anak %s min=%s" % [String(child.name),
+				str((child as Control).get_combined_minimum_size())])
 		_check(inside, "menu %dx%d muat di layar" % [int(pair.x), int(pair.y)], str(rect))
 		var tabs: Control = menu.get("_tabs_row")
 		var tabs_rect := tabs.get_global_rect()
