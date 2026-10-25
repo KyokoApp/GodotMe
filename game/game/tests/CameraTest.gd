@@ -357,9 +357,9 @@ func _test_follow_is_smooth() -> void:
 		return
 	# a straight run of open ground: the map corner the previous test ended on
 	# would have the knight walking into the fence
-	var start: Variant = _start_spot()
-	if start != null:
-		_cast.call("teleport_player", start)
+	var start_spot: Variant = _start_spot()
+	if start_spot != null:
+		_cast.call("teleport_player", start_spot)
 		await _wait(0.5)
 	_frames = []
 	_recording = true
