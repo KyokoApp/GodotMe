@@ -428,7 +428,10 @@ func _draw() -> void:
 	var behind := cam.is_position_behind(world)
 	var at := cam.unproject_position(world)
 	var box := Rect2(Vector2.ZERO, size)
-	var margin := 74.0
+	# The rim sits this far inside the screen edge; on a short window a fixed 74
+	# would make the "inside the frame" rectangle negative, which Godot reports on
+	# every frame. Keeping it proportional removes the whole class of mistake.
+	var margin := clampf(minf(size.x, size.y) * 0.14, 34.0, 74.0)
 	if not behind and box.grow(-margin).has_point(at):
 		# on screen: a small gold diamond hanging over the spot
 		var d := PackedVector2Array([at + Vector2(0, -38), at + Vector2(9, -28),
