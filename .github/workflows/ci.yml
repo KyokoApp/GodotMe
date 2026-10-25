@@ -116,6 +116,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Pack audit (no dead weight in the six packages)
+        # Phase 7 found a 1,17 MB backdrop packed twice and loaded by nothing.
+        # This fails the build when an asset is packed but never referenced, or
+        # when a path in FixtureBuilder no longer exists.
+        run: python3 tools/pack_audit.py
+
       - name: World rules (day cycle + atmosphere)
         # Headless: light is exactly what a screenshot cannot check. Noon must be
         # brighter than midnight, the cottage lamp must be off at noon, and a

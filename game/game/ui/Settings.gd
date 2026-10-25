@@ -17,6 +17,7 @@ const DEFAULTS := {
 	"tilt_shift": true,
 	"shake": true,
 	"quality": "sedang",
+	"show_fps": false,
 }
 
 var values := {}
@@ -74,6 +75,7 @@ func save() -> String:
 		"tilt_shift": bool(values.get("tilt_shift", true)),
 		"shake": bool(values.get("shake", true)),
 		"quality": String(values.get("quality", "sedang")),
+		"show_fps": bool(values.get("show_fps", false)),
 	}
 	var err := OK
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -94,7 +96,7 @@ func get_value(key: String) -> Variant:
 ## has to re-check that "quality" is one of three words.
 func set_value(key: String, value: Variant) -> bool:
 	match key:
-		"tilt_shift", "shake":
+		"tilt_shift", "shake", "show_fps":
 			values[key] = bool(value)
 			return true
 		"quality":
@@ -144,3 +146,37 @@ func atmosphere_scale() -> float:
 
 func shadows_enabled() -> bool:
 	return quality() != "rendah"
+
+
+## Frame cap. A phone that renders 60 fps for a game that shows 8 fps of sprite
+## animation is just warming a pocket; 30 is the honest default on "rendah".
+func fps_cap() -> int:
+	match quality():
+		"rendah":
+			return 30
+		"tinggi":
+			return 60
+		_:
+			return 60
+
+
+## 3D resolution scale. The sprites are 2D quads, so dropping to 0,8 on a weak
+## phone softens the ground while the characters stay legible.
+func render_scale() -> float:
+	match quality():
+		"rendah":
+			return 0.78
+		"tinggi":
+			return 1.0
+		_:
+			return 0.92
+
+
+## Extra setting, off by default: an on-screen counter plus a `[PERF]` log line,
+## so the owner can measure a real phone instead of trusting a desktop capture.
+func fps_visible() -> bool:
+	return bool(values.get("show_fps", false))
+
+
+func set_fps_visible(on: bool) -> void:
+	values["show_fps"] = on

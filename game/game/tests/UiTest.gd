@@ -9,6 +9,7 @@ extends Node
 ## wired to something. All of that is asserted here.
 
 const KIT := preload("res://game/ui/UiKit.gd")
+const ATLAS_JSON := "res://game/assets/ui/atlas_ui.json"
 const SETTINGS := preload("res://game/ui/Settings.gd")
 const MAIN_SCENE := "res://game/Main.tscn"
 
@@ -72,6 +73,24 @@ func _test_icons() -> void:
 	_check(missing.is_empty(), "semua ikon ada di paket ui", str(missing))
 	_check(wrong_size.is_empty(), "semua ikon 24x24", str(wrong_size))
 	_check(empty.is_empty(), "tidak ada ikon kosong", str(empty))
+
+	# the packed game only ships the atlas, so every icon the code names must be
+	# in it - a missing entry would be an invisible button on the phone
+	var entries := {}
+	if FileAccess.file_exists(ATLAS_JSON):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(ATLAS_JSON))
+		if typeof(parsed) == TYPE_DICTIONARY:
+			entries = (parsed as Dictionary).get("entries", {})
+	var not_in_atlas: Array = []
+	for name in KIT.ICONS:
+		if not entries.has(String(name)):
+			not_in_atlas.append(name)
+	_check(entries.size() == KIT.ICONS.size(),
+		"atlas memuat semua ikon (%d)" % KIT.ICONS.size(), str(entries.size()))
+	_check(not_in_atlas.is_empty(), "tidak ada ikon yang lupa masuk atlas", str(not_in_atlas))
+	var tex_icon := KIT.icon("heart_full")
+	_check(tex_icon is AtlasTexture and tex_icon.get_width() == 24,
+		"ikon dibaca dari atlas, bukan tujuh tekstur terpisah", str(tex_icon))
 
 
 func _test_kit_assets() -> void:
@@ -139,6 +158,17 @@ func _test_settings() -> void:
 	preset.call("set_value", "tilt_shift", false)
 	_check(is_zero_approx(float(preset.call("tilt_blur"))), "tilt-shift mati = blur 0")
 
+	# frame budget and 3D resolution are part of the same preset
+	var low_fps := int(preset.call("fps_cap"))
+	var low_render := float(preset.call("render_scale"))
+	preset.call("set_value", "quality", "tinggi")
+	var high_fps := int(preset.call("fps_cap"))
+	var high_render := float(preset.call("render_scale"))
+	_check(low_fps <= 30 and high_fps >= 60, "preset rendah membatasi 30 fps, tinggi 60",
+		"%d vs %d" % [low_fps, high_fps])
+	_check(low_render < 0.85 and is_equal_approx(high_render, 1.0),
+		"preset rendah menurunkan resolusi 3D", "%.2f vs %.2f" % [low_render, high_render])
+
 
 # ------------------------------------------------------------------- menu ----
 func _test_menu() -> void:
@@ -174,8 +204,8 @@ func _test_menu() -> void:
 	var page_set: Control = _main.get("_page_set")
 	_check(page_jeda != null and page_jeda.get_child_count() == 4,
 		"halaman jeda punya empat tombol", str(page_jeda.get_child_count() if page_jeda else -1))
-	_check(page_set != null and page_set.get_child_count() == 4,
-		"halaman pengaturan punya empat tombol", str(page_set.get_child_count() if page_set else -1))
+	_check(page_set != null and page_set.get_child_count() == 5,
+		"halaman pengaturan punya lima tombol", str(page_set.get_child_count() if page_set else -1))
 
 	_main.call("_show_settings")
 	await get_tree().process_frame
@@ -196,6 +226,23 @@ func _test_menu() -> void:
 	var q := String(settings.call("quality"))
 	_check(sun != null and sun.shadow_enabled == (q != "rendah"),
 		"kualitas yang dipilih benar-benar diterapkan ke matahari", q)
+
+	# the frame cap must reach the engine, not just the settings file
+	var cap := Engine.max_fps
+	_check(cap == int(settings.call("fps_cap")), "batas fps diterapkan ke engine", str(cap))
+	var vp := _main.get_viewport()
+	_check(vp != null and is_equal_approx(vp.scaling_3d_scale, float(settings.call("render_scale"))),
+		"skala resolusi 3D diterapkan ke viewport",
+		str(vp.scaling_3d_scale if vp != null else -1.0))
+
+	# the counter exists so the owner can read FPS off the phone
+	_main.call("_on_toggle", "show_fps")
+	await get_tree().process_frame
+	var overlay: Label = _main.get("_fps_label")
+	_check(overlay != null, "penghitung FPS muncul saat diaktifkan")
+	_main.call("_on_toggle", "show_fps")
+	await get_tree().process_frame
+	_check(_main.get("_fps_label") == null, "penghitung FPS hilang saat dimatikan")
 
 	var blur := float((_main.get("_tilt_mat") as ShaderMaterial).get_shader_parameter("blur_pixels"))
 	_check(blur >= 0.0, "tilt-shift mendapat nilai blur", str(blur))

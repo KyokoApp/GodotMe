@@ -62,8 +62,8 @@ const PACK_FILES := {
 			"game/assets/characters/soldier/attack_3.png",
 			"game/assets/characters/soldier/hurt.png",
 			"game/assets/characters/soldier/death.png",
-			"game/assets/characters/soldier/arrow_100.png",
-			"game/assets/characters/soldier/arrow_32.png",
+			# arrow_100.png / arrow_32.png stay in assets_src until the archer
+			# job exists: pack_audit fails on assets nothing loads.
 			"game/assets/characters/orc/idle.png",
 			"game/assets/characters/orc/walk.png",
 			"game/assets/characters/orc/attack_1.png",
@@ -110,13 +110,9 @@ const PACK_FILES := {
 			"game/assets/parchment.png",
 			"game/assets/crest.png",
 			"game/assets/divider.png",
-			"game/assets/ui/icons/heart_full.png",
-			"game/assets/ui/icons/heart_empty.png",
-			"game/assets/ui/icons/sun.png",
-			"game/assets/ui/icons/moon.png",
-			"game/assets/ui/icons/gear.png",
-			"game/assets/ui/icons/save.png",
-			"game/assets/ui/icons/arrow_left.png",
+			# one atlas instead of seven textures: fewer binds per HUD frame
+			"game/assets/ui/atlas_ui.png",
+			"game/assets/ui/atlas_ui.json",
 		],
 	},
 	"audio": {

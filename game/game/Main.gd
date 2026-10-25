@@ -47,6 +47,9 @@ var _hearts_icons: Array = []
 var _phase_icon: TextureRect
 var _phase_label: Label
 var _toggles := {}
+var _fps_label: Label
+var _fps_timer := 0.0
+var _perf_timer := 0.0
 
 
 func _ready() -> void:
@@ -418,8 +421,9 @@ func _build_pause_sheet(parent: Control) -> void:
 	_set_button("tilt_shift", "Tilt-shift: Nyala")
 	_set_button("shake", "Getar kamera: Nyala")
 	_set_button("quality", "Kualitas: Sedang")
+	_set_button("show_fps", "Tampilkan FPS: Mati")
 	_page_set.add_child(KIT.button("Kembali", Vector2(352, 50)))
-	_page_set.get_child(3).connect("pressed", Callable(self, "_show_pause"))
+	_page_set.get_child(4).connect("pressed", Callable(self, "_show_pause"))
 
 	_save_note = KIT.label("", 15, INK_SOFT)
 	_save_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -480,6 +484,9 @@ func _refresh_toggles() -> void:
 				btn.text = "Getar kamera: " + shake
 			"quality":
 				btn.text = "Kualitas: " + q.capitalize()
+			"show_fps":
+				var on := "Nyala" if bool(_settings.call("fps_visible")) else "Mati"
+				btn.text = "Tampilkan FPS: " + on
 
 
 ## One button per setting; every press is written to disk immediately, because a
@@ -489,6 +496,8 @@ func _on_toggle(key: String) -> void:
 		return
 	if key == "quality":
 		_settings.call("cycle_quality")
+	elif key == "show_fps":
+		_settings.call("set_fps_visible", not bool(_settings.call("fps_visible")))
 	else:
 		_settings.call("set_value", key, not bool(_settings.call("get_value", key)))
 	var err := String(_settings.call("save"))
@@ -514,9 +523,48 @@ func _apply_settings() -> void:
 			_diorama.call("set_shadows_enabled", bool(_settings.call("shadows_enabled")))
 		if _diorama.has_method("set_atmosphere_scale"):
 			_diorama.call("set_atmosphere_scale", float(_settings.call("atmosphere_scale")))
+	# Frame budget and 3D resolution: the two knobs that decide whether a phone
+	# runs warm. The sprites are 2D quads, so scaling 3D down costs the ground
+	# detail first and leaves the characters sharp.
+	Engine.max_fps = int(_settings.call("fps_cap"))
+	var vp := get_viewport()
+	if vp != null:
+		vp.scaling_3d_scale = float(_settings.call("render_scale"))
+	_apply_fps_overlay()
+
+
+## Optional counter. It exists so the owner can read a number off the phone
+## instead of trusting a capture taken on a desktop GPU.
+func _apply_fps_overlay() -> void:
+	var want := bool(_settings.call("fps_visible"))
+	if want and _fps_label == null:
+		_fps_label = KIT.label("", 15, CREAM)
+		_fps_label.add_theme_color_override("font_shadow_color", Color(0.05, 0.03, 0.02, 0.9))
+		_fps_label.add_theme_constant_override("shadow_outline_size", 4)
+		_fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_fps_label.anchor_left = 1.0
+		_fps_label.anchor_right = 1.0
+		_fps_label.anchor_top = 0.0
+		_fps_label.offset_left = -320.0
+		_fps_label.offset_right = -26.0
+		_fps_label.offset_top = 80.0
+		_fps_label.offset_bottom = 106.0
+		_hud.add_child(_fps_label)
+	elif not want and _fps_label != null:
+		_fps_label.queue_free()
+		_fps_label = null
 
 
 func _process(delta: float) -> void:
+	_fps_timer += delta
+	_perf_timer += delta
+	if _fps_label != null and _fps_timer >= 0.4:
+		_fps_timer = 0.0
+		_fps_label.text = "%d FPS · %s" % [Engine.get_frames_per_second(),
+			String(_settings.call("quality")).capitalize()]
+	if _perf_timer >= 5.0:
+		_perf_timer = 0.0
+		_perf_line()
 	_hud_timer += delta
 	if _hud_timer < 0.2:
 		return
@@ -552,6 +600,22 @@ func _refresh_phase() -> void:
 	var night := phase == "malam"
 	_phase_icon.texture = KIT.icon("moon" if night else "sun")
 	_phase_label.text = phase.capitalize()
+
+
+## One line every five seconds in the log, so `adb logcat` on the phone is enough
+## to compare presets without reading pixels.
+func _perf_line() -> void:
+	var particles := 0
+	if _diorama != null and _diorama.has_method("atmosphere"):
+		var atmo: Node = _diorama.call("atmosphere")
+		if atmo != null and atmo.has_method("systems"):
+			var systems: Dictionary = atmo.call("systems")
+			for key in systems.keys():
+				particles += int((systems[key] as CPUParticles3D).amount)
+	print("[PERF] fps=%d kualitas=%s skala3d=%.2f partikel=%d bayangan=%s" % [
+		Engine.get_frames_per_second(), String(_settings.call("quality")),
+		float(_settings.call("render_scale")), particles,
+		str(_settings.call("shadows_enabled"))])
 
 
 func _on_pause_pressed() -> void:

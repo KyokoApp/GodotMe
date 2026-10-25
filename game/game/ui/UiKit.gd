@@ -15,6 +15,8 @@ const CREST := "res://game/assets/crest.png"
 const FONT_BODY := "res://game/assets/PixelifySans.woff2"
 const FONT_TITLE := "res://game/assets/PixelifySans-SemiBold.woff2"
 const ICON_DIR := "res://game/assets/ui/icons/"
+const ATLAS_PNG := "res://game/assets/ui/atlas_ui.png"
+const ATLAS_JSON := "res://game/assets/ui/atlas_ui.json"
 
 const INK := Color(0.17, 0.12, 0.09)
 const INK_SOFT := Color(0.36, 0.28, 0.20)
@@ -30,6 +32,7 @@ const ICONS := [
 
 static var _tex_cache := {}
 static var _font_cache := {}
+static var _atlas_cache := {}
 
 
 static func tex(path: String) -> Texture2D:
@@ -48,8 +51,36 @@ static func tex(path: String) -> Texture2D:
 	return t
 
 
+## Icons come off the packed atlas when it exists (one texture, one bind for the
+## whole HUD) and fall back to the authored single PNGs in an editor run.
 static func icon(name: String) -> Texture2D:
+	var regions := _atlas()
+	if regions.has(name):
+		var r: Rect2 = regions[name]
+		var a := AtlasTexture.new()
+		a.atlas = tex(ATLAS_PNG)
+		a.region = r
+		a.filter_clip = true
+		return a
 	return tex(ICON_DIR + name + ".png")
+
+
+static func _atlas() -> Dictionary:
+	if not _atlas_cache.is_empty():
+		return _atlas_cache
+	if not FileAccess.file_exists(ATLAS_JSON) or not FileAccess.file_exists(ATLAS_PNG):
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(ATLAS_JSON))
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return {}
+	var entries: Dictionary = (parsed as Dictionary).get("entries", {})
+	var out := {}
+	for key in entries.keys():
+		var e: Dictionary = entries[key]
+		out[String(key)] = Rect2(float(e.get("x", 0)), float(e.get("y", 0)),
+			float(e.get("w", 24)), float(e.get("h", 24)))
+	_atlas_cache = out
+	return out
 
 
 static func icon_rect(name: String, size: float) -> TextureRect:
