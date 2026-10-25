@@ -73,7 +73,7 @@ jobs:
               "Siklus hari: pagi berkabut, siang terang, sore keemasan, malam biru dengan kunang-kunang.",
               "Lampu jendela pondok menyala sendiri saat sore dan menerangi ambang pintu sepanjang malam.",
               "Atmosfer hidup: debu di cahaya pagi, daun jatuh saat sore, kabut tanah saat subuh dan malam.",
-              "Paket yang berubah: world.pck saja (kode dunia + tekstur atmosfer). Paket lain tidak diunduh ulang, APK tetap.",
+              "Paket yang berubah: world.pck (kode dunia + tekstur atmosfer) dan characters.pck (jam dunia kini dipakai juga oleh penghuni). Paket lain tidak diunduh ulang, APK tetap.",
               "Ksatria kini punya tiga hati: orc benar-benar berbahaya, dan menahan perisai membuat pukulan tidak memakan hati.",
               "Hati habis: ksatria terjatuh, lalu bangun di awal jalan tanpa kehilangan progres apa pun.",
               "Panel tujuan di kiri atas mengikuti progres (bersihkan jalur, kembali ke penjaga, jalur aman) dan menampilkan nyawa.",

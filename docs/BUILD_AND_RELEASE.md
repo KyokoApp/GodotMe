@@ -559,3 +559,23 @@ Bug yang tertangkap di fase ini: pukulan terakhir memanggil `take_hit()` → `hu
 di atas animasi `death`. Ksatria "mati sambil berdiri". Sekarang `take_hit()`
 berhenti setelah sinyal bila aktornya sudah mati, dan `PlayTest` memeriksa nama
 animasi, bukan hanya statusnya.
+
+### 0.4.0 — siklus hari dan atmosfer
+
+`world_100.pck` 1.634.320 B (naik 16.492 B: `WorldClock.gd`, `Atmosphere.gd`,
+empat tekstur partikel), `characters_100.pck` 187.436 B (naik 288 B:
+`CharacterWorld.set_time_of_day` kini meneruskan ke jam dunia), `version.json`
+3.922 B (`version: 0.4.0`). `core.pck` tidak berubah, APK tidak berubah → di HP
+cukup **Periksa Lagi → MAIN**.
+
+Isi: pagi berkabut, siang terang, sore keemasan dengan daun jatuh, malam biru
+dengan kunang-kunang dan lampu jendela pondok yang menyala sendiri. Satu hari
+penuh = 480 detik; fase bisa dipaksa lewat `RT_WORLD_PHASE` untuk QA/tangkapan.
+
+Uji: `WorldTest` **26 pemeriksaan, 0 gagal**. Verifikasi rilis: `release-demo`
+**40156035477** dan `ci` **40156035429**, keduanya success.
+
+Catatan: versi pertama tekstur atmosfer memakai alpha ber-dither, dan tangkapan
+layarnya penuh kotak-kotak abu-abu (kuad kabut 7 m membuat pola dither membesar
+jadi papan catur). Sekarang kabut/cahaya memakai alpha halus; benda tetap piksel
+keras. Rincian di `DESIGN_NOTES.md` §15.3.
