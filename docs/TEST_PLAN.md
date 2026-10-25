@@ -138,3 +138,40 @@ Tambahan `PlayTest` (25 Okt 2026):
 | P13 | arah dorongan benar (kanan → kanan) | pemetaan layar → dunia |
 | P14 | stik hilang & dorongan nol setelah jari diangkat | tidak boleh berjalan sendiri |
 | P15 | layar kanan tidak memunculkan stik | zona tombol tidak boleh jadi stik |
+
+Tambahan `PlayTest` (25 Okt 2026, fase cerita):
+
+| # | Yang diuji | Kenapa |
+| --- | --- | --- |
+| P16 | progres bisa ditulis sebelum boot | dasar semua uji berikutnya |
+| P17 | orc yang sudah dikalahkan tidak muncul lagi | lembah harus tetap bersih setelah restart |
+| P18 | ksatria kembali ke posisi tersimpan (±0,6 m) | progres posisi, bukan hanya cerita |
+| P19 | counter & flag terbaca dari save | data cerita harus konsisten dengan dunia |
+| P20 | penjaga memakai `setelah_bersih` setelah 3 orc | cerita berganti, bukan diulang |
+
+`SaveTest` — `godot --headless --path game res://game/tests/SaveTest.tscn`
+(25 pemeriksaan):
+
+| # | Yang diuji | Kenapa |
+| --- | --- | --- |
+| S1 | slot kosong = permainan baru | pemain baru tidak melihat error |
+| S2 | tulis → baca kembali: flag, counter, posisi, waktu | isi save lengkap |
+| S3 | `.tmp` dibersihkan setelah sukses; `tmp` nyasar tidak dipakai | sisa tulisan gagal tak boleh menang |
+| S4 | `.bak` dibuat saat menimpa, dan dipakai bila slot terpotong | kehilangan save adalah bug terburuk |
+| S5 | skema 0 → 1 (migrasi, flag lama ikut, field baru default, bisa disimpan lagi) | save 0.2.x harus tetap terbaca |
+| S6 | skema 99 → `read_only`, penyimpanan ditolak, berkas tidak berubah | build lama tak boleh merusak save baru |
+| S7 | lokasi `user://save/`, di luar pohon data peluncur | Periksa Lagi tidak menghapus progres |
+| S8 | hash konsisten setelah angka dinormalkan | `2` vs `2.0` dulu membuat save "rusak" sendiri |
+
+`DialogueTest` — `godot --headless --path game res://game/tests/DialogueTest.tscn`
+(18 pemeriksaan):
+
+| # | Yang diuji | Kenapa |
+| --- | --- | --- |
+| D1 | `bram.json` lolos validator (skema, entry, node, pilihan) | salah ketik JSON menggagalkan build |
+| D2 | minimal tiga percakapan berbeda & lebih dari satu titik masuk | cerita bercabang nyata |
+| D3 | pemain baru → `pertemuan`, ≥ 4 halaman, ≥ 1 cabang dua pilihan | pertemuan pertama |
+| D4 | node pertama menandai `bram_kenal` | tidak diulang selamanya |
+| D5 | 3 orc + `bram_kenal` → `setelah_bersih`; 2 orc → belum | progres mengubah cerita |
+| D6 | sudah kenal tapi belum bersih → `ulangan` yang tetap berisi | kunjungan ulang tidak kosong |
+| D7 | pilihan menyetel flag, flag tersimpan, dan nama pembicara berganti per halaman | cabang + penyajian dua arah |

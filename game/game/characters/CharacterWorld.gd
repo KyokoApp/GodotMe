@@ -174,6 +174,20 @@ func set_progress(orcs_defeated: int, flags: Array = []) -> void:
 	_save.call("set_counter", "orcs_defeated", orcs_defeated)
 	for flag in flags:
 		_save.call("set_flag", String(flag), true)
+	# A capture or a test may raise the counter after the valley is already
+	# built: the orcs it counts as beaten must leave, or a screenshot would show
+	# a "cleared" road still crawling with them.
+	var survivors: Array = []
+	for orc in _orcs:
+		if not is_instance_valid(orc):
+			continue
+		var label := String(orc.name)
+		var number := label.trim_prefix("Orc")
+		if number.is_valid_int() and int(number) < orcs_defeated:
+			orc.queue_free()
+			continue
+		survivors.append(orc)
+	_orcs = survivors
 
 
 func progress() -> Dictionary:

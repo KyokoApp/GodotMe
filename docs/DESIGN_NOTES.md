@@ -499,3 +499,85 @@ dianggap gestur.
 Uji: `PlayTest` (6 pemeriksaan) — stik tersembunyi sebelum disentuh, muncul di
 titik sentuh, arah dorongan benar, hilang saat diangkat, dan layar kanan tidak
 memunculkan stik.
+
+---
+
+## 13. Cerita sebagai data + save berversi (0.3.1)
+
+### 13.1 Kenapa cerita keluar dari kode
+
+Percakapan penjaga dulu berupa `const DIALOGUE := [...]` di `CharacterWorld.gd`.
+Menambah karakter berarti menyunting skrip, dan setiap penyuntingan skrip berarti
+membangun ulang satu paket yang juga memuat seluruh mesin permainan.
+
+Sekarang satu karakter = satu berkas data:
+
+```
+game/game/characters/data/bram.json     + spritesheet PNG + entri di def .tres
+```
+
+tanpa satu baris GDScript baru. `DialogueTree.gd` membaca skema berikut:
+
+```json
+{ "schema": 1, "speaker": "Penjaga Bram",
+  "entry": ["setelah_bersih", "pertemuan", "ulangan"],
+  "nodes": {
+    "pertemuan": {
+      "when": { "no_flags": ["bram_kenal"] },
+      "pages": [ { "speaker": "Penjaga Bram", "text": "..." } ],
+      "choices": [ { "label": "...", "set_flags": ["bram_janji"] } ],
+      "set_flags": ["bram_kenal"] } } }
+```
+
+Aturan pemilihan: `entry` dicoba berurutan, node pertama yang **semua** syaratnya
+lolos dipakai; `ulangan` tanpa syarat jadi jaring pengaman. Kondisi yang didukung
+`flags`, `no_flags`, `min_counters`, `max_counters`. `problems()` memeriksa
+skema, titik masuk, node kosong, pilihan tanpa label, dan flag yang dirujuk tapi
+tidak pernah diset di mana pun — validator ini dijalankan di CI, jadi berkas
+cerita yang salah ketik menggagalkan build sebelum sampai ke HP.
+
+Nama pembicara boleh berganti tiap halaman (`{ "speaker": "Ksatria", ... }`),
+sehingga percakapan terasa dua arah tanpa membuat sistem dialog baru.
+
+Tiga cabang Bram: **pertemuan** (4 halaman, 2 pilihan, menandai `bram_kenal`),
+**ulangan** (sudah kenal, belum bersih), **setelah_bersih** (butuh
+`bram_kenal` + `orcs_defeated >= 3` — ceritanya berubah, bukan sekadar diulang).
+
+### 13.2 Save: satu slot, tulis atomik, tidak pernah menghilangkan progres
+
+`user://save/slot1.json` — **di luar** `user://retraveller/` yang dipakai
+peluncur, jadi Periksa Lagi/hapus paket tidak menyentuh progres pemain.
+
+```
+{ "game": "re-traveller", "schema": 1, "saved_at": ..., 
+  "flags": {...}, "counters": {"orcs_defeated": 2},
+  "position": {"x": 3.6, "z": 7.2}, "play_time_s": 91.5, "sha256": "..." }
+```
+
+- **atomik**: tulis `slot1.json.tmp` → baca ulang & verifikasi hash → baru
+  `rename` menimpa slot. Mati listrik di tengah tulis tidak menghasilkan save
+  separuh jadi.
+- **cadangan**: sebelum menimpa, slot lama disalin ke `slot1.json.bak`. Bila
+  slot rusak/terpotong, `load_game()` memakai `.bak` dan melaporkan
+  `save_dipulihkan_dari_cadangan` (bukan diam-diam menganggap permainan baru).
+- **migrasi**: berkas tanpa `schema` dianggap skema 0; dibaca, field yang hilang
+  diisi nilai awal, lalu ditulis ulang sebagai skema 1. Flag lama ikut pindah.
+- **versi lebih baru**: `schema > 1` → `read_only`; `save_now()` menolak menulis.
+  Build lama yang dibuka setelah build baru tidak boleh merusak save pemain.
+- **hash**: semua angka dinormalkan `"%.3f"` sebelum di-hash, karena
+  `JSON.stringify` menulis `2` tapi `JSON.parse_string` mengembalikan `2.0` —
+  tanpa normalisasi, save yang baru ditulis langsung dianggap rusak.
+
+Status yang dilaporkan ke layar: `save_baru`, `save_dibaca`,
+`save_dipulihkan_dari_cadangan`, `save_rusak`.
+
+### 13.3 Progres yang terasa
+
+`CharacterWorld` menyimpan: bendera cerita, `orcs_defeated`, posisi ksatria, dan
+waktu bermain. Autosave tiap 12 s, saat pilihan dialog dibuat, saat dialog
+ditutup, dan saat orc mati. Saat boot, orc dengan indeks < `orcs_defeated`
+**tidak di-spawn** — lembah yang sudah dibersihkan tetap bersih setelah aplikasi
+ditutup, dan ksatria berdiri kembali di tempat ia berhenti.
+
+Untuk pengujian, folder save bisa dialihkan lewat `RT_SAVE_DIR` (dipakai
+`SaveTest`/`PlayTest` dan QA di perangkat); build normal tidak menyetelnya.
