@@ -73,6 +73,11 @@ var _vel := Vector3.ZERO
 var _follow: Node3D = null
 ## Dialogue framing: a point between the speakers, or empty.
 var _focus_pair: Array = []
+## Height of the ground under the player. The rig has to ride it: at Pos Gunung
+## (4 tiles above the valley = 7,2 m) a rig pinned to y = 0 with an 18 m lens sits
+## 9 m up - which is IN the mountain, and the capture showed props from inside and
+## no knight at all. The world feeds this every frame.
+var _ground_y := 0.0
 ## Map rectangle the camera must stay over.
 var _map := Rect2()
 var _has_map := false
@@ -149,6 +154,11 @@ func _num(source: Dictionary, key: String, fallback: float) -> float:
 	if typeof(raw) == TYPE_FLOAT or typeof(raw) == TYPE_INT:
 		return float(raw)
 	return fallback
+
+
+## Terrain height under the player, in metres. Called by the diorama each frame.
+func set_ground_height(y: float) -> void:
+	_ground_y = y
 
 
 ## Values the HUD post-process needs (tilt-shift), so the blur band follows the
@@ -301,7 +311,7 @@ func _clamp_target() -> void:
 func set_follow_target(node: Node3D) -> void:
 	_follow = node
 	if node != null and is_instance_valid(node):
-		_target = Vector3(node.position.x, 0.0, node.position.z)
+		_target = Vector3(node.position.x, _target.y, node.position.z)
 		_clamp_target()
 		_vel = Vector3.ZERO
 		_apply()
@@ -342,7 +352,7 @@ func reset() -> void:
 ## Put the rig on a map point at once (boot, or after a scene change). No glide:
 ## the first frame of a session must not show the camera flying in from nowhere.
 func place_at(point: Vector2) -> void:
-	_target = Vector3(point.x, 0.0, point.y)
+	_target = Vector3(point.x, _ground_y, point.y)
 	_clamp_target()
 	_vel = Vector3.ZERO
 	_apply()
@@ -378,7 +388,9 @@ func _desired_target() -> Vector3:
 		# aim at the edge of the dead zone, not at the actor: the view glides
 		# instead of pumping while the knight walks
 		var dir := gap.normalized() * (gap.length() - deadzone_m)
-		aim = Vector3(_target.x + dir.x, 0.0, _target.z + dir.y)
+		aim = Vector3(_target.x + dir.x, _ground_y, _target.z + dir.y)
+	else:
+		aim.y = _ground_y
 	if _has_map:
 		var limits := clamp_limits()
 		var low: Vector2 = limits["min"]
@@ -429,7 +441,6 @@ func _smooth_damp(current: Vector3, goal: Vector3, delta: float) -> Vector3:
 	var temp := (_vel + change * omega) * delta
 	_vel = (_vel - temp * omega) * expo
 	var out := goal + (change + temp) * expo
-	out.y = 0.0
 	return out
 
 

@@ -339,6 +339,19 @@ func _test_route_holds_the_lens() -> void:
 		var real := cam.global_position.distance_to(_rig.global_position)
 		_check(absf(real - float(want["distance_m"])) < 0.02,
 			"kamera benar-benar sejauh itu dari titik bidik", "%.3f m" % real)
+	# and it must ride the terrain: the mountain plateau is 7,2 m above the valley
+	var high: Variant = _high_spot()
+	if high != null:
+		_cast.call("teleport_player", high)
+		await _wait(1.2)
+		var ground: float = float(_rig.position.y)
+		_check(ground > 4.0, "kamera naik mengikuti tanah bertingkat (Pos Gunung)",
+			"kamera y=%.2f m" % ground)
+		var knight = _cast.call("player")
+		if knight != null and is_instance_valid(knight):
+			var eye := (knight as Node3D).global_position.y
+			_check(ground >= eye - 0.5, "kamera tidak berada di bawah permukaan tanah",
+				"kamera y=%.2f, pemain y=%.2f" % [ground, eye])
 
 
 func _process(delta: float) -> void:
@@ -377,6 +390,10 @@ func _test_follow_is_smooth() -> void:
 	if start_spot != null:
 		_cast.call("teleport_player", start_spot)
 		await _wait(0.5)
+		# the capture harness moves the lens for scripted shots; put it back so the
+		# smoothness recording is of the real lens
+		_rig.call("load_config")
+		_rig.call("set_lens", NAN, NAN, NAN)
 	_frames = []
 	_recording = true
 	_cast.call("set_virtual_stick", Vector2(0.18, -0.98))
@@ -478,6 +495,20 @@ func _boot_main() -> bool:
 		_rig = diorama.call("camera_rig") as Node3D
 	_check(_cast != null and _rig != null, "Main, cast, dan rig kamera termuat")
 	return _cast != null and _rig != null
+
+
+## The highest walkable marker in the region: Pos Gunung.
+func _high_spot() -> Variant:
+	var diorama: Node3D = _main.get("_diorama") as Node3D
+	if diorama == null:
+		return null
+	var region: RefCounted = diorama.call("region")
+	if region == null:
+		return null
+	var m: Dictionary = region.call("marker", "Pos Gunung")
+	if m.is_empty():
+		return null
+	return region.call("marker_pos", m)
 
 
 func _start_spot() -> Variant:

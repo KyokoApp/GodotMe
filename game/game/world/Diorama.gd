@@ -78,10 +78,14 @@ func _ready() -> void:
 	_build_atmosphere()
 	_build_clock()
 	_build_camera()
-	_stream_now(_start_position())
+	var start := _start_position()
+	_stream_now(start)
 	if _camera != null:
-		# no fly-in from the middle of the map: the first frame is already framed
-		_camera.call("place_at", _start_position())
+		# no fly-in from the middle of the map: the first frame is already framed,
+		# and on the right level of the terrain
+		_camera.call("set_ground_height",
+			float(_region.call("height_at", start)) if _region != null else 0.0)
+		_camera.call("place_at", start)
 	print("[WORLD] %s %dx%d ubin, %d chunk, %d prop, %d marker, %d zona" % [
 		String(_region.get("label")) if _region != null else "(tanpa peta)",
 		int(_region.get("width")) if _region != null else 0,
@@ -427,6 +431,10 @@ func _process(delta: float) -> void:
 			_view.call("set_view_centre", pos)
 			_view.call("update_occluders", pos, _camera_xz(), _occl_radius, _occl_reach)
 		_announce_zone(pos)
+	if _camera != null:
+		# the lens has to ride the terrain: on the mountain plateau an 18 m lens
+		# aimed from y = 0 sits inside the hill
+		_camera.call("set_ground_height", float(_region.call("height_at", pos)))
 	if _atmosphere != null:
 		# the pollen belongs to the camera, not to the origin of the world
 		_atmosphere.position = Vector3(pos.x, 0.0, pos.y)
