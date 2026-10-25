@@ -170,6 +170,20 @@ func _test_reachability() -> void:
 	_reachable = seen
 
 
+## Reachability of the tile a marker actually stands on. Snapping to the nearest
+## walkable tile - which is right for a door or a chest - is wrong for a locked
+## gate: the tile next to the gate is reachable by definition, so a snap would
+## quietly report every locked gate as open.
+func _own_tile_reachable(p: Vector2) -> bool:
+	var w := int(_region.get("width"))
+	var t: Vector2i = _region.call("world_to_tile", p)
+	if t.x < 0 or t.y < 0 or t.x >= w or t.y >= int(_region.get("height")):
+		return false
+	if not bool(_region.call("walkable_tile", t.x, t.y)):
+		return false
+	return _reachable[t.y * w + t.x] == 1
+
+
 func _tile_reachable(p: Vector2) -> bool:
 	var w := int(_region.get("width"))
 	var t: Vector2i = _region.call("nearest_walkable", _region.call("world_to_tile", p), 10)
@@ -192,7 +206,7 @@ func _test_markers() -> void:
 		if BLOCKED_BY_DESIGN.has(kind):
 			# a locked gate and a broken bridge must NOT be reachable: that is the
 			# whole point of them
-			if not _tile_reachable(pos):
+			if not _own_tile_reachable(pos):
 				blocked_ok += 1
 			else:
 				bad.append("%s harusnya terhalang" % String(m.get("name", "")))
@@ -240,8 +254,8 @@ func _test_zones() -> void:
 			continue
 		var z: Dictionary = raw
 		for key in ["name", "kind", "rect", "biome", "subtitle", "weather", "music"]:
-			if not z.has(key) or String(z.get(key, "")) == "":
-				missing.append("%s.%s" % [String(z.get("name", "?")), key])
+			if not z.has(key) or str(z.get(key, "")) == "":
+				missing.append("%s.%s" % [str(z.get("name", "?")), key])
 	_check(missing.is_empty(), "tiap zona punya nama/biome/cuaca/musik", str(missing))
 
 
@@ -261,16 +275,28 @@ func _test_seams() -> void:
 			continue
 		var cell := float(_region.get("cell"))
 		var plane := float(a.x + 1) * cell * float(_region.get("chunk"))
-		var lkeys := _boundary(left["verts"], plane, true)
-		var rkeys := _boundary(right["verts"], plane, true)
+		var lkeys := _boundary(_all_verts(left), plane, true)
+		var rkeys := _boundary(_all_verts(right), plane, true)
 		var same := lkeys.size() > 0 and lkeys == rkeys
 		_check(same, "sambungan chunk %s|%s rapat" % [str(a), str(b)],
 			"%d vs %d titik" % [lkeys.size(), rkeys.size()])
 		# and the vertex count is believable: every tile has at least its quad
 		var tiles := int(_region.get("chunk")) * int(_region.get("chunk"))
-		_check((left["verts"] as PackedVector3Array).size() >= tiles * 4,
-			"chunk %s punya minimal 4 verteks per ubin" % str(a),
-			str((left["verts"] as PackedVector3Array).size()))
+		var lverts := _all_verts(left)
+		_check(lverts.size() >= tiles * 4,
+			"chunk %s punya minimal 4 verteks per ubin" % str(a), str(lverts.size()))
+
+
+## A chunk is four surfaces now (terrain, cliff, wood, water). The seam rule does
+## not care which one a vertex belongs to, only where it is.
+func _all_verts(arrays: Dictionary) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	for key in ["terrain", "cliff", "wood", "water"]:
+		var surf: Dictionary = arrays.get(key, {})
+		if surf.is_empty():
+			continue
+		out.append_array(surf.get("verts", PackedVector3Array()))
+	return out
 
 
 ## Keys of the vertices sitting on a vertical plane, rounded to the millimetre so
@@ -310,13 +336,13 @@ func _test_props() -> void:
 		var uv: Array = c.get("uv", [])
 		var sz: Array = c.get("size_m", [])
 		if uv.size() < 4 or sz.size() < 2:
-			bad.append("%s tanpa uv/ukuran" % String(c.get("kind", "?")))
+			bad.append("%s tanpa uv/ukuran" % str(c.get("kind", "?")))
 			continue
 		if float(uv[0]) < 0.0 or float(uv[1]) < 0.0 or float(uv[0]) + float(uv[2]) > 1.001 \
 				or float(uv[1]) + float(uv[3]) > 1.001:
-			bad.append("%s keluar atlas" % String(c.get("kind", "?")))
+			bad.append("%s keluar atlas" % str(c.get("kind", "?")))
 		if float(sz[0]) <= 0.0 or float(sz[1]) <= 0.0:
-			bad.append("%s ukuran nol" % String(c.get("kind", "?")))
+			bad.append("%s ukuran nol" % str(c.get("kind", "?")))
 	_check(bad.is_empty(), "sel atlas prop sah", str(bad))
 
 

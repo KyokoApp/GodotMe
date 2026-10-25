@@ -586,15 +586,25 @@ def build(spec: dict):
 
 
 # -------------------------------------------------------------- connectors ---
-def connect_pockets(g: Grid, start, rounds: int = 200) -> list:
-    """Join every walkable pocket to the main network with a stair.
+def connect_pockets(g: Grid, start, rounds: int = 400) -> list:
+    """Join every walkable pocket to the main network, honestly.
 
     The region is designed by hand, but a hand-designed 192x192 map WILL leave
     the odd terrace cut off - a two-level bank between two meadows looks fine
-    and traps the player. Instead of loosening the validation, the builder
-    carves the shortest honest connection: a stair where the difference is one
-    level, one carved step plus a stair where it is two. Returns the list of
-    (x, y) where it had to intervene, so the report can name them.
+    and traps the player. Instead of loosening the validation, the builder makes
+    the shortest honest connection, in this order:
+
+      1. a stair on the low side where the bank is one or two levels;
+      2. otherwise carve the pocket's own edge tile down to two levels above the
+         neighbour it meets and put the stair there - the terrace becomes a
+         lookout with steps, not a hole in the world;
+      3. if the pocket touches nothing but water or a wall, it was never a place
+         to stand: it becomes rock, which the movement rules already refuse.
+
+    Two limits used to hide pockets for good: the loop returned on the first
+    pocket it could not join, and it stopped after 48 connections. Both are gone;
+    every round works on the largest remaining pocket, so the count can only go
+    down. Returns the (x, y) of every stair it placed.
     """
     made = []
     for _ in range(rounds):
@@ -612,39 +622,57 @@ def connect_pockets(g: Grid, start, rounds: int = 200) -> list:
             return made
         pockets.sort(key=len, reverse=True)
         pocket = pockets[0]
-        candidates = []
+        easy = []
+        hard = []
         for (px, py) in pocket:
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 qx, qy = px + dx, py + dy
                 if not g.inside(qx, qy) or (qx, qy) not in reach:
                     continue
+                if g.terrain[qy][qx] in WATER:
+                    continue
                 dh = abs(g.height[py][px] - g.height[qy][qx])
-                if dh > 2:
-                    continue
-                low_x, low_y = (qx, qy) if g.height[py][px] > g.height[qy][qx] else (px, py)
-                low_code = struct_code(g.struct[low_y][low_x])
-                if low_code in BLOCKING_STRUCT or g.terrain[low_y][low_x] in WATER:
-                    continue
-                candidates.append((dh, px, py, qx, qy, dx, dy))
-        candidates.sort()
-        if not candidates:
-            return made
-        _cost, px, py, qx, qy, dx, dy = candidates[0]
-        if g.height[py][px] > g.height[qy][qx]:
-            low_x, low_y = qx, qy
-            high_dx, high_dy = -dx, -dy
-            bank = g.height[py][px] - g.height[qy][qx]
-        else:
-            low_x, low_y = px, py
-            high_dx, high_dy = dx, dy
-            bank = g.height[qy][qx] - g.height[py][px]
-        direction = ((1, 0), (0, 1), (-1, 0), (0, -1)).index((high_dx, high_dy))
-        g.struct[low_y][low_x] = enc_struct(S_STAIR, direction)
-        if g.terrain[low_y][low_x] == T_DIRT:
-            g.terrain[low_y][low_x] = T_STONE
-        made.append((low_x, low_y))
-        if len(made) > 48:
-            return made
+                if dh <= 2:
+                    low_x, low_y = (qx, qy) if g.height[py][px] > g.height[qy][qx] else (px, py)
+                    if struct_code(g.struct[low_y][low_x]) not in BLOCKING_STRUCT:
+                        easy.append((dh, px, py, qx, qy, dx, dy))
+                hard.append((dh, px, py, qx, qy, dx, dy))
+        if easy:
+            easy.sort()
+            _cost, px, py, qx, qy, dx, dy = easy[0]
+            if g.height[py][px] > g.height[qy][qx]:
+                low_x, low_y = qx, qy
+                high_dx, high_dy = -dx, -dy
+            else:
+                low_x, low_y = px, py
+                high_dx, high_dy = dx, dy
+            direction = ((1, 0), (0, 1), (-1, 0), (0, -1)).index((high_dx, high_dy))
+            g.struct[low_y][low_x] = enc_struct(S_STAIR, direction)
+            if g.terrain[low_y][low_x] == T_DIRT:
+                g.terrain[low_y][low_x] = T_STONE
+            made.append((low_x, low_y))
+            continue
+        if hard:
+            hard.sort()
+            _dh, px, py, qx, qy, _dx, _dy = hard[0]
+            # the pocket's own edge tile becomes the high landing, exactly two
+            # levels above the neighbour it steps down to
+            g.height[py][px] = min(4, g.height[qy][qx] + 2)
+            to_low = (qx - px, qy - py)
+            direction = ((1, 0), (0, 1), (-1, 0), (0, -1)).index(to_low)
+            g.struct[py][px] = enc_struct(S_STAIR, direction)
+            if g.terrain[py][px] in WATER:
+                g.terrain[py][px] = T_STONE
+            made.append((px, py))
+            continue
+        # Nothing but water and walls around it: never a place to stand. Rock
+        # would not do - rock is walkable ground in this world - so the pocket
+        # becomes deep water, and its structure goes with it: a lone plank of the
+        # broken bridge must not keep the movement rule calling it a deck.
+        for (px, py) in pocket:
+            g.terrain[py][px] = T_DEEP
+            if struct_code(g.struct[py][px]) == S_BRIDGE:
+                g.struct[py][px] = enc_struct(S_NONE)
     return made
 
 
