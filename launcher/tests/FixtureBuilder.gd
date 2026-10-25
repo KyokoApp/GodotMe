@@ -80,7 +80,6 @@ const PACK_FILES := {
 		"order": 40,
 		# the whole diorama lives in this pack: scene, camera and every texture.
 		"files": [
-			"game/assets/bg.png",
 			"game/world/Diorama.tscn",
 			"game/world/Diorama.gd",
 			"game/world/DioramaCamera.gd",
@@ -111,7 +110,6 @@ const PACK_FILES := {
 			"game/assets/parchment.png",
 			"game/assets/crest.png",
 			"game/assets/divider.png",
-			"game/assets/bg.png",
 			"game/assets/ui/icons/heart_full.png",
 			"game/assets/ui/icons/heart_empty.png",
 			"game/assets/ui/icons/sun.png",
