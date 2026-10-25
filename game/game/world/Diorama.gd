@@ -121,7 +121,7 @@ func _build_environment() -> void:
 	env.background_color = Color(0.42, 0.35, 0.30)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.56, 0.60, 0.72)
-	env.ambient_light_energy = 0.70
+	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_exposure = 1.0
 	# White point 6.0 was chosen for the tiny lantern-lit glade of step 1, where
@@ -130,7 +130,7 @@ func _build_environment() -> void:
 	# 1.0 to roughly 0.45 when white is 6, so half the world's brightness went
 	# away before it reached the screen. 1.5 keeps the highlight roll-off without
 	# eating the midtones.
-	env.tonemap_white = 1.5
+	env.tonemap_white = 3.0
 	# warm afternoon haze -> depth without a depth-of-field pass
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.68, 0.62)

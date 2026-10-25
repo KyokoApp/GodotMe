@@ -49,7 +49,7 @@ void fragment() {
 	// ground gets a small standing bounce of its own instead of going black in
 	// the lee of every wall.
 	c *= UV2.x;
-	ALBEDO = c * light_tint * vec3(1.16, 1.18, 1.08);
+	ALBEDO = c * light_tint;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
 }

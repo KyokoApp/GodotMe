@@ -56,6 +56,7 @@ var _prop_mats: Dictionary = {}     # kind -> ShaderMaterial with its atlas cell
 var _prop_mms: Dictionary = {}      # kind -> MultiMeshInstance3D
 var _tall: Array = []               # [kind, index, x, z, height] of occluders
 var _layout: Array = []             # [kind, x, z, w, h, ground] every placed prop
+var _tex_cache: Dictionary = {}     # path -> ImageTexture
 var _faded: Dictionary = {}         # "kind/index" -> 0.0 while dissolved
 var _quad: ArrayMesh
 var _chunks: Dictionary = {}        # Vector2i -> Node3D
@@ -136,10 +137,25 @@ func _prop_meta() -> Dictionary:
 	return parsed
 
 
+## World textures are read as PNG BYTES, exactly as WorldArt.tex() has done since
+## step 1. This is not a style choice: a PNG imported by the editor is flagged
+## sRGB, so the GPU linearises every sample before the shader sees it, and the
+## grass tile - which is a dark forest green in sRGB - arrives almost black. That
+## single difference turned the valley's lawn into the brown smear the first
+## region captures showed. Raw ImageTexture samples keep the tile's own colours,
+## which is the look the valley was approved with.
 func _tex(path: String) -> Texture2D:
-	if not ResourceLoader.exists(path):
+	if _tex_cache.has(path):
+		return _tex_cache[path]
+	if not FileAccess.file_exists(path):
 		return null
-	return load(path) as Texture2D
+	var img := Image.new()
+	if img.load_png_from_buffer(FileAccess.get_file_as_bytes(path)) != OK:
+		push_error("[REGION] PNG rusak: %s" % path)
+		return null
+	var tex := ImageTexture.create_from_image(img)
+	_tex_cache[path] = tex
+	return tex
 
 
 ## A single quad, -0.5..0.5 in x and y. The prop shader rebuilds the billboard

@@ -110,6 +110,7 @@ static func build(data: RefCounted, cx: int, cz: int) -> Dictionary:
 			var centre: Vector2 = data.call("tile_centre", tx, tz)
 			var base := Vector3(centre.x - cell * 0.5, 0.0, centre.y - cell * 0.5)
 			if ter == T_SHALLOW or ter == T_DEEP:
+				_add_bed(data, tx, tz, base, cell, level_h, ter, terrain)
 				_add_water(data, tx, tz, base, cell, level_h, ter, water)
 				continue
 			if code == S_BRIDGE:
@@ -531,6 +532,29 @@ static func _add_gate_wall(base: Vector3, cell: float, level_h: float,
 	var p2 := [base + Vector3(cell, y, cell), base + Vector3(0.0, y, cell),
 		base + Vector3(cell, y + 1.5, cell), base + Vector3(0.0, y + 1.5, cell)]
 	quad(wood, p2, uv, Color(0.9, 0.86, 0.8, 1.0), 1.0, Vector3.BACK)
+
+
+## The floor of the lake, drawn UNDER the water surface. Without it a water tile
+## is a hole in the mesh: the surface is semi-transparent, so looking across a
+## lake showed the background through it - flat black polygons with tile-shaped
+## edges, which is what the Danau Cermin capture caught.
+static func _add_bed(data: RefCounted, tx: int, tz: int, base: Vector3, cell: float,
+		level_h: float, ter: int, surf: Dictionary) -> void:
+	var ch: PackedFloat32Array = data.call("corner_heights", tx, tz)
+	var drop := 0.55 if ter == T_SHALLOW else 1.30
+	var p := [
+		base + Vector3(0.0, ch[0] - drop, 0.0),
+		base + Vector3(cell, ch[1] - drop, 0.0),
+		base + Vector3(0.0, ch[2] - drop, cell),
+		base + Vector3(cell, ch[3] - drop, cell),
+	]
+	var uv := [Vector2(p[0].x, p[0].z), Vector2(p[1].x, p[1].z),
+		Vector2(p[2].x, p[2].z), Vector2(p[3].x, p[3].z)]
+	# wet sand at the edge, darker silt in the deep: the same atlas cells the
+	# shore uses, just mixed the other way round
+	var sand := 0.75 if ter == T_SHALLOW else 0.35
+	quad(surf, p, uv, Color(0.0, 0.15 if ter == T_DEEP else 0.0, sand, 0.0),
+		0.78 if ter == T_DEEP else 0.9, Vector3.UP)
 
 
 static func _add_water(data: RefCounted, tx: int, tz: int, base: Vector3, cell: float,
