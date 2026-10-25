@@ -331,10 +331,19 @@ func _spawn_task(cc: Vector2i) -> void:
 	# one task per chunk; the arrays come back through a dictionary the thread
 	# fills in (a plain Dictionary is safe because only the worker touches it
 	# until the task reports complete)
+	# Captured into LOCALS on purpose. A lambda that mentions `data` or `script`
+	# reads a member of this node, so the thread would be holding a pointer to a
+	# node the scene tree may free under it - which is an abort, not an error
+	# message ("world rules ... exit 134" with every check green). A local keeps
+	# its own reference alive for as long as the task runs.
+	var grid: RefCounted = data
+	var baker: Script = script
+	var cx: int = cc.x
+	var cz: int = cc.y
 	var out := {}
 	var task := WorkerThreadPool.add_task(
-		func() -> void: out["arrays"] = script.call("build", data, cc.x, cc.y),
-		false, "region chunk %d,%d" % [cc.x, cc.y])
+		func() -> void: out["arrays"] = baker.call("build", grid, cx, cz),
+		false, "region chunk %d,%d" % [cx, cz])
 	_pending[cc] = task
 	_task_chunk[task] = cc
 	_pending_arrays[task] = out
@@ -532,6 +541,19 @@ func clear() -> void:
 		if node != null and is_instance_valid(node):
 			node.queue_free()
 	_chunks.clear()
+
+
+## Block until every chunk task has reported. A test scene that calls quit()
+## while a baker thread is still walking the byte grids tears the data out from
+## under it, and the engine answers with a crash instead of a failure.
+func drain() -> void:
+	for cc in _pending.keys():
+		var task: int = _pending[cc]
+		WorkerThreadPool.wait_for_task_completion(task)
+	_pending.clear()
+	_pending_arrays.clear()
+	_task_chunk.clear()
+	set_process(false)
 
 
 func _exit_tree() -> void:

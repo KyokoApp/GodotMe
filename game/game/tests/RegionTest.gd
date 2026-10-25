@@ -52,6 +52,11 @@ func _ready() -> void:
 	await _test_streaming()
 	_test_travel_time()
 	print("[REGION] %d pemeriksaan, %d gagal" % [checks, failures])
+	# a baker task still running when the process quits is an abort waiting to
+	# happen; the probe is done, so let it finish first
+	for node in get_children():
+		if node.has_method("drain"):
+			node.call("drain")
 	get_tree().quit(0 if failures == 0 else 1)
 
 
@@ -286,28 +291,27 @@ func _test_seams() -> void:
 		var plane := corner.x + float(a.x + 1) * cell * float(csz)
 		if not vertical:
 			plane = corner.y + float(a.y + 1) * cell * float(csz)
-		var lkeys := _boundary(_all_verts(left), plane, vertical)
-		var rkeys := _boundary(_all_verts(right), plane, vertical)
+		var lkeys := _boundary(_surface_verts(left, "terrain"), plane, vertical)
+		var rkeys := _boundary(_surface_verts(right, "terrain"), plane, vertical)
 		var same := lkeys.size() > 0 and lkeys == rkeys
 		_check(same, "sambungan chunk %s|%s rapat" % [str(a), str(b)],
 			"%d vs %d titik" % [lkeys.size(), rkeys.size()])
 		# and the vertex count is believable: every tile has at least its quad
 		var tiles := csz * csz
-		var lverts := _all_verts(left)
+		var lverts := _surface_verts(left, "terrain")
 		_check(lverts.size() >= tiles * 4,
 			"chunk %s punya minimal 4 verteks per ubin" % str(a), str(lverts.size()))
 
 
-## A chunk is four surfaces now (terrain, cliff, wood, water). The seam rule does
-## not care which one a vertex belongs to, only where it is.
-func _all_verts(arrays: Dictionary) -> PackedVector3Array:
-	var out := PackedVector3Array()
-	for key in ["terrain", "cliff", "wood", "water"]:
-		var surf: Dictionary = arrays.get(key, {})
-		if surf.is_empty():
-			continue
-		out.append_array(surf.get("verts", PackedVector3Array()))
-	return out
+## A chunk is four surfaces now (terrain, cliff, wood, water). The seam rule is
+## about the GROUND lining up, so it reads the terrain surface only: a rock face
+## on the boundary belongs to whichever side is higher, and finding it on one side
+## and not the other is correct, not a crack.
+func _surface_verts(arrays: Dictionary, key: String) -> PackedVector3Array:
+	var surf: Dictionary = arrays.get(key, {})
+	if surf.is_empty():
+		return PackedVector3Array()
+	return surf.get("verts", PackedVector3Array())
 
 
 ## Keys of the vertices sitting on a vertical plane, rounded to the millimetre so

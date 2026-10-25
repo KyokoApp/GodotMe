@@ -36,6 +36,11 @@ func _ready() -> void:
 	await _test_hearts_and_knockout()
 
 	print("[PLAY] %d pemeriksaan, %d gagal" % [checks, failures])
+	for node in get_children():
+		if node.has_method("view"):
+			var v: Node = node.call("view")
+			if v != null and v.has_method("drain"):
+				v.call("drain")
 	get_tree().quit(0 if failures == 0 else 1)
 
 

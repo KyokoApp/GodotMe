@@ -32,6 +32,9 @@ func _ready() -> void:
 	await _test_atmosphere()
 	await _test_clock_runs()
 	print("[WORLD] %d pemeriksaan, %d gagal" % [checks, failures])
+	var view: Node = _world.call("view") if _world.has_method("view") else null
+	if view != null and view.has_method("drain"):
+		view.call("drain")
 	get_tree().quit(0 if failures == 0 else 1)
 
 
