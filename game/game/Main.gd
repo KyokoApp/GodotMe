@@ -586,7 +586,7 @@ func _drive_walk(seconds: float) -> void:
 func _go_to_zone(key: String, phase_want: String, zoom_want: float) -> void:
 	if _cast == null or not is_instance_valid(_cast) or _diorama == null:
 		return
-	var spot := _spot_for(key)
+	var spot: Variant = _spot_for(key)
 	if spot == null:
 		print("[GAME] zona '%s' tidak ditemukan di peta" % key)
 		return

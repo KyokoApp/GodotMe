@@ -59,7 +59,7 @@ var loaded := false
 var width := 0
 var height := 0
 var cell := 1.0
-var level_h := 1.2
+var level_h := 1.8
 var chunk := 32
 var label := "Yaros"
 var seed_value := 0
@@ -100,7 +100,7 @@ func load_file(path: String) -> bool:
 	if width <= 0 or height <= 0:
 		return false
 	cell = float(data.get("cell", 1.0))
-	level_h = float(data.get("level_h", 1.2))
+	level_h = float(data.get("level_h", 1.8))
 	chunk = maxi(8, int(data.get("chunk", 32)))
 	label = String(data.get("label", data.get("name", "Yaros")))
 	seed_value = int(data.get("seed", 0))
@@ -235,6 +235,12 @@ func bounds() -> Rect2:
 	return Rect2(origin - size * 0.5, size)
 
 
+## The three byte grids, for callers that walk the whole map once (the map
+## painter). Reading 36 864 tiles through `call()` tripled that walk's cost.
+func raw_tiles() -> Dictionary:
+	return {"height": _h, "terrain": _t, "structure": _s}
+
+
 func chunk_count() -> int:
 	var n := int(ceil(float(width) / float(chunk)))
 	return n
@@ -313,9 +319,9 @@ func _flat_height(tx: int, tz: int, u: float, v: float) -> float:
 func stair_profile(tx: int, tz: int) -> PackedFloat32Array:
 	var low := 1.0e9
 	var high := -1.0e9
-	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		var nx := tx + d.x
-		var nz := tz + d.y
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nx: int = tx + d.x
+		var nz: int = tz + d.y
 		if not in_bounds(nx, nz):
 			continue
 		var hv := float(tile_height(nx, nz)) * level_h
@@ -526,18 +532,18 @@ func find_path(from: Vector2, to: Vector2) -> Array:
 		closed[current] = true
 		var cx := current % width
 		var cz := current / width
-		for d in dirs:
-			var nx2 := cx + d.x
-			var nz2 := cz + d.y
+		for d: Vector2i in dirs:
+			var nx2: int = cx + d.x
+			var nz2: int = cz + d.y
 			if not step_ok(cx, cz, nx2, nz2):
 				continue
-			var next := nz2 * width + nx2
-			if closed.has(next):
+			var nxt: int = nz2 * width + nx2
+			if closed.has(nxt):
 				continue
-			var tentative := float(cost.get(current, 0)) + 1.0
-			if cost.has(next) and tentative >= float(cost[next]):
+			var tentative: float = float(cost.get(current, 0)) + 1.0
+			if cost.has(nxt) and tentative >= float(cost[nxt]):
 				continue
-			cost[next] = tentative
+			cost[nxt] = tentative
 			came[next] = current
 			if not open.has(next):
 				open.append(next)

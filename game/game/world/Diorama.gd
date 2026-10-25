@@ -244,12 +244,19 @@ func _build_map() -> void:
 	var K_SNOW := int(kinds.get("KIND_SNOW", 8))
 	var K_SAND := int(kinds.get("KIND_SAND", 9))
 
+	var grids: Dictionary = _region.call("raw_tiles")
+	var hh: PackedByteArray = grids.get("height", PackedByteArray())
+	var tt: PackedByteArray = grids.get("terrain", PackedByteArray())
+	var ss: PackedByteArray = grids.get("structure", PackedByteArray())
+	var set_tile: Callable = map.get("set_tile")
 	for tz in range(h):
+		var row: int = tz * w
 		for tx in range(w):
+			var i: int = row + tx
+			if i >= tt.size():
+				continue
 			var kind := K_GRASS
-			var ter := int(_region.call("tile_terrain", tx, tz))
-			var code := int(_region.call("struct_code", tx, tz))
-			match ter:
+			match int(tt[i]):
 				7:
 					kind = K_WATER
 				8:
@@ -270,11 +277,11 @@ func _build_map() -> void:
 					kind = K_DIRT
 				_:
 					kind = K_GRASS
-			if code == 2:
+			if i < ss.size() and (int(ss[i]) & 0x0F) == 2:
 				kind = K_DIRT   # a bridge reads as road on the map
-			if int(_region.call("tile_height", tx, tz)) >= 4 and kind == K_GRASS:
+			if i < hh.size() and int(hh[i]) >= 4 and kind == K_GRASS:
 				kind = K_STONE   # high ground is paler on the map, like on foot
-			map.call("set_tile", tx, tz, kind)
+			set_tile.call(tx, tz, kind)
 
 	# woods and buildings from the decorations, painted ON TOP of the ground but
 	# only onto grass, so a road never disappears under a tree
@@ -366,7 +373,7 @@ func _build_camera() -> void:
 func _process(delta: float) -> void:
 	if _region == null:
 		return
-	var player := _player_position()
+	var player: Variant = _player_position()
 	if player == null:
 		return
 	var pos: Vector2 = player

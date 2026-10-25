@@ -23,13 +23,13 @@ uniform sampler2D albedo_tex : source_color, filter_nearest, repeat_disable;
 // alpha below this is thrown away; the sprites are hard-edged pixel art, so a
 // low threshold keeps pine needles from thinning out
 uniform float scissor : hint_range(0.0, 1.0) = 0.42;
-// (x, y, width, height) in atlas UV space, one per prop kind
-uniform vec4 cell_rects[16];
+// (x, y, width, height) in atlas UV space. One material per prop kind, so this
+// is a single rect and the instance only has to say "mirror me" and "fade me".
+uniform vec4 cell_rect = vec4(0.0, 0.0, 1.0, 1.0);
 // multiplied into every prop: the clock's dusk amber lives here
 uniform vec3 light_tint = vec3(1.0, 1.0, 1.0);
 
 varying vec2 sprite_uv;
-varying vec4 inst;
 
 void vertex() {
 	vec3 scale = vec3(length(MODEL_MATRIX[0].xyz), length(MODEL_MATRIX[1].xyz), 1.0);
@@ -40,14 +40,20 @@ void vertex() {
 	vec3 world = origin + right * (VERTEX.x * scale.x) + up * (VERTEX.y * scale.y);
 	POSITION = PROJECTION_MATRIX * VIEW_MATRIX * vec4(world, 1.0);
 	sprite_uv = VERTEX.xy + vec2(0.5);
-	inst = INSTANCE_CUSTOM;
 }
 
 void fragment() {
-	int idx = int(inst.x + 0.5);
-	vec4 cell = cell_rects[idx];
+	// the instance colour carries r = fade, g = mirror, b = shade. Reading it
+	// here instead of in vertex() is deliberate: Godot folds the MultiMesh
+	// instance colour into COLOR at the end of the vertex stage, so this is the
+	// only place it is guaranteed to be present - and it keeps the shader inside
+	// what the Compatibility renderer offers.
+	float fade = COLOR.r;
+	float mirror = COLOR.g;
+	float shade = COLOR.b;
+	vec4 cell = cell_rect;
 	vec2 uv = sprite_uv;
-	if (inst.y > 0.5) {
+	if (mirror > 0.5) {
 		uv.x = 1.0 - uv.x;
 	}
 	// atlas v grows downwards, the quad's uv grows upwards
@@ -57,9 +63,9 @@ void fragment() {
 	// stable while walking, unlike a noise function
 	ivec2 p = ivec2(FRAGCOORD.xy);
 	float threshold = float((p.x * 3 + p.y * 5) % 8) / 8.0 + 0.0625;
-	if (tex.a < scissor || threshold > inst.z) {
+	if (tex.a < scissor || threshold > fade) {
 		discard;
 	}
-	ALBEDO = tex.rgb * light_tint;
+	ALBEDO = tex.rgb * light_tint * shade;
 	ALPHA = 1.0;
 }

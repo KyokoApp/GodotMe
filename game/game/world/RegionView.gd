@@ -48,11 +48,12 @@ var _terrain_mat: ShaderMaterial
 var _cliff_mat: ShaderMaterial
 var _wood_mat: ShaderMaterial
 var _water_mat: ShaderMaterial
-var _prop_mat: ShaderMaterial
+var _prop_mats: Dictionary = {}     # kind -> ShaderMaterial with its atlas cell
+var _prop_mms: Dictionary = {}      # kind -> MultiMeshInstance3D
+var _tall: Array = []               # [kind, index, x, z, height] of occluders
+var _faded: Dictionary = {}         # "kind/index" -> 0.0 while dissolved
 var _quad: ArrayMesh
 var _chunks: Dictionary = {}        # Vector2i -> Node3D
-var _props_by_chunk: Dictionary = {}  # Vector2i -> Array of [kind, x, z, scale, flip]
-var _prop_index: Dictionary = {}    # kind -> index in the atlas
 var _prop_size: Dictionary = {}     # kind -> Vector2 metres
 var _centres: Array = []            # centre chunk as Vector2i
 var _pending: Dictionary = {}       # Vector2i -> task id
@@ -71,8 +72,7 @@ func setup(region: RefCounted, radius: int = 1) -> void:
 	_stats["build_ms_total"] = 0.0
 	_build_materials()
 	_build_quad()
-	_index_props()
-	_bucket_props()
+	_build_props()
 	set_process(true)
 
 
@@ -105,13 +105,9 @@ func _build_materials() -> void:
 		"deep_tint": Color(0.30, 0.46, 0.52),
 		"foam_tint": Color(0.92, 0.95, 0.90),
 	})
-	var prop := ShaderMaterial.new()
-	if ResourceLoader.exists(PROP_SHADER):
-		prop.shader = load(PROP_SHADER)
-		prop.set_shader_parameter("albedo_tex", _tex(PROP_ATLAS))
-		prop.set_shader_parameter("scissor", 0.42)
-		prop.set_shader_parameter("cell_rects", _prop_rects_from(_prop_meta()))
-	_prop_mat = prop
+	# props get one material each, built in _build_props(): the atlas cell and the
+	# sprite size differ per kind, and a kind per material keeps the shader free of
+	# per-instance branching
 
 
 ## A ShaderMaterial with its uniforms already set; null shader means the material
@@ -161,77 +157,104 @@ func _build_quad() -> void:
 	_quad = mesh
 
 
-## Read the atlas manifest: which cell holds which prop, and how big that prop
-## is in metres. One file, so the art tool and the mesher cannot drift apart.
-func _index_props() -> void:
+## Read the atlas manifest once: which cell holds which prop, how big that prop
+## is in metres, and place every decoration in the world. One file, so the art
+## tool and the mesher cannot drift apart.
+func _build_props() -> void:
 	var meta := _prop_meta()
 	if meta.is_empty():
 		push_warning("[REGION] prop_atlas.json tidak ada, prop dunia dilewati")
+		return
+	var decor: Dictionary = data.get("decor") if data != null else {}
+	if typeof(decor) != TYPE_DICTIONARY:
 		return
 	for raw in meta.get("cells", []):
 		if typeof(raw) != TYPE_DICTIONARY:
 			continue
 		var cell: Dictionary = raw
 		var kind := String(cell.get("kind", ""))
-		_prop_index[kind] = int(cell.get("index", 0))
-		var sz: Array = cell.get("size_m", [1.0, 1.0])
-		if sz.size() >= 2:
-			_prop_size[kind] = Vector2(float(sz[0]), float(sz[1]))
-
-
-func _prop_rects_from(meta: Dictionary) -> PackedVector4Array:
-	var out := PackedVector4Array()
-	out.resize(16)
-	for i in range(16):
-		out[i] = Vector4(0.0, 0.0, 1.0, 1.0)
-	for raw in meta.get("cells", []):
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var cell: Dictionary = raw
-		var idx := int(cell.get("index", 0))
 		var uv: Array = cell.get("uv", [])
-		if idx < 0 or idx >= 16 or uv.size() < 4:
+		var sz: Array = cell.get("size_m", [1.0, 1.0])
+		if kind == "" or uv.size() < 4 or sz.size() < 2:
 			continue
-		out[idx] = Vector4(float(uv[0]), float(uv[1]), float(uv[2]), float(uv[3]))
-	return out
+		_prop_size[kind] = Vector2(float(sz[0]), float(sz[1]))
+		var mat := ShaderMaterial.new()
+		if ResourceLoader.exists(PROP_SHADER):
+			mat.shader = load(PROP_SHADER)
+			mat.set_shader_parameter("albedo_tex", _tex(PROP_ATLAS))
+			mat.set_shader_parameter("scissor", 0.42)
+			mat.set_shader_parameter("cell_rect",
+				Vector4(float(uv[0]), float(uv[1]), float(uv[2]), float(uv[3])))
+		_prop_mats[kind] = mat
+		_place_kind(kind, decor.get(kind, []))
 
 
-## Bucket every decoration into the chunk that owns it, once. Doing this per
-## chunk build would re-walk 2 959 entries 36 times for no reason.
-func _bucket_props() -> void:
-	_props_by_chunk.clear()
-	if data == null:
+## One MultiMesh per prop kind for the WHOLE region, not one per chunk. The
+## instances never change once placed, so the GPU keeps one buffer per kind and a
+## chunk coming or going costs nothing on the prop side; the billboard turns the
+## quad towards the camera in the vertex shader, which a MultiMesh cannot do.
+func _place_kind(kind: String, list: Variant) -> void:
+	if typeof(list) != TYPE_ARRAY or _prop_mats.is_empty():
 		return
-	var decor: Dictionary = data.get("decor")
-	if typeof(decor) != TYPE_DICTIONARY:
+	var rows: Array = list
+	if rows.is_empty():
 		return
-	var csz: int = int(data.get("chunk"))
-	var w: int = int(data.get("width"))
-	var h: int = int(data.get("height"))
-	for kind in decor.keys():
-		var k := String(kind)
-		if not _prop_index.has(k):
+	var mat: ShaderMaterial = _prop_mats.get(kind, null)
+	if mat == null or mat.shader == null:
+		return
+	var size: Vector2 = _prop_size.get(kind, Vector2.ONE)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = _quad
+	mm.instance_count = rows.size()
+	# the shader moves the quad towards the camera, so the AABB has to be the
+	# whole region or Godot culls the sprite that is behind the camera
+	mm.custom_aabb = AABB(Vector3(-8.0, -4.0, -8.0), Vector3(
+		float(data.get("width")) * float(data.get("cell")) + 16.0,
+		48.0,
+		float(data.get("height")) * float(data.get("cell")) + 16.0))
+	var n := 0
+	for raw in rows:
+		if typeof(raw) != TYPE_ARRAY:
 			continue
-		var list: Array = decor[kind]
-		for raw in list:
-			if typeof(raw) != TYPE_ARRAY:
-				continue
-			var row: Array = raw
-			if row.size() < 2:
-				continue
-			# decor is stored in tenths of a metre, in world XZ
-			var x := float(row[0]) * 0.1
-			var z := float(row[1]) * 0.1
-			var scale := float(row[2]) * 0.01 if row.size() > 2 else 1.0
-			var flip := int(row[3]) if row.size() > 3 else 0
-			var tx := int(floor(x))
-			var tz := int(floor(z))
-			if tx < 0 or tz < 0 or tx >= w or tz >= h:
-				continue
-			var cell := Vector2i(tx / csz, tz / csz)
-			if not _props_by_chunk.has(cell):
-				_props_by_chunk[cell] = []
-			(_props_by_chunk[cell] as Array).append([k, x, z, scale, flip])
+		var row: Array = raw
+		if row.size() < 2:
+			continue
+		# decor is stored in tenths of a metre, in world XZ
+		var x := float(row[0]) * 0.1
+		var z := float(row[1]) * 0.1
+		var scale := float(row[2]) * 0.01 if row.size() > 2 else 1.0
+		var mirror := 0.0
+		if row.size() > 3 and int(row[3]) % 2 == 1:
+			mirror = 1.0
+		var w := size.x * scale
+		var h := size.y * scale
+		var ground := float(data.call("height_at", Vector2(x, z)))
+		mm.set_instance_transform(n, Transform3D(
+			Basis().scaled(Vector3(w, h, 1.0)),
+			Vector3(x, ground + h * 0.5, z)))
+		# r = fade, g = mirror, b = shade. The shade breaks up a row of identical
+		# sprites without a second texture; it is a hash of the position, so it is
+		# stable across frames and across chunk builds.
+		var shade := 0.9 + 0.1 * fposmod(sin(x * 12.9898 + z * 78.233) * 43758.5453, 1.0)
+		mm.set_instance_color(n, Color(1.0, mirror, shade, 1.0))
+		if h > 1.3:
+			_tall.append([kind, n, x, z, h])
+		n += 1
+	if n <= 0:
+		return
+	mm.instance_count = n
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "Props_%s" % kind
+	mmi.multimesh = mm
+	mmi.material_override = mat
+	# billboards shadow badly (the quad turns to the camera, so its shadow does
+	# too); the trees get a soft blob from the actor's shadow sprite instead
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+	_prop_mms[kind] = mmi
+	_stats["props"] = int(_stats.get("props", 0)) + n
 
 
 # ---------------------------------------------------------------- streaming ---
@@ -398,119 +421,52 @@ func _upload(cc: Vector2i, arrays: Dictionary) -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		node.add_child(mi)
 
-	var prop_count := _add_props(node, cc)
 	add_child(node)
 	_chunks[cc] = node
 	_stats["chunks"] = _chunks.size()
 	_stats["vertices"] = int(_stats.get("vertices", 0)) + vertex_total
-	_stats["props"] = int(_stats.get("props", 0)) + prop_count
 	_stats["built"] = int(_stats.get("built", 0)) + 1
-	_stats["draws"] = _chunks.size() * 2 + _prop_chunk_count()
+	_stats["draws"] = _chunks.size() + _prop_mms.size()
 	var ms := float(Time.get_ticks_usec() - t0) / 1000.0
 	_stats["build_ms_total"] = float(_stats.get("build_ms_total", 0.0)) + ms
 	_stats["build_ms_worst"] = maxf(float(_stats.get("build_ms_worst", 0.0)), ms)
 
 
-func _prop_chunk_count() -> int:
-	var n := 0
-	for key in _chunks.keys():
-		if _props_by_chunk.has(key):
-			n += 1
-	return n
-
-
-## One MultiMesh per chunk for every prop in it: the atlas means a chunk's
-## eighty trees, rocks and bushes are ONE draw call, not one per sprite.
-func _add_props(parent: Node3D, cc: Vector2i) -> int:
-	if not _props_by_chunk.has(cc) or _prop_mat == null:
-		return 0
-	if _prop_mat.shader == null:
-		return 0
-	var list: Array = _props_by_chunk[cc]
-	if list.is_empty():
-		return 0
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_custom_data = true
-	mm.mesh = _quad
-	mm.instance_count = list.size()
-	var level_h: float = float(data.get("level_h"))
-	var i := 0
-	for raw in list:
-		var row: Array = raw
-		var kind := String(row[0])
-		if not _prop_size.has(kind):
-			continue
-		var size: Vector2 = _prop_size[kind]
-		var x := float(row[1])
-		var z := float(row[2])
-		var scale := float(row[3]) if row.size() > 3 else 1.0
-		var flip := int(row[4]) if row.size() > 4 else 0
-		var ground := float(data.call("height_at", Vector2(x, z)))
-		var w := size.x * scale
-		var h := size.y * scale
-		var basis := Basis().scaled(Vector3(w, h, 1.0))
-		mm.set_instance_transform(i, Transform3D(basis, Vector3(x, ground + h * 0.5, z)))
-		mm.set_instance_custom_data(i, Color(
-			float(_prop_index.get(kind, 0)), float(flip), 1.0, 1.0))
-		i += 1
-	if i <= 0:
-		return 0
-	mm.instance_count = i
-	var mmi := MultiMeshInstance3D.new()
-	mmi.name = "Props"
-	mmi.multimesh = mm
-	mmi.material_override = _prop_mat
-	# billboards shadow badly (the quad turns to the camera, so its shadow does
-	# too); the trees get a soft blob from the actor's shadow sprite instead
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	parent.add_child(mmi)
-	return i
-
-
 # --------------------------------------------------------------- occlusion ---
-## Dither away the props standing between the camera and the knight. Only the
-## chunks next to the player are touched, and only when the player changes tile,
-## so this is not a per-frame scan.
+## Dither away the props standing between the camera and the knight. The list is
+## only the tall props (a tuft never hides anybody) and the caller runs this on a
+## tile change or four times a second, so this is not a per-frame scan of 2 959
+## instances.
 func update_occluders(player: Vector2, camera_xz: Vector2) -> void:
-	if data == null or _chunks.is_empty():
+	if _tall.is_empty():
 		return
-	var csz: int = int(data.get("chunk"))
-	var t: Vector2i = data.call("world_to_tile", player)
-	var centre := Vector2i(t.x / csz, t.y / csz)
-	var dir := (player - camera_xz)
+	var dir := player - camera_xz
 	var reach := dir.length()
 	if reach < 0.5:
 		return
 	var dirn := dir / reach
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
-			var cc := Vector2i(centre.x + dx, centre.y + dz)
-			if not _chunks.has(cc):
-				continue
-			var list: Array = _props_by_chunk.get(cc, [])
-			if list.is_empty():
-				continue
-			var node: Node3D = _chunks[cc]
-			var mmi := node.get_node_or_null("Props") as MultiMeshInstance3D
-			if mmi == null or mmi.multimesh == null:
-				continue
-			var mm := mmi.multimesh
-			for i in range(mini(list.size(), mm.instance_count)):
-				var row: Array = list[i]
-				var p := Vector2(float(row[1]), float(row[2]))
-				var to_prop := p - camera_xz
-				var along := to_prop.dot(dirn)
-				var lateral := absf(to_prop.cross(dirn))
-				var fade := 1.0
-				if along > 0.5 and along < reach + 1.5 and lateral < 0.85:
-					var height := float((_prop_size.get(String(row[0]), Vector2.ONE)).y)
-					# only tall things hide the knight; a tuft never does
-					fade = 0.0 if height > 1.3 else 1.0
-				var custom := mm.get_instance_custom_data(i)
-				if not is_equal_approx(custom.z, fade):
-					custom.z = fade
-					mm.set_instance_custom_data(i, custom)
+	for item in _tall:
+		var kind: String = item[0]
+		var idx: int = item[1]
+		var x: float = item[2]
+		var z: float = item[3]
+		var to_prop := Vector2(x, z) - camera_xz
+		var along := to_prop.dot(dirn)
+		var lateral := absf(to_prop.cross(dirn))
+		var hide := along > 0.5 and along < reach + 1.5 and lateral < 0.85
+		var key := "%s/%d" % [kind, idx]
+		var was := _faded.has(key)
+		if hide == was:
+			continue
+		var mmi: MultiMeshInstance3D = _prop_mms.get(kind, null)
+		if mmi == null or mmi.multimesh == null or idx >= mmi.multimesh.instance_count:
+			continue
+		var c: Color = mmi.multimesh.get_instance_color(idx)
+		mmi.multimesh.set_instance_color(idx, Color(0.0 if hide else 1.0, c.g, c.b, c.a))
+		if hide:
+			_faded[key] = true
+		else:
+			_faded.erase(key)
 
 
 # --------------------------------------------------------------------- api ---
@@ -520,7 +476,8 @@ func chunk_nodes() -> Dictionary:
 
 func stats() -> Dictionary:
 	_stats["chunks"] = _chunks.size()
-	_stats["draws"] = _chunks.size() * 2 + _prop_chunk_count()
+	_stats["draws"] = _chunks.size() + _prop_mms.size()
+	_stats["prop_kinds"] = _prop_mms.size()
 	_stats["pending"] = _pending.size()
 	return _stats
 
@@ -529,7 +486,10 @@ func stats() -> Dictionary:
 ## the sun, so the day's colour is applied here as well to keep them together.
 func set_light_tint(colour: Color) -> void:
 	var v := Vector3(colour.r, colour.g, colour.b)
-	for mat in [_prop_mat, _terrain_mat, _cliff_mat, _wood_mat]:
+	var mats: Array = [_terrain_mat, _cliff_mat, _wood_mat]
+	for kind in _prop_mats.keys():
+		mats.append(_prop_mats[kind])
+	for mat in mats:
 		if mat != null and (mat as ShaderMaterial).shader != null:
 			(mat as ShaderMaterial).set_shader_parameter("light_tint", v)
 

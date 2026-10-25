@@ -450,8 +450,8 @@ static func _add_rail(base: Vector3, cell: float, level_h: float, wood: Dictiona
 		hgt: int) -> void:
 	var y := float(hgt) * level_h
 	var body := Color(0.98, 0.94, 0.88, 1.0)
-	for level in [0.35, 0.62, 0.9]:
-		var yy := y + level
+	for level: float in [0.35, 0.62, 0.9]:
+		var yy: float = y + level
 		var p := [base + Vector3(0.0, yy, cell * 0.5),
 			base + Vector3(cell, yy, cell * 0.5),
 			base + Vector3(0.0, yy + 0.09, cell * 0.5),
