@@ -538,3 +538,24 @@ Save 0.2.x/0.3.0 (tanpa `schema`) dimigrasi ke skema 1 saat pertama dibaca.
 Verifikasi rilis: run `release-demo` **40149814165** (success) dan `ci`
 **40149814128** (success) — `play rules` 30 pemeriksaan, `story rules` (save 25 +
 dialog 18) 43 pemeriksaan, semuanya 0 gagal.
+
+### 0.3.2 — hati, perisai, tujuan, dan jeda
+
+`core_100.pck` 49.056 B (naik 7.040 B: `Main.gd` — panel tujuan, nyawa, lembar
+jeda), `characters_100.pck` 187.148 B (naik 4.736 B: `Actor.gd`,
+`CharacterWorld.gd`), `version.json` 3.509 B (`version: 0.3.2`). Paket lain
+tidak berubah, APK tidak berubah → di HP cukup **Periksa Lagi → MAIN**.
+
+Isi: tiga hati dengan jendela kebal 0,9 s; perisai benar-benar menahan pukulan;
+terjatuh → bangun di awal jalan tanpa menghapus progres; panel tujuan yang dibaca
+dari save; lembar jeda dengan "Simpan sekarang" (jalur simpan yang sama dengan
+autosave).
+
+Uji: `PlayTest` **46 pemeriksaan, 0 gagal**. Verifikasi rilis: `ci` **40152722844**
+dan `release-demo` **40153042264**, keduanya success.
+
+Bug yang tertangkap di fase ini: pukulan terakhir memanggil `take_hit()` → `hurt`
+→ dunia memanggil `die()` → `take_hit()` melanjutkan dan memutar animasi `hurt`
+di atas animasi `death`. Ksatria "mati sambil berdiri". Sekarang `take_hit()`
+berhenti setelah sinyal bila aktornya sudah mati, dan `PlayTest` memeriksa nama
+animasi, bukan hanya statusnya.
