@@ -21,18 +21,19 @@ const TOUCH_SCRIPT := "res://game/characters/TouchControls.gd"
 const DIALOGUE_SCRIPT := "res://game/characters/DialogueBox.gd"
 const FONT_BODY := "res://game/assets/PixelifySans.woff2"
 
+## Fallbacks for the case where the world pack ships without region data. In a
+## normal build every position below is read from `regions/yaros.json`, so the
+## cast stands where the map says it does and moving a camp is a data edit.
 const PLAYER_START := Vector2(3.6, 7.2)
-## The guard stands beside the first bend of the path, two steps from where the
-## knight starts: the player must be able to tap Bicara without hunting for him.
 const NPC_START := Vector2(2.4, 4.2)
-
-## Patrol routes for the three orcs: they are placed away from the path start so
-## the first thing the player sees is not a fight.
 const ORC_SETUP := [
 	{"at": Vector2(9.2, -2.4), "route": [Vector2(9.2, -2.4), Vector2(10.6, 0.4)]},
 	{"at": Vector2(7.0, 2.6), "route": [Vector2(7.0, 2.6), Vector2(5.0, 4.4), Vector2(8.8, 4.0)]},
 	{"at": Vector2(1.2, -4.6), "route": [Vector2(1.2, -4.6), Vector2(4.0, -4.0)]},
 ]
+## Which camp the three orcs of the prologue guard, by marker name. The other
+## three camps are data for step 3; they exist on the map, they are not spawned.
+const ORC_CAMP := "Orc tepi hutan"
 
 ## The guard's story is data, not code: a JSON file next to his sprites. New
 ## conversations are added there, and which one he tells depends on the save.
@@ -73,6 +74,13 @@ var _dialogue: Node
 var _toast: Label
 var _blocker_list: Array = []
 var _bounds_rect := Rect2(-12.0, -9.0, 24.0, 18.0)
+## The region's movement rules (RegionData): walkability, height, zones, paths.
+## Null when the world pack is the old glade, in which case the flat rules apply.
+var _nav: RefCounted = null
+## Spawn points, filled from the region in `_wire_ground`.
+var _start := PLAYER_START
+var _npc_start := NPC_START
+var _orc_setup: Array = ORC_SETUP
 var _save: RefCounted
 var _tree: RefCounted
 var _current_choices: Array = []
@@ -110,10 +118,10 @@ func _ready() -> void:
 	_load_story()
 	_wire_ground()
 	_load_fog()
-	# the ground around the starting point is known before the first step
-	_open_fog_around_player()
 	_spawn_cast()
 	_restore_player()
+	# the ground around the starting point is known before the first step
+	_open_fog_around_player()
 	_build_ui()
 	_wire_camera()
 	_ready_ok = true
@@ -195,14 +203,29 @@ func save_progress() -> String:
 	return error
 
 
+func _body_radius() -> float:
+	if _player == null:
+		return 0.3
+	return float(_player.get("body_radius"))
+
+
 func _restore_player() -> void:
 	if _player == null or _save == null:
 		return
 	if not bool(_save.call("has_position")):
 		return
 	var pos: Vector2 = _save.call("player_position")
-	# Keep him inside the valley even if the save is older than the layout.
-	_player.position = Vector3(pos.x, 0.0, pos.y)
+	# A save written before step 2 holds coordinates from the old 26x20 glade.
+	# Those numbers now land in the middle of the region's rivers or cliffs, so
+	# the position is kept only when the region says a body can stand there;
+	# otherwise the knight starts at the map's own start marker. The progress in
+	# the save is untouched either way.
+	if _nav != null:
+		var ok := bool(_nav.call("can_stand", pos, _body_radius()))
+		if not ok:
+			print("[CHAR] posisi save lama %s tidak bisa dipijak, mulai dari awal peta" % str(pos))
+			pos = _start
+	_player.position = Vector3(pos.x, _height(pos), pos.y)
 
 
 # ------------------------------------------------------------ fog of war ----
@@ -313,37 +336,87 @@ func _as_definition(res: Resource, path: String) -> Resource:
 
 
 func _wire_ground() -> void:
-	# the diorama knows where its trees and rocks are; ask it, do not copy it.
-	# This has to run before the cast is spawned so each actor is born with its
-	# blockers already in place.
+	# the world knows where its trees stand and where the ground is walkable; ask
+	# it, do not copy it. This runs before the cast is spawned so each actor is
+	# born with its blockers and its navigation already in place.
 	var world := get_parent()
-	if world != null and world.has_method("blockers"):
+	if world == null:
+		return
+	if world.has_method("blockers"):
 		_blocker_list = world.call("blockers")
-	if world != null and world.has_method("ground_rect"):
+	if world.has_method("ground_rect"):
 		var rect: Rect2 = world.call("ground_rect")
 		_bounds_rect = rect.grow(-1.2)
+	if world.has_method("region"):
+		_nav = world.call("region")
+	if _nav == null:
+		return
+	# positions come from the map's own markers, snapped to walkable ground
+	_start = _walkable_near(_nav.call("start_position"))
+	var bram: Dictionary = _nav.call("marker", "Penjaga Bram")
+	if not bram.is_empty():
+		# two steps to the side of the map marker: the guard must not stand in
+		# the middle of the road where the knight is spawned
+		_npc_start = _walkable_near(_nav.call("marker_pos", bram) + Vector2(-1.4, 0.8))
+	else:
+		_npc_start = _walkable_near(_start + Vector2(-1.6, -2.4))
+	_orc_setup = _camp_setup()
+	print("[CHAR] titik awal dari peta: pemain %s, penjaga %s, orc %d" % [
+		str(_start), str(_npc_start), _orc_setup.size()])
+
+
+## Nearest walkable tile centre to a point, so a marker placed half a tile inside
+## a fence never drops an actor into a wall.
+func _walkable_near(p: Vector2) -> Vector2:
+	if _nav == null:
+		return p
+	var t: Vector2i = _nav.call("world_to_tile", p)
+	var q: Vector2i = _nav.call("nearest_walkable", t, 12)
+	return _nav.call("tile_centre", q.x, q.y)
+
+
+## The three orcs of the prologue, spread around their camp marker instead of
+## standing in a heap, each with a short patrol on walkable ground.
+func _camp_setup() -> Array:
+	var out: Array = []
+	if _nav == null:
+		return ORC_SETUP
+	var camp: Dictionary = _nav.call("marker", ORC_CAMP)
+	if camp.is_empty():
+		var camps: Array = _nav.call("markers_of", "enemy_camp")
+		if camps.is_empty():
+			return ORC_SETUP
+		camp = camps[0]
+	var centre: Vector2 = _nav.call("marker_pos", camp)
+	var offsets := [Vector2(2.4, 0.4), Vector2(-1.8, 1.9), Vector2(0.4, -2.3)]
+	for i in range(offsets.size()):
+		var at := _walkable_near(centre + offsets[i])
+		var step := Vector2(1.6, -1.2) * (1.0 if i % 2 == 0 else -1.0)
+		var there := _walkable_near(at + step)
+		out.append({"at": at, "route": [at, there]})
+	return out
 
 
 func _spawn_cast() -> void:
-	_player = _spawn("knight", ACTOR_SCRIPT, PLAYER_START)
+	_player = _spawn("knight", ACTOR_SCRIPT, _start)
 	if _player != null:
 		_player.name = "Knight"
 		_player.connect("attacked", Callable(self, "_on_attacked"))
 		_player.connect("hurt", Callable(self, "_on_player_hurt"))
 
-	_npc = _spawn("soldier", NPC_SCRIPT, NPC_START)
+	_npc = _spawn("soldier", NPC_SCRIPT, _npc_start)
 	if _npc != null:
 		_npc.name = "Penjaga"
-		_npc.set("post", NPC_START)
+		_npc.set("post", _npc_start)
 		_npc.set("player", _player)
 
 	var already_down := 0
 	if _save != null:
 		already_down = int(_save.call("get_counter", "orcs_defeated"))
-	for i in range(ORC_SETUP.size()):
+	for i in range(_orc_setup.size()):
 		if i < already_down:
 			continue   # dealt with in an earlier session; the save remembers
-		var conf: Dictionary = ORC_SETUP[i]
+		var conf: Dictionary = _orc_setup[i]
 		var at: Vector2 = conf["at"]
 		var orc := _spawn("orc", ENEMY_SCRIPT, at)
 		if orc == null:
@@ -368,9 +441,18 @@ func _spawn(def_key: String, script_path: String, at: Vector2) -> Node3D:
 	actor.call("setup", _defs[def_key])
 	actor.set("blockers", _blocker_list)
 	actor.set("bounds", _bounds_rect)
-	actor.position = Vector3(at.x, 0.0, at.y)
+	if _nav != null:
+		actor.set("nav", _nav)
+	actor.position = Vector3(at.x, _height(at), at.y)
 	add_child(actor)
 	return actor
+
+
+## Ground height at a point, 0 when the world has no tiers (the old glade).
+func _height(p: Vector2) -> float:
+	if _nav == null:
+		return 0.0
+	return float(_nav.call("height_at", p))
 
 
 func _blockers_count() -> int:
@@ -648,8 +730,14 @@ func field_markers() -> Array:
 	if map != null:
 		for raw in (map.get("pois") as Array):
 			var poi: Dictionary = raw
-			if String(poi.get("kind", "")) == "door":
-				out.append({"kind": "door", "pos": poi.get("pos", Vector2.ZERO)})
+			var kind_name := String(poi.get("kind", ""))
+			# doors, landmarks, the cave mouth, the mountain gate and the chests
+			# the map knows about: everything except the enemy camps, which are
+			# drawn from the orcs that are actually alive
+			if kind_name == "enemy":
+				continue
+			out.append({"kind": kind_name, "pos": poi.get("pos", Vector2.ZERO),
+				"label": String(poi.get("label", ""))})
 	return out
 
 
@@ -818,7 +906,7 @@ func _wake_up() -> void:
 	if _save != null:
 		_save.call("set_counter", "deaths", _deaths)
 	_player.call("revive")
-	teleport_player(PLAYER_START)
+	teleport_player(_start)
 	if _controls != null and _controls.has_method("show_controls"):
 		_controls.call("show_controls", true)
 	_show_toast("Kau bangun di awal jalan. Cerita tetap tersimpan.")
@@ -945,8 +1033,15 @@ func press_interact() -> void:
 
 
 func teleport_player(to: Vector2) -> void:
-	if _player != null:
-		_player.position = Vector3(to.x, 0.0, to.y)
+	if _player == null:
+		return
+	var at := _walkable_near(to)
+	_player.position = Vector3(at.x, _height(at), at.y)
+	# the chunk the player lands in has to exist before the next frame, or the
+	# screen shows the void for a moment
+	var world := get_parent()
+	if world != null and world.has_method("stream_now"):
+		world.call("stream_now", at)
 
 
 func dialogue() -> Node:

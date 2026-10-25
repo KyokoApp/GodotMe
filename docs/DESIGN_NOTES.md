@@ -1083,3 +1083,142 @@ menggambar pangkalan + kenop pada posisi dorong **tanpa** menggerakkan ksatria
 memanggilnya. Sekalian opasitas stik dinaikkan tipis (cincin 0,22 → 0,30; kenop
 0,36 → 0,50) karena di tangkapan layar pertama cincinnya nyaris hilang di atas
 rumput terang — ibu jari harus bisa menemukannya tanpa melihat ke bawah.
+
+## 20. Dunia Yaros: peta bertingkat 192×192 (langkah 2, 0.8.0)
+
+Langkah 2 mengganti diorama 26×20 yang ditulis tangan dengan **region** yang
+seluruhnya data. Tidak ada lagi satu pohon pun yang koordinatnya tertulis di
+GDScript.
+
+### 20.1 Tiga kisi, satu berkas
+
+`game/game/world/regions/yaros.json` (197 KB) berisi:
+
+| kunci | isi |
+| --- | --- |
+| `grid_height` | 36 864 bita, tinggi 0–5 per ubin, base64 |
+| `grid_terrain` | 0 rumput, 1 rumput tinggi, 2 tanah/jalan, 3 batu, 4 pasir, 5 lumpur, 6 salju, 7 air dangkal, 8 air dalam, 9 lantai kayu, 10 lantai batu |
+| `grid_structure` | nibble bawah = kode (0 tidak ada, 1 tangga, 2 jembatan, 3 pagar, 4 dinding, 5 gerbang, 6 pintu, 7 ramp), nibble atas = arah 0–3 (+x, +y, −x, −y) |
+| `decor` | 2 959 prop, dikelompokkan per jenis; koordinat dalam persepuluh meter |
+| `markers` | 33 titik: `player_start`, `home_plot`, `npc_spawn` ×5, `enemy_camp` ×4, `landmark` ×6, `region_gate`, `cave_entrance`, `bridge_broken`, `fast_travel`, `chest` ×6, `resource_node` ×8 |
+| `zones` | 10 zona bernama + `subtitle`, `weather`, `music` per zona |
+| `routes` | jalur utama 460 ubin + empat cabang (70/14/11/20) |
+
+Kisi disimpan base64, bukan array JSON: 36 864 angka sebagai array menghabiskan
+±150 KB teks, sedangkan base64 1 bita/ubin hanya 49 KB per kisi. `RegionData.gd`
+mendekode lewat `Marshalls.base64_to_raw`.
+
+**Kenapa data terpisah dari mesh:** mesh bisa dibuang dan dibangun ulang kapan
+saja; data tidak. Semua aturan permainan (boleh berdiri, tinggi, zona, jalur)
+membaca kisi ini, bukan geometri.
+
+### 20.2 Aturan tinggi yang resmi
+
+| selisih tinggi | boleh dilangkahi? |
+| --- | --- |
+| 0 | ya |
+| 1 | ya — digambar sebagai lereng, bukan tebing |
+| 2 | hanya lewat ubin `STAIR` |
+| ≥3 | tidak (tebing mati) |
+
+- `T_DEEP` tidak bisa dijalankan; `T_SHALLOW` hanya lewat `RAMP`.
+- `FENCE`, `WALL`, `GATE`, `DOOR` menghalangi; `BRIDGE` menimpa air.
+- Tinggi ≥ 5 (puncak) tidak bisa dijalankan, jadi tepi dunia selalu tertutup.
+
+Penyusun peta memakai aturan yang sama saat memvalidasi, jadi tidak mungkin
+merilis peta yang lolos validasi tapi tidak bisa ditembus di permainan.
+
+### 20.3 Penyusun peta (`tools/build_region.py`)
+
+```
+python3 tools/gen_region_tiles.py     # 9 tekstur + atlas 1024x512
+python3 tools/gen_world_props.py      # 6 prop baru + prop_atlas.png + .json
+python3 tools/build_region.py         # baca tools/region/yaros_spec.json
+python3 tools/build_region.py --report  # laporan saja, tanpa menulis
+python3 tools/build_region.py --seed 7  # variasi noise, tata letak sama
+```
+
+Alur: terasering dari spesifikasi → noise seed tetap → pembersihan (tidak ada
+lonjakan 1 ubin) → jalur A* antar landmark + pelebaran bervariasi → tangga di
+titik yang dideklarasikan → jembatan → tepi dunia ditutup → permukaan biome
+(batu jadi ROCK, ladang jadi baris DIRT, puncak jadi SNOW) → bahu jalan
+ditinggikan maksimal 1 level → dekorasi kluster → validasi → ekspor.
+
+Validasi yang **menggagalkan build**: kantong walkable yang tidak tersambung,
+marker yang tidak terjangkau (kecuali blokir sengaja: gerbang terkunci dan
+jembatan rusak), jalur utama < 450 ubin, tepi dunia bocor, tangga di luar
+jangkauan. Yang hanya **dilaporkan**: langkah tinggi maksimum antar-ubin
+berjalan (kini 4 level) — tebing tinggi sah secara visual selama tidak memutus
+jalan.
+
+Deterministik: seed sama → berkas sama byte demi byte.
+
+### 20.4 Render: satu mesh per chunk, satu draw call per bahan
+
+`RegionMesh.gd` mengubah satu chunk 32×32 menjadi *array* murni (tanpa node,
+tanpa RenderingServer) sehingga bisa jalan di `WorkerThreadPool`.
+`RegionView.gd` yang mengunggahnya ke `ArrayMesh` di thread utama.
+
+- **Permukaan**: patch bilinear dari empat tinggi sudut; satu level menjadi
+  lereng mulus tanpa garis grid. Warna verteks membawa bobot tekstur, jadi
+  rumput→tanah→batu membaur di sudut, bukan berganti kotak.
+- **Tebing**: hanya untuk selisih ≥2 level; UV batu + AO palsu di kaki (0,66 →
+  1,0).
+- **Tangga**: empat anak tangga sungguhan dengan riser; profilnya dipakai
+  bersama oleh `RegionData.stair_profile` sehingga kaki pemain dan batu tidak
+  pernah berbeda.
+- **Jembatan**: dek 12 cm di atas jalan dengan pagar di sisi air.
+- **Air**: quad 14 cm di bawah tinggi ubin, warna kedalaman di verteks, tepi
+  busa di shader.
+- **Prop**: satu `MultiMesh` per chunk untuk semua prop di chunk itu — atlas
+  prop 768×1034 dengan 14 sel, satu draw call untuk ±80 pohon/batu/rumput.
+- **Atlas medan** 1024×512 (8 sel) berisi rumput, jalan, pasir, batu, salju,
+  lantai batu, kayu.
+
+Streaming: radius 1 chunk tampak (3×3 = 96×96 m, lebih lebar dari pandangan
+kamera) + 1 cincin prefetch; chunk di luar radius+2 dibuang. Emisi task dibatasi
+dua sekaligus supaya frame tidak pernah menunggu lebih dari satu chunk.
+
+**Deviasi yang disengaja:** mesh chunk TIDAK dibakar ke `world.pck`. Array
+mentah 36 chunk ±6 MB; itu empat kali ukuran seluruh paket dunia sekarang.
+Sebagai gantinya array dibangun di worker thread (bukan di frame), dan
+`RegionTest` mengukur hitch terbesar setelah teleport. Bila angka di HP nanti
+menunjukkan hitch, langkah berikutnya adalah menyimpan array terkuantisasi +
+zlib di paket; datanya deterministik jadi bisa dihasilkan ulang kapan saja.
+
+### 20.5 Gerak di dunia bertingkat
+
+`RegionData` adalah satu-satunya pemilik aturan: `can_stand(pos, radius)`,
+`height_at(pos)`, `step_ok(a, b)`, `zone_at(pos)`, `find_path(a, b)`.
+
+`Actor.gd` menyelesaikan langkah dalam dua tahap: dorongan lingkaran terhadap
+prop (seperti sebelumnya), lalu **validasi peta**. Kalau posisi hasil tidak sah,
+gerak dicoba per sumbu — jadi menabrak tebing sambil menyamping tetap
+menghasilkan gerak menyamping, bukan berhenti total. Ketinggian kaki mengikuti
+`height_at`, termasuk di tangga (bertingkat) dan di jembatan (+12 cm).
+Bayangan blob ikut node, jadi otomatis menempel di lereng dan dek.
+
+### 20.6 Peta, fog, dan nama zona
+
+Grid peta (`WorldMap.gd`) dicat dari region saat boot: 36 864 `set_tile`
+(±40 ms), lalu pohon dan bangunan ditimpa hanya di atas rumput supaya jalan
+tidak hilang. Minimap memakai jendela 34×34 seperti sebelumnya; peta penuh
+memakai `render_image` 192×192. Fog tetap per ubin dan tetap tersimpan di save;
+save lama (26×20) ditolak dengan rapi sehingga region baru mulai gelap.
+
+Banner zona: `Diorama` menghitung `zone_at(player)`; saat berubah ia
+memancarkan `zone_changed(nama, subjudul)` dan `Main.gd` menampilkannya. Jadi
+menambah zona cukup menambah satu entri di spesifikasi.
+
+### 20.7 Angka langkah 2
+
+| ukuran | nilai |
+| --- | --- |
+| berkas peta | 197,4 KB |
+| ubin bisa dijalankan | 29 748 |
+| jalur utama | 460 ubin → 131 s jalan (2,2 menit) / 84 s lari |
+| dekorasi | 2 959 |
+| marker | 33 (2 sengaja terhalang) |
+| zona | 10 |
+| draw call saat berdiam (radius 1) | 3 chunk × (tanah + air) + prop ≈ 27 |
+| paket dunia | 710 KB (atlas medan 144 KB, atlas prop 225 KB, peta 197 KB) |

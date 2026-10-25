@@ -70,6 +70,9 @@ func _build_world() -> void:
 	if ResourceLoader.exists(DIORAMA):
 		_diorama = load(DIORAMA).instantiate() as Node3D
 		add_child(_diorama)
+		# the world decides where a zone begins; the HUD says its name
+		if _diorama.has_signal("zone_changed"):
+			_diorama.connect("zone_changed", Callable(self, "_on_zone_changed"))
 		_add_cast()
 	else:
 		# A missing world pack must not look like a crash: say it plainly.
@@ -156,14 +159,23 @@ func _build_hud() -> void:
 		_hud.call("set_map", _diorama.call("map"))
 
 
+## Walking into another zone: name + what it is, three seconds, then gone. The
+## zone comes from the region data (its rect and its name), never from a table
+## here, so adding a zone to the map adds a banner.
+func _on_zone_changed(title: String, subtitle: String) -> void:
+	if _hud == null or title == "":
+		return
+	_hud.call("show_banner", title, subtitle)
+
+
 ## The place banner: three seconds of name, then gone. The paragraph that used to
 ## sit in the bottom-left corner of the field lives in Jurnal now.
 func _announce_area() -> void:
 	var title := _area_constant("AREA_NAME", "Dunia tidak termuat")
 	var subtitle := _area_constant("AREA_SUBTITLE", "")
-	_area_note = ("Lembah ini jalan tua menuju pegunungan. Penjaga Bram berdiri di "
-		+ "tikungan; orc berkeliaran di tepi hutan. Jalur aman setelah ketiganya "
-		+ "dihalau.")
+	_area_note = ("Yaros: lembah, hutan pinus dan dataran batu yang menanjak ke "
+		+ "Pos Gunung. Penjaga Bram berdiri di desa; orc berkeliaran di tepi hutan. "
+		+ "Jalur aman setelah ketiganya dihalau.")
 	if _diorama == null:
 		subtitle = "Paket dunia tidak ditemukan — kembali dan periksa pembaruan."
 	if _hud != null:
@@ -392,10 +404,15 @@ func _perf_line() -> void:
 			var systems: Dictionary = atmo.call("systems")
 			for key in systems.keys():
 				particles += int((systems[key] as CPUParticles3D).amount)
-	print("[PERF] fps=%d kualitas=%s skala3d=%.2f partikel=%d bayangan=%s" % [
+	var stream := {}
+	if _diorama != null and _diorama.has_method("stream_stats"):
+		stream = _diorama.call("stream_stats")
+	print("[PERF] fps=%d kualitas=%s skala3d=%.2f partikel=%d bayangan=%s chunk=%d draw=%d prop=%d build_maks=%.1fms" % [
 		Engine.get_frames_per_second(), String(_settings.call("quality")),
 		float(_settings.call("render_scale")), particles,
-		str(_settings.call("shadows_enabled"))])
+		str(_settings.call("shadows_enabled")),
+		int(stream.get("chunks", 0)), int(stream.get("draws", 0)),
+		int(stream.get("props", 0)), float(stream.get("build_ms_worst", 0.0))])
 
 
 # ---------------------------------------------------------------- curtain ----
@@ -465,6 +482,9 @@ func _maybe_capture_or_quit() -> void:
 	var menu_page := ""
 	var walk_secs := 0.0
 	var hug := -1.0
+	var zone_key := ""
+	var phase_want := ""
+	var zoom_want := 0.0
 	for raw in OS.get_cmdline_user_args():
 		var a := String(raw)
 		if a.begins_with("--capture="):
@@ -477,6 +497,12 @@ func _maybe_capture_or_quit() -> void:
 			menu_page = a.substr("--menu=".length())
 		elif a.begins_with("--walk="):
 			walk_secs = float(a.substr("--walk=".length()))
+		elif a.begins_with("--zone="):
+			zone_key = a.substr("--zone=".length())
+		elif a.begins_with("--phase="):
+			phase_want = a.substr("--phase=".length())
+		elif a.begins_with("--zoom="):
+			zoom_want = float(a.substr("--zoom=".length()))
 		elif a.begins_with("--test-quit-after="):
 			hug = float(a.substr("--test-quit-after=".length()))
 	if hug > 0.0:
@@ -490,14 +516,14 @@ func _maybe_capture_or_quit() -> void:
 	await get_tree().create_timer(1.0).timeout
 	if scenario == "field_only" and _cast != null and is_instance_valid(_cast):
 		# stand in the open, far from anybody: the HUD at its emptiest
-		_cast.call("teleport_player", Vector2(-8.5, 6.0))
+		_cast.call("teleport_player", _spot(-9.0, -7.0))
 		await get_tree().create_timer(0.5).timeout
 	elif walk_secs > 0.0:
 		await _drive_walk(walk_secs)
 	if scenario == "stick" and _cast != null and is_instance_valid(_cast):
 		# near the guard, so the contextual button is up too, with the floating
 		# stick drawn pushed in: at rest it is invisible and proves nothing
-		_cast.call("teleport_player", Vector2(3.4, 5.2))
+		_cast.call("teleport_player", _guard_spot())
 		await get_tree().create_timer(0.55).timeout
 		var pad: Variant = _cast.call("touch_controls") if _cast.has_method("touch_controls") else null
 		if pad != null:
@@ -505,6 +531,8 @@ func _maybe_capture_or_quit() -> void:
 			if pad.has_method("preview_stick"):
 				pad.call("preview_stick", true)
 		await get_tree().create_timer(0.3).timeout
+	if zone_key != "":
+		await _go_to_zone(zone_key, phase_want, zoom_want)
 	if scenario == "dialogue":
 		await _open_dialogue_for_capture()
 	elif scenario == "map":
@@ -551,24 +579,142 @@ func _drive_walk(seconds: float) -> void:
 	await get_tree().create_timer(0.15).timeout
 
 
+## Put the camera somewhere named, for a screenshot: a marker's name from the
+## region ("Hutan Pinus"), or one of the three shapes the brief asks to see -
+## "stairs", "cliff" and "water" - found by scanning the map instead of by
+## remembering a coordinate.
+func _go_to_zone(key: String, phase_want: String, zoom_want: float) -> void:
+	if _cast == null or not is_instance_valid(_cast) or _diorama == null:
+		return
+	var spot := _spot_for(key)
+	if spot == null:
+		print("[GAME] zona '%s' tidak ditemukan di peta" % key)
+		return
+	_cast.call("teleport_player", spot)
+	await get_tree().create_timer(0.9).timeout
+	if phase_want != "" and _diorama.has_method("set_phase"):
+		_diorama.call("set_phase", phase_want)
+	var rig: Node3D = _diorama.call("camera_rig") if _diorama.has_method("camera_rig") else null
+	if rig != null and zoom_want > 0.0 and rig.has_method("set_zoom"):
+		rig.call("set_zoom", zoom_want)
+		rig.call("set_follow_target", _cast.call("player"))
+	await get_tree().create_timer(0.7).timeout
+	print("[GAME] tangkapan zona %s di %s" % [key, str(spot)])
+
+
+## Resolve a name to a place. Marker names first (they are the map's own names),
+## then the three special shapes.
+func _spot_for(key: String) -> Variant:
+	var region: RefCounted = _diorama.call("region") if _diorama != null else null
+	if region == null:
+		return null
+	var m: Dictionary = region.call("marker", key)
+	if not m.is_empty():
+		return region.call("marker_pos", m)
+	# a zone name: the middle of its rectangle, snapped to walkable ground
+	for raw in (region.get("zones") as Array):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var z: Dictionary = raw
+		if String(z.get("name", "")) != key:
+			continue
+		var r: Array = z.get("rect", [])
+		if r.size() >= 4:
+			var centre := Vector2(float(r[0]) + float(r[2]) * 0.5,
+				float(r[1]) + float(r[3]) * 0.5)
+			var t: Vector2i = region.call("world_to_tile", centre)
+			var q: Vector2i = region.call("nearest_walkable", t, 24)
+			return region.call("tile_centre", q.x, q.y)
+	if key == "stairs":
+		return _find_tile(region, "stairs")
+	if key == "cliff":
+		return _find_tile(region, "cliff")
+	if key == "cliff_inner":
+		return _find_tile(region, "cliff_inner")
+	if key == "water":
+		return _find_tile(region, "water")
+	return null
+
+
+## Scan the region's grids once for a tile of a given shape, preferring one near
+## the main road so the picture has a foreground.
+func _find_tile(region: RefCounted, shape: String) -> Variant:
+	var w := int(region.get("width"))
+	var h := int(region.get("height"))
+	var start: Vector2 = region.call("start_position")
+	var best := Vector2.INF
+	var best_d := 1.0e9
+	for tz in range(2, h - 2):
+		for tx in range(2, w - 2):
+			var here := int(region.call("tile_height", tx, tz))
+			match shape:
+				"stairs":
+					if int(region.call("struct_code", tx, tz)) != 1:
+						continue
+				"cliff":
+					# the OUTSIDE corner: high ground with two lower neighbours at
+					# right angles, where two walls meet and the mesh has to close
+					# the corner without a hole
+					var a := int(region.call("tile_height", tx + 1, tz))
+					var b := int(region.call("tile_height", tx, tz + 1))
+					if here - a < 3 or here - b < 3:
+						continue
+				"cliff_inner":
+					# the INSIDE corner: low ground with cliffs on two sides, the
+					# spot a naive mesher leaves a gap in
+					var ca := int(region.call("tile_height", tx + 1, tz))
+					var cb := int(region.call("tile_height", tx, tz + 1))
+					if ca - here < 3 or cb - here < 3:
+						continue
+				"water":
+					if int(region.call("tile_terrain", tx, tz)) != 8:
+						continue
+					# stand on the shore, look at the water
+					var shore := false
+					for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+						if int(region.call("tile_terrain", tx + d.x, tz + d.y)) == 7:
+							shore = true
+					if not shore:
+						continue
+			var centre: Vector2 = region.call("tile_centre", tx, tz)
+			var d2 := centre.distance_squared_to(start)
+			if d2 < best_d:
+				best_d = d2
+				best = centre
+				if shape != "water":
+					return _behind(region, centre)
+	if best == Vector2.INF:
+		return null
+	return _behind(region, best)
+
+
+## Stand a couple of tiles back from a landmark so the landmark is in frame
+## instead of under the knight's feet.
+func _behind(region: RefCounted, at: Vector2) -> Variant:
+	var t: Vector2i = region.call("world_to_tile", at)
+	var q: Vector2i = region.call("nearest_walkable", Vector2i(t.x, t.y + 3), 10)
+	return region.call("tile_centre", q.x, q.y)
+
+
 ## Walk a long way in steps so the fog really opens up, like a player crossing the
 ## valley would. Only used by the capture harness.
 func _walk_far() -> void:
 	if _cast == null or not is_instance_valid(_cast):
 		return
-	var route := [Vector2(3.6, 7.2), Vector2(9.0, 4.0), Vector2(10.0, -2.0),
-		Vector2(6.0, -6.5), Vector2(0.0, -6.0), Vector2(-6.0, -2.0)]
+	# the village, the fields, then the forest camp: a real crossing of Yaros
+	var route := [_spot(0.0, 0.0), _spot(14.0, -6.0), _spot(28.0, -14.0),
+		_spot(40.0, -26.0), _spot(38.0, -34.0)]
 	for point in route:
 		_cast.call("teleport_player", point)
 		await get_tree().create_timer(0.12).timeout
-	_cast.call("teleport_player", Vector2(-3.0, 3.0))
+	_cast.call("teleport_player", _spot(36.0, -30.0))
 	await get_tree().create_timer(0.35).timeout
 
 
 func _open_dialogue_for_capture() -> void:
 	if _cast == null or not is_instance_valid(_cast):
 		return
-	_cast.call("teleport_player", Vector2(3.4, 5.8))
+	_cast.call("teleport_player", _guard_spot())
 	await get_tree().create_timer(0.1).timeout
 	_cast.call("press_interact")
 	await get_tree().create_timer(0.4).timeout
@@ -579,6 +725,27 @@ func _open_dialogue_for_capture() -> void:
 
 
 # ---------------------------------------------------------------- helpers ----
+## A point relative to the region's start marker, so the capture harness keeps
+## working when the map is rebuilt. Falls back to the old glade's coordinates.
+func _spot(dx: float, dz: float) -> Vector2:
+	if _diorama != null and _diorama.has_method("region"):
+		var region: RefCounted = _diorama.call("region")
+		if region != null:
+			return (region.call("start_position") as Vector2) + Vector2(dx, dz)
+	return Vector2(3.6 + dx, 7.2 + dz)
+
+
+## The tile beside the guard, for the shots that need the action button up.
+func _guard_spot() -> Vector2:
+	if _diorama != null and _diorama.has_method("region"):
+		var region: RefCounted = _diorama.call("region")
+		if region != null:
+			var m: Dictionary = region.call("marker", "Penjaga Bram")
+			if not m.is_empty():
+				return (region.call("marker_pos", m) as Vector2) + Vector2(-1.2, 0.6)
+	return Vector2(3.4, 5.2)
+
+
 func _font(path: String, tracking: int = 0) -> Font:
 	var f := FontFile.new()
 	if f.load_dynamic_font(path) != OK:

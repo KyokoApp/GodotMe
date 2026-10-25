@@ -175,6 +175,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Region rules (Yaros - reachability, seams, streaming, travel)
+        # Headless: a screenshot proves the region looks finished, not that the
+        # mountain gate is reachable, that no terrace is a trap, that two chunks
+        # meet without a crack, that a teleport loads in time, or that the walk
+        # from the village really takes two minutes.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/RegionTest.tscn 2>&1 | tee /tmp/region.log
+          code=${PIPESTATUS[0]}
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### region rules (exit $code)"; echo '```'; tail -c 20000 /tmp/region.log; echo '```'; } > /tmp/region.md
+            gh pr comment "$PR" --body-file /tmp/region.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Character sprite contract (strips + SpriteFrames)
         # Fails the build, it does not guess: a strip whose width is not
         # frames x frame_width, a stale pivot or an empty animation stops here.
@@ -378,6 +397,42 @@ jobs:
               --dialog="$1" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
               --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
           done
+          # --- step 2: the nine named zones. Each shot teleports by MAP MARKER
+          # NAME, so a rebuilt map cannot quietly point the camera at grass.
+          for variant in \
+            "Lembah Senja|30_zona_lembah" "Ladang Timur|31_zona_ladang" \
+            "Hutan Pinus|32_zona_hutan" "Sungai Sedu|33_zona_sungai" \
+            "Menara Penjaga|34_zona_menara" "Dataran Batu|35_zona_batu" \
+            "Gua Berbisik|36_zona_gua" "Danau Cermin|37_zona_danau" \
+            "Pos Gunung|38_zona_pos"; do
+            key="${variant%%|*}"; name="${variant##*|}"
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              -- --hud=zone --zone="$key" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$name" 2>&1 | tee -a /tmp/capture.log | tail -8
+          done
+          # --- step 2: the shapes a tiered world has to get right - stairs, a
+          # cliff corner seen from both sides, water, and the same places near
+          # and far, at noon and at dusk.
+          for variant in \
+            "stairs|39_tangga|sore|15" "cliff|40_tebing_luar|sore|18" \
+            "cliff_inner|41_tebing_dalam|sore|18" "water|42_air_dekat|sore|14" \
+            "Danau Cermin|43_danau_jauh|sore|30" "Lembah Senja|44_desa_siang|siang|17" \
+            "Hutan Pinus|45_hutan_senja|sore|27"; do
+            key="${variant%%|*}"; rest="${variant#*|}"
+            name="${rest%%|*}"; rest="${rest#*|}"
+            phase="${rest%%|*}"; zoom="${rest##*|}"
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              -- --hud=zone --zone="$key" --phase="$phase" --zoom="$zoom" \
+              --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$name" 2>&1 | tee -a /tmp/capture.log | tail -8
+          done
+          # --- step 2: the full map, opened the way a player opens it
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            -- --hud=map --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+            --capture-name=46_peta_penuh 2>&1 | tee -a /tmp/capture.log | tail -8
           ls -la docs/screenshots
 
       - name: Publish capture log to the PR

@@ -283,24 +283,48 @@ func _wait_seconds(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
 
 
+## Somewhere in the village with nobody and nothing within reach: the HUD at its
+## emptiest. Derived from the region map so a layout change cannot silently turn
+## this into "next to the guard".
+func _empty_spot() -> Vector2:
+	var world: Node3D = _cast.get_parent()
+	if world != null and world.has_method("region"):
+		var region: RefCounted = world.call("region")
+		if region != null:
+			return (region.call("start_position") as Vector2) + Vector2(-9.0, -7.0)
+	return Vector2(-9.0, 8.0)
+
+
+## The tile next to the guard's marker, for the "Bicara" checks.
+func _npc_spot(offset: Vector2 = Vector2(-1.2, 0.6)) -> Vector2:
+	var world: Node3D = _cast.get_parent()
+	if world != null and world.has_method("region"):
+		var region: RefCounted = world.call("region")
+		if region != null:
+			var m: Dictionary = region.call("marker", "Penjaga Bram")
+			if not m.is_empty():
+				return (region.call("marker_pos", m) as Vector2) + offset
+	return Vector2(3.4, 5.2)
+
+
 func _test_action_button() -> void:
 	if not await _boot_main():
 		return
 	var hud := _hud()
 	_check(hud != null, "FieldHud terbangun di atas dunia")
 	# a long way from everyone: no button at all
-	_cast.call("teleport_player", Vector2(-9.0, 8.0))
+	_cast.call("teleport_player", _empty_spot())
 	await _wait_seconds(0.35)
 	_check(not bool(hud.call("action_visible")), "tombol aksi tersembunyi saat jauh dari target",
 		String(hud.call("action_kind")))
 	# standing next to the guard: the button offers Bicara
-	_cast.call("teleport_player", Vector2(3.4, 5.2))
+	_cast.call("teleport_player", _npc_spot())
 	await _wait_seconds(0.4)
 	_check(bool(hud.call("action_visible")) and String(hud.call("action_kind")) == "talk",
 		"tombol aksi muncul sebagai Bicara di dekat penjaga",
 		String(hud.call("action_kind")))
 	# and it goes away again when he walks off
-	_cast.call("teleport_player", Vector2(-8.0, 6.5))
+	_cast.call("teleport_player", _empty_spot())
 	await _wait_seconds(0.45)
 	_check(not bool(hud.call("action_visible")), "tombol aksi memudar lagi setelah menjauh",
 		String(hud.call("action_kind")))
@@ -347,7 +371,7 @@ func _test_dialogue_clear_of_hud() -> void:
 	if not await _boot_main():
 		return
 	var hud := _hud()
-	_cast.call("teleport_player", Vector2(3.4, 5.8))
+	_cast.call("teleport_player", _npc_spot(Vector2(-1.0, 0.4)))
 	await _wait_seconds(0.3)
 	_cast.call("press_interact")
 	await _wait_seconds(0.4)

@@ -1,0 +1,1228 @@
+{
+ "_comment": "Spesifikasi deklaratif REGION Yaros. Ubah angka di sini, jalankan `python3 tools/build_region.py`, dan peta di game/game/world/regions/yaros.json ikut berubah. Tidak ada kode yang perlu disentuh.",
+ "schema": 1,
+ "name": "Yaros",
+ "seed": 20251025,
+ "width": 192,
+ "height": 192,
+ "cell": 1.0,
+ "level_h": 1.8,
+ "chunk": 32,
+ "edge_ring": 7,
+ "player_start": [
+  44,
+  157
+ ],
+ "terraces": [
+  {
+   "rect": [
+    66,
+    102,
+    58,
+    62
+   ],
+   "height": 1,
+   "wobble": 4,
+   "edge": 0.52
+  },
+  {
+   "rect": [
+    126,
+    54,
+    62,
+    70
+   ],
+   "height": 3,
+   "wobble": 4,
+   "edge": 0.5
+  },
+  {
+   "rect": [
+    142,
+    62,
+    26,
+    22
+   ],
+   "height": 4,
+   "wobble": 2,
+   "edge": 0.4
+  },
+  {
+   "rect": [
+    94,
+    32,
+    34,
+    24
+   ],
+   "height": 2,
+   "wobble": 3,
+   "edge": 0.48
+  },
+  {
+   "rect": [
+    26,
+    26,
+    52,
+    48
+   ],
+   "height": 1,
+   "wobble": 3,
+   "edge": 0.5
+  },
+  {
+   "rect": [
+    152,
+    10,
+    36,
+    26
+   ],
+   "height": 4,
+   "wobble": 3,
+   "edge": 0.45
+  },
+  {
+   "rect": [
+    84,
+    96,
+    26,
+    20
+   ],
+   "height": 1,
+   "wobble": 3,
+   "edge": 0.55
+  },
+  {
+   "rect": [
+    110,
+    6,
+    76,
+    30
+   ],
+   "height": 3,
+   "wobble": 2,
+   "edge": 0.42
+  }
+ ],
+ "water": {
+  "lake": {
+   "centre": [
+    52,
+    48
+   ],
+   "rx": 20,
+   "ry": 15,
+   "level": 1
+  },
+  "river": {
+   "points": [
+    [
+     112,
+     6
+    ],
+    [
+     115,
+     36
+    ],
+    [
+     113,
+     68
+    ],
+    [
+     117,
+     100
+    ],
+    [
+     115,
+     132
+    ],
+    [
+     119,
+     164
+    ],
+    [
+     117,
+     191
+    ]
+   ],
+   "width": 6,
+   "level": 0
+  }
+ },
+ "islands": [
+  {
+   "at": [
+    52,
+    48
+   ],
+   "rx": 6,
+   "ry": 5,
+   "height": 1,
+   "terrain": 0
+  }
+ ],
+ "shallow_paths": [
+  {
+   "points": [
+    [
+     40,
+     52
+    ],
+    [
+     46,
+     50
+    ],
+    [
+     52,
+     48
+    ]
+   ],
+   "width": 2.4
+  }
+ ],
+ "home_plot": {
+  "rect": [
+   48,
+   136,
+   12,
+   10
+  ],
+  "height": 0
+ },
+ "routes": [
+  {
+   "id": "utama",
+   "width": 3.2,
+   "points": [
+    [
+     42,
+     158,
+     0
+    ],
+    [
+     52,
+     156,
+     0
+    ],
+    [
+     62,
+     156,
+     0
+    ],
+    [
+     70,
+     162,
+     0
+    ],
+    [
+     78,
+     166,
+     0
+    ],
+    [
+     86,
+     166,
+     0
+    ],
+    [
+     92,
+     160,
+     0
+    ],
+    [
+     92,
+     152,
+     0
+    ],
+    [
+     86,
+     148,
+     0
+    ],
+    [
+     80,
+     150,
+     0
+    ],
+    [
+     76,
+     143,
+     1
+    ],
+    [
+     70,
+     137,
+     1
+    ],
+    [
+     74,
+     130,
+     1
+    ],
+    [
+     72,
+     122,
+     1
+    ],
+    [
+     80,
+     116,
+     1
+    ],
+    [
+     88,
+     118,
+     1
+    ],
+    [
+     94,
+     126,
+     1
+    ],
+    [
+     88,
+     134,
+     1
+    ],
+    [
+     92,
+     142,
+     1
+    ],
+    [
+     100,
+     140,
+     1
+    ],
+    [
+     106,
+     132,
+     1
+    ],
+    [
+     100,
+     124,
+     1
+    ],
+    [
+     106,
+     118,
+     1
+    ],
+    [
+     114,
+     118,
+     1
+    ],
+    [
+     122,
+     120,
+     1
+    ],
+    [
+     130,
+     118,
+     1
+    ],
+    [
+     136,
+     114,
+     2
+    ],
+    [
+     140,
+     106,
+     3
+    ],
+    [
+     146,
+     100,
+     3
+    ],
+    [
+     140,
+     96,
+     3
+    ],
+    [
+     134,
+     100,
+     3
+    ],
+    [
+     136,
+     106,
+     3
+    ],
+    [
+     142,
+     110,
+     3
+    ],
+    [
+     148,
+     106,
+     3
+    ],
+    [
+     152,
+     100,
+     3
+    ],
+    [
+     158,
+     96,
+     3
+    ],
+    [
+     154,
+     90,
+     3
+    ],
+    [
+     148,
+     88,
+     3
+    ],
+    [
+     152,
+     84,
+     4
+    ],
+    [
+     156,
+     88,
+     4
+    ],
+    [
+     160,
+     84,
+     4
+    ],
+    [
+     156,
+     78,
+     4
+    ],
+    [
+     152,
+     72,
+     4
+    ],
+    [
+     148,
+     68,
+     3
+    ],
+    [
+     142,
+     62,
+     3
+    ],
+    [
+     136,
+     60,
+     2
+    ],
+    [
+     128,
+     58,
+     2
+    ],
+    [
+     122,
+     52,
+     2
+    ],
+    [
+     114,
+     48,
+     2
+    ],
+    [
+     108,
+     42,
+     2
+    ],
+    [
+     104,
+     36,
+     2
+    ],
+    [
+     110,
+     32,
+     2
+    ],
+    [
+     116,
+     34,
+     2
+    ],
+    [
+     120,
+     30,
+     2
+    ],
+    [
+     124,
+     24,
+     3
+    ],
+    [
+     130,
+     22,
+     3
+    ],
+    [
+     136,
+     26,
+     3
+    ],
+    [
+     142,
+     30,
+     3
+    ],
+    [
+     148,
+     32,
+     4
+    ],
+    [
+     150,
+     20,
+     4
+    ],
+    [
+     144,
+     18,
+     4
+    ],
+    [
+     154,
+     28,
+     4
+    ],
+    [
+     158,
+     22,
+     4
+    ],
+    [
+     164,
+     22,
+     4
+    ]
+   ]
+  },
+  {
+   "id": "cabang_danau",
+   "width": 2.6,
+   "points": [
+    [
+     106,
+     40,
+     2
+    ],
+    [
+     98,
+     44,
+     2
+    ],
+    [
+     92,
+     50,
+     1
+    ],
+    [
+     84,
+     56,
+     1
+    ],
+    [
+     76,
+     60,
+     1
+    ],
+    [
+     68,
+     62,
+     1
+    ],
+    [
+     60,
+     58,
+     1
+    ],
+    [
+     52,
+     54,
+     1
+    ],
+    [
+     44,
+     52,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "cabang_jembatan_rusak",
+   "width": 2.4,
+   "points": [
+    [
+     104,
+     128,
+     1
+    ],
+    [
+     110,
+     132,
+     1
+    ],
+    [
+     116,
+     134,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "cabang_menara",
+   "width": 2.4,
+   "points": [
+    [
+     154,
+     82,
+     4
+    ],
+    [
+     156,
+     76,
+     4
+    ],
+    [
+     152,
+     72,
+     4
+    ]
+   ]
+  },
+  {
+   "id": "cabang_tambang",
+   "width": 2.4,
+   "points": [
+    [
+     140,
+     106,
+     3
+    ],
+    [
+     134,
+     110,
+     3
+    ],
+    [
+     130,
+     116,
+     3
+    ],
+    [
+     126,
+     120,
+     3
+    ]
+   ]
+  }
+ ],
+ "stairs": [
+  {
+   "at": [
+    74,
+    141
+   ],
+   "dir": 3,
+   "run": 2,
+   "stone": false
+  },
+  {
+   "at": [
+    136,
+    110
+   ],
+   "dir": 1,
+   "run": 3,
+   "stone": true
+  },
+  {
+   "at": [
+    146,
+    66
+   ],
+   "dir": 3,
+   "run": 2,
+   "stone": true
+  },
+  {
+   "at": [
+    139,
+    98
+   ],
+   "dir": 3,
+   "run": 2,
+   "stone": true
+  }
+ ],
+ "fences": [
+  {
+   "rect": [
+    34,
+    160,
+    12,
+    7
+   ]
+  },
+  {
+   "rect": [
+    88,
+    152,
+    14,
+    9
+   ]
+  }
+ ],
+ "gate": {
+  "at": [
+   170,
+   20
+  ]
+ },
+ "broken_bridge": {
+  "at": [
+   116,
+   134
+  ],
+  "span": 9
+ },
+ "villages": [
+  {
+   "at": [
+    44,
+    154
+   ],
+   "houses": 5,
+   "spread": 10.0,
+   "well": [
+    48,
+    151
+   ],
+   "dock": [
+    38,
+    58
+   ]
+  }
+ ],
+ "torches": [
+  [
+   44,
+   152
+  ],
+  [
+   52,
+   158
+  ],
+  [
+   116,
+   116
+  ],
+  [
+   116,
+   122
+  ],
+  [
+   166,
+   24
+  ],
+  [
+   170,
+   24
+  ],
+  [
+   152,
+   76
+  ]
+ ],
+ "signs": [
+  [
+   64,
+   156
+  ],
+  [
+   108,
+   124
+  ],
+  [
+   138,
+   112
+  ],
+  [
+   146,
+   62
+  ],
+  [
+   128,
+   32
+  ]
+ ],
+ "landmark_props": [
+  {
+   "kind": "tower",
+   "at": [
+    152,
+    70
+   ],
+   "scale": 1.0
+  },
+  {
+   "kind": "gate",
+   "at": [
+    170,
+    19
+   ],
+   "scale": 1.0
+  },
+  {
+   "kind": "tower",
+   "at": [
+    52,
+    48
+   ],
+   "scale": 0.45
+  }
+ ],
+ "zones": [
+  {
+   "name": "Lembah Senja",
+   "kind": "village",
+   "rect": [
+    26,
+    130,
+    42,
+    44
+   ],
+   "biome": "valley",
+   "subtitle": "perkampungan di tepi danau",
+   "weather": "cerah, angin tenang",
+   "music": "desa"
+  },
+  {
+   "name": "Ladang Timur",
+   "kind": "fields",
+   "rect": [
+    60,
+    136,
+    26,
+    38
+   ],
+   "biome": "valley",
+   "subtitle": "ladang berpagar",
+   "weather": "cerah",
+   "music": "ladang"
+  },
+  {
+   "name": "Hutan Pinus",
+   "kind": "forest",
+   "rect": [
+    68,
+    102,
+    54,
+    60
+   ],
+   "biome": "forest",
+   "subtitle": "hutan lebat",
+   "weather": "rindang, lembab",
+   "music": "hutan"
+  },
+  {
+   "name": "Sungai Sedu",
+   "kind": "river",
+   "rect": [
+    104,
+    100,
+    26,
+    74
+   ],
+   "biome": "river",
+   "subtitle": "suara air di batu",
+   "weather": "lembab, berkabut tipis",
+   "music": "sungai"
+  },
+  {
+   "name": "Menara Penjaga",
+   "kind": "landmark",
+   "rect": [
+    140,
+    60,
+    26,
+    26
+   ],
+   "biome": "stone",
+   "subtitle": "menara tua di atas batu",
+   "weather": "berangin",
+   "music": "menara"
+  },
+  {
+   "name": "Dataran Batu",
+   "kind": "stone",
+   "rect": [
+    130,
+    54,
+    58,
+    68
+   ],
+   "biome": "stone",
+   "subtitle": "batu terjal bertingkat",
+   "weather": "kering, terik",
+   "music": "batu"
+  },
+  {
+   "name": "Gua Berbisik",
+   "kind": "cave",
+   "rect": [
+    92,
+    30,
+    34,
+    26
+   ],
+   "biome": "cave",
+   "subtitle": "mulut gua yang berbisik",
+   "weather": "dingin, gelap",
+   "music": "gua"
+  },
+  {
+   "name": "Danau Cermin",
+   "kind": "lake",
+   "rect": [
+    24,
+    24,
+    54,
+    50
+   ],
+   "biome": "lake",
+   "subtitle": "danau tenang dan pulau kuil",
+   "weather": "berkabut pagi",
+   "music": "danau"
+  },
+  {
+   "name": "Pos Gunung",
+   "kind": "gate",
+   "rect": [
+    150,
+    8,
+    40,
+    28
+   ],
+   "biome": "peak",
+   "subtitle": "gerbang gunung yang terkunci",
+   "weather": "dingin, salju tipis",
+   "music": "gunung"
+  },
+  {
+   "name": "Jalan Tua",
+   "kind": "road",
+   "rect": [
+    0,
+    0,
+    192,
+    192
+   ],
+   "biome": "road",
+   "subtitle": "jalan tua Yaros",
+   "weather": "cerah",
+   "music": "jalan"
+  }
+ ],
+ "markers": [
+  {
+   "kind": "player_start",
+   "name": "Awal di Lembah Senja",
+   "at": [
+    44,
+    157
+   ]
+  },
+  {
+   "kind": "home_plot",
+   "name": "Lahan rumah",
+   "at": [
+    54,
+    141
+   ],
+   "radius": 6.0
+  },
+  {
+   "kind": "fast_travel",
+   "name": "Kembali ke desa",
+   "at": [
+    46,
+    156
+   ]
+  },
+  {
+   "kind": "landmark",
+   "name": "Lembah Senja",
+   "at": [
+    44,
+    155
+   ]
+  },
+  {
+   "kind": "landmark",
+   "name": "Jembatan Sedu",
+   "at": [
+    116,
+    119
+   ]
+  },
+  {
+   "kind": "landmark",
+   "name": "Menara Penjaga",
+   "at": [
+    152,
+    72
+   ]
+  },
+  {
+   "kind": "landmark",
+   "name": "Gua Berbisik",
+   "at": [
+    106,
+    40
+   ]
+  },
+  {
+   "kind": "landmark",
+   "name": "Kuil Danau Cermin",
+   "at": [
+    52,
+    48
+   ]
+  },
+  {
+   "kind": "landmark",
+   "name": "Pos Gunung",
+   "at": [
+    166,
+    22
+   ]
+  },
+  {
+   "kind": "npc_spawn",
+   "name": "Penjaga Bram",
+   "at": [
+    48,
+    155
+   ]
+  },
+  {
+   "kind": "npc_spawn",
+   "name": "Warga desa",
+   "at": [
+    34,
+    152
+   ]
+  },
+  {
+   "kind": "npc_spawn",
+   "name": "Penjaga jembatan",
+   "at": [
+    122,
+    120
+   ]
+  },
+  {
+   "kind": "npc_spawn",
+   "name": "Pengawas menara",
+   "at": [
+    150,
+    80
+   ]
+  },
+  {
+   "kind": "npc_spawn",
+   "name": "Penjaga gerbang",
+   "at": [
+    164,
+    23
+   ]
+  },
+  {
+   "kind": "enemy_camp",
+   "name": "Orc tepi hutan",
+   "at": [
+    84,
+    124
+   ]
+  },
+  {
+   "kind": "enemy_camp",
+   "name": "Orc sungai",
+   "at": [
+    98,
+    142
+   ]
+  },
+  {
+   "kind": "enemy_camp",
+   "name": "Orc lereng batu",
+   "at": [
+    144,
+    98
+   ]
+  },
+  {
+   "kind": "enemy_camp",
+   "name": "Orc jalan utara",
+   "at": [
+    132,
+    36
+   ]
+  },
+  {
+   "kind": "cave_entrance",
+   "name": "Gua Berbisik",
+   "at": [
+    104,
+    38
+   ]
+  },
+  {
+   "kind": "region_gate",
+   "name": "Gerbang Pos Gunung",
+   "at": [
+    170,
+    20
+   ]
+  },
+  {
+   "kind": "bridge_broken",
+   "name": "Jembatan rusak",
+   "at": [
+    116,
+    134
+   ]
+  },
+  {
+   "kind": "chest",
+   "name": "Peti desa",
+   "at": [
+    36,
+    146
+   ]
+  },
+  {
+   "kind": "chest",
+   "name": "Peti ladang",
+   "at": [
+    78,
+    152
+   ]
+  },
+  {
+   "kind": "chest",
+   "name": "Peti hutan",
+   "at": [
+    90,
+    130
+   ]
+  },
+  {
+   "kind": "chest",
+   "name": "Peti lereng",
+   "at": [
+    146,
+    90
+   ]
+  },
+  {
+   "kind": "chest",
+   "name": "Peti gua",
+   "at": [
+    100,
+    34
+   ]
+  },
+  {
+   "kind": "chest",
+   "name": "Peti pos",
+   "at": [
+    158,
+    28
+   ]
+  },
+  {
+   "kind": "resource_node",
+   "name": "Batu tambang",
+   "at": [
+    132,
+    116
+   ]
+  },
+  {
+   "kind": "resource_node",
+   "name": "Kayu hutan",
+   "at": [
+    74,
+    152
+   ]
+  },
+  {
+   "kind": "resource_node",
+   "name": "Herba danau",
+   "at": [
+    42,
+    54
+   ]
+  },
+  {
+   "kind": "resource_node",
+   "name": "Batu lumut",
+   "at": [
+    100,
+    120
+   ]
+  },
+  {
+   "kind": "resource_node",
+   "name": "Kayu pinus",
+   "at": [
+    96,
+    44
+   ]
+  },
+  {
+   "kind": "resource_node",
+   "name": "Batu pos",
+   "at": [
+    160,
+    26
+   ]
+  },
+  {
+   "kind": "resource_node",
+   "name": "Herba sungai",
+   "at": [
+    120,
+    150
+   ]
+  },
+  {
+   "kind": "resource_node",
+   "name": "Batu menara",
+   "at": [
+    156,
+    84
+   ]
+  }
+ ]
+}

@@ -86,3 +86,18 @@ python3 tools/gen_atlas.py       # atlas_ui.png + atlas_ui.json (14 sel)
 
 Grid 24×24, palet hangat yang sama dengan ikon fase 7 (kayu, kuningan, krem,
 merah hati). Tidak ada ikon pihak ketiga, tidak ada aset berlisensi lain.
+
+## Aset dunia langkah 2 (0.8.0)
+
+Semua tekstur dan prop dunia di langkah 2 dibuat sendiri untuk proyek ini,
+secara prosedural dan deterministik, lalu disimpan sebagai PNG:
+
+| aset | sumber | lisensi |
+| --- | --- | --- |
+| 9 tekstur medan (`cliff`, `sand`, `snow`, `stone_floor`, `wood`, `water`, `flowers`, `reeds`, `stump`) | `tools/gen_region_tiles.py` (karya sendiri) | CC0 — karya pemilik proyek |
+| `terrain_atlas.png` (8 sel) | gabungan tekstur di atas | CC0 |
+| `dock`, `gate`, `sign`, `torch`, `tower`, `well` | `tools/gen_world_props.py` (karya sendiri) | CC0 |
+| `prop_atlas.png` (14 sel) + `prop_atlas.json` | gabungan prop di atas + 5 prop lama | CC0 |
+
+Tidak ada sprite karakter baru di langkah ini: karakter tetap dari paket yang
+sudah ada, dan tidak ada karakter yang digambar lewat kode.

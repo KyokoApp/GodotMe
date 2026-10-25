@@ -336,3 +336,28 @@ dalam keadaan didorong — saat diam ia memang tidak terlihat), `23_banner`, `24
 Tetap **tidak** terukur otomatis: rasa stik di ibu jari, kecepatan kamera yang
 enak dilihat, dan pinch zoom dengan dua jari sungguhan. CI hanya bisa
 membuktikan logikanya, bukan rasanya.
+
+### Tambahan langkah 2 (0.8.0) — region Yaros
+
+Dijalankan otomatis di CI lewat `res://game/tests/RegionTest.tscn`
+(step **Region rules**), lalu tangkapan layar di job `screenshots`.
+
+| # | Yang diuji | Cara | Lulus bila |
+| --- | --- | --- | --- |
+| R1 | Peta termuat | `RegionData.load_file` | 192×192, chunk 32, level 1,8 m, 36 chunk |
+| R2 | Isi peta | statistik | ≥25 000 ubin berjalan, jalur utama ≥450 ubin |
+| R3 | Aturan tinggi | sapu seluruh peta, 4 arah | 0 pelanggaran: dh≤1 selalu boleh, dh=2 hanya lewat tangga, dh≥3 tidak pernah boleh |
+| R4 | Tidak ada area terisolasi | flood fill dari `player_start` | ubin terjangkau == total ubin berjalan |
+| R5 | Semua tujuan terjangkau | flood fill + marker | 33 marker; dua blokir sengaja (gerbang, jembatan rusak) memang tidak terjangkau |
+| R6 | Jalur A* sah | `find_path` desa → gerbang | >40 ubin, tiap langkah lolos `step_ok` |
+| R7 | Zona | `zone_at` | titik awal = Lembah Senja, gerbang = Pos Gunung, 9+ zona lengkap (nama, biome, cuaca, musik) |
+| R8 | Sambungan chunk | bangun chunk (2,2) vs (3,2) dan (2,2) vs (2,3) | verteks di bidang batas sama persis, ≥4 verteks/ubin |
+| R9 | Atlas prop | `prop_atlas.json` | ≥14 sel, semua UV di dalam 0–1, ukuran > 0 |
+| R10 | Teleport 10 titik | `RegionView.force_build` | selalu 3×3 chunk, hitch terburuk <1,5 s (headless) |
+| R11 | Waktu tempuh | `routes[0]` ÷ 3,5 m/s | 110–175 s (2–3 menit) |
+
+Tangkapan layar baru (job `screenshots`): `30_zona_lembah` … `38_zona_pos`
+(sembilan zona, teleport lewat **nama marker** supaya tidak menunjuk rumput saat
+peta dibangun ulang), `39_tangga`, `40_tebing_luar`, `41_tebing_dalam`,
+`42_air_dekat`, `43_danau_jauh` (zoom 30), `44_desa_siang`, `45_hutan_senja`,
+`46_peta_penuh`.

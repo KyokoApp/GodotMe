@@ -639,3 +639,43 @@ tanpa `.import` dan game memuatnya sebagai byte; mengompres berarti membangun
 (menambah waktu muat, berisiko mengaburkan pixel art beralpha). Keduanya perlu
 diukur di HP dulu, jadi keputusannya diserahkan ke pemilik — lihat
 `DESIGN_NOTES.md` §18.5.
+
+## Langkah 2 — region Yaros (0.8.0)
+
+### Menjalankan penyusun
+
+```
+python3 tools/gen_region_tiles.py     # tekstur medan + terrain_atlas.png
+python3 tools/gen_world_props.py      # prop baru + prop_atlas.png + prop_atlas.json
+python3 tools/build_region.py         # yaros.json (gagal = tidak boleh dirilis)
+python3 tools/pack_audit.py           # tidak ada aset mati di enam paket
+```
+
+`tools/region/yaros_spec.json` adalah satu-satunya tempat mengubah tata letak:
+zona, terasering, jalur, tangga, jembatan, gerbang, desa, dan daftar marker.
+Semua angka deterministik dari `seed`.
+
+### Isi `world.pck` setelah langkah 2
+
+| berkas | ukuran |
+| --- | --- |
+| `regions/yaros.json` | 197,4 KB |
+| `textures/prop_atlas.png` | 225 KB (14 prop) |
+| `textures/terrain_atlas.png` | 144 KB (8 sel) |
+| `textures/water_tile.png` | 18 KB |
+| `prop_atlas.json` + 4 tekstur atmosfer | 6 KB |
+| 10 skrip + 3 shader | ±120 KB |
+| **total paket dunia** | **710 KB** |
+
+Tekstur per-prop lama (`tree_pine.png`, `cottage.png`, …) tetap ada di repo
+sebagai bahan atlas, tetapi **tidak lagi dipaket**: atlas sudah membawanya.
+
+### Rilis 0.8.0
+
+1. `tools/build_region.py` harus mencetak `HASIL: LULUS`.
+2. CI `Region rules` hijau (tabel R1–R11 di TEST_PLAN).
+3. Ubah `RELEASE_DEMO` untuk memicu `release-demo` (versi 0.8.0).
+4. Unduh `launcher APK` + enam `.pck` dari rilis, buka peluncur, **Periksa
+   Lagi**: hanya paket yang berubah (core, world, characters, ui) yang diunduh.
+5. Di HP, jalankan `adb logcat | grep -E "PERF|REGION|WORLD"` dan catat fps,
+   `chunk`, `draw`, `build_maks`.

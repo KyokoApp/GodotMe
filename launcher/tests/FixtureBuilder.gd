@@ -86,27 +86,33 @@ const PACK_FILES := {
 	},
 	"world": {
 		"order": 40,
-		# the whole diorama lives in this pack: scene, camera and every texture.
+		# The region lives in this pack: the built map (regions/yaros.json), the
+		# loader, the mesher, the streamer, one terrain atlas, one prop atlas and
+		# the shaders. Step 2 deleted the hand-placed glade's textures from the
+		# pack list: the prop atlas now carries them, and an asset nothing loads
+		# is exactly what pack_audit exists to catch.
 		"files": [
 			"game/world/Diorama.tscn",
 			"game/world/Diorama.gd",
+			"game/world/RegionData.gd",
+			"game/world/RegionMesh.gd",
+			"game/world/RegionView.gd",
 			"game/world/DioramaCamera.gd",
 			"game/world/WorldArt.gd",
 			"game/world/WorldClock.gd",
 			"game/world/Atmosphere.gd",
-			# the ground as data: terrain per tile plus the explored-ground fog.
-			# The minimap, the camera leash and (in step 2) the tiered terrain all
-			# read this one file.
 			"game/world/WorldMap.gd",
 			"game/world/tiltshift.gdshader",
-			"game/world/path.gdshader",
-			"game/world/textures/tree_pine.png",
-			"game/world/textures/tree_oak.png",
-			"game/world/textures/cottage.png",
-			"game/world/textures/bush.png",
-			"game/world/textures/rock.png",
-			"game/world/textures/grass_tile.png",
-			"game/world/textures/path_tile.png",
+			"game/world/terrain.gdshader",
+			"game/world/cliff.gdshader",
+			"game/world/wood.gdshader",
+			"game/world/prop.gdshader",
+			"game/world/water.gdshader",
+			"game/world/regions/yaros.json",
+			"game/world/prop_atlas.json",
+			"game/world/textures/terrain_atlas.png",
+			"game/world/textures/prop_atlas.png",
+			"game/world/textures/water_tile.png",
 			"game/world/textures/atmosphere/mote_dust.png",
 			"game/world/textures/atmosphere/firefly.png",
 			"game/world/textures/atmosphere/petal.png",

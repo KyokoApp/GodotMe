@@ -4,115 +4,53 @@
 ## on the phone - black screen, no boot_ok, watchdog rollback. Everything this
 ## script needs from its own pack is reached through preload constants.
 extends Node3D
-## The first HD-2D diorama: a small glade on the edge of the vale.
+## The world: REGION "Yaros", 192x192 tiles of tiered terrain, streamed.
 ##
-## Everything here is placed, not painted: sprites come from PNG files in
-## res://game/world/textures and are attached to billboarded quads, so one 2D
-## sprite gets a real 3D sun, real shadows and real depth sorting - the trick
-## that makes HD-2D read as a diorama instead of a flat side-scroller.
+## Step 2 replaced a hand-placed 26x20 glade with a region that is DATA. Nothing
+## below knows where a tree stands or where the road turns: `regions/yaros.json`
+## holds three byte grids (height, terrain, structure), the decorations, the
+## markers and the zones, and `tools/build_region.py` wrote it from a declarative
+## spec. This script's job is the three things data cannot do on its own:
 ##
-## No character logic lives here (Phase 2 stage 1 is the engine, not an actor).
+##   * light   - sun, fog, day cycle, the village lamp;
+##   * view    - ask RegionView for the chunks around the player and unload the
+##               rest (a phone cannot hold 36 864 tiles of mesh);
+##   * map     - paint WorldMap's byte grid from the region, so the minimap,
+##               the full map and the fog of war describe the same ground the
+##               player is walking on, without a second render pass.
+##
+## Movement rules live in RegionData (can_stand / height_at / find_path). The
+## cast asks the world for them and never keeps a copy.
 
 const WORLD_DIR := "res://game/world/"
 const TEX_DIR := WORLD_DIR + "textures/"
-
-const ART := preload("res://game/world/WorldArt.gd")
+const REGION_JSON := WORLD_DIR + "regions/yaros.json"
+const DATA_SCRIPT := WORLD_DIR + "RegionData.gd"
+const VIEW_SCRIPT := WORLD_DIR + "RegionView.gd"
 const CAMERA_RIG := preload("res://game/world/DioramaCamera.gd")
-const CLOCK_SCRIPT := "res://game/world/WorldClock.gd"
-const ATMOSPHERE_SCRIPT := "res://game/world/Atmosphere.gd"
-const MAP_SCRIPT := "res://game/world/WorldMap.gd"
+const CLOCK_SCRIPT := WORLD_DIR + "WorldClock.gd"
+const ATMOSPHERE_SCRIPT := WORLD_DIR + "Atmosphere.gd"
+const MAP_SCRIPT := WORLD_DIR + "WorldMap.gd"
 
+## Kept because Main.gd reads these two constants through the script's constant
+## map to write the opening banner. The ZONE banner (below) is the live one.
 const AREA_NAME := "Lembah Senja"
 const AREA_SUBTITLE := "Yaros, awal perjalanan"
 
-## Sprite size in metres (w, h) at scale 1.
-const PROP_SIZE := {
-	"pine": Vector2(3.2, 5.4),
-	"oak": Vector2(5.4, 4.0),
-	"cottage": Vector2(5.6, 4.2),
-	"bush": Vector2(1.5, 1.2),
-	"rock": Vector2(1.9, 1.3),
-	"tuft": Vector2(0.9, 0.7),
-}
+## How far the player sees for the map's fog, in metres. Bigger than the old
+## valley's 6: a region has landmarks worth seeing coming.
+const SIGHT_M := 11.0
+## Chunks kept around the player. 1 => 3x3 chunks = 96x96 m, comfortably wider
+## than the camera sees at its widest zoom.
+const VIEW_RADIUS := 1
 
-const PROP_TEXTURE := {
-	"pine": "tree_pine.png",
-	"oak": "tree_oak.png",
-	"cottage": "cottage.png",
-	"bush": "bush.png",
-	"rock": "rock.png",
-	"tuft": "bush.png",
-}
+## Emitted when the player walks into another named zone: Main turns it into the
+## banner ("Hutan Pinus / hutan lebat"), so the world is the only place that
+## decides where a zone starts.
+signal zone_changed(title: String, subtitle: String)
 
-## Hand-placed layout: kind, x, z, scale, flip.
-const LAYOUT := [
-	# the cottage and its doorstep
-	["cottage", -3.0, -1.6, 1.0, false],
-	["bush", -6.2, 0.4, 1.0, false],
-	["bush", -0.6, 0.8, 0.85, true],
-	["rock", -9.4, 1.2, 0.9, true],
-	# tree line at the back
-	["pine", -11.5, -8.5, 1.0, false],
-	["pine", -8.6, -9.8, 0.88, true],
-	["pine", -6.5, -8.9, 1.12, true],
-	["pine", -4.0, -9.8, 0.92, false],
-	["pine", -1.5, -8.6, 0.96, false],
-	["pine", 1.0, -9.7, 1.04, true],
-	["pine", 3.0, -8.8, 1.06, false],
-	["pine", 5.6, -9.9, 0.9, false],
-	["pine", 8.5, -8.2, 0.98, true],
-	["pine", 10.8, -9.2, 1.06, false],
-	["pine", 12.2, -6.2, 1.05, false],
-	["oak", -8.0, -6.0, 1.0, false],
-	["oak", 7.4, -5.2, 1.04, true],
-	# side screens
-	["pine", -12.5, -2.0, 1.1, true],
-	["pine", -12.8, 3.6, 1.0, false],
-	["pine", 12.6, -1.0, 1.05, false],
-	["pine", 12.9, 4.2, 1.0, true],
-	# middle ground
-	["bush", 5.6, 0.2, 1.0, true],
-	["rock", 6.8, 3.4, 0.95, false],
-	["bush", 9.2, 2.4, 0.9, false],
-	# foreground framing (low, so it never hides the middle)
-	["bush", -8.4, 7.4, 1.2, false],
-	["bush", 7.8, 7.8, 1.15, true],
-	["rock", -3.2, 8.6, 1.2, false],
-	["rock", 3.4, 8.9, 1.1, true],
-	# scattered detail
-	["tuft", -5.4, 3.2, 1.0, false],
-	["tuft", -1.8, 4.4, 1.1, true],
-	["tuft", 2.2, 2.8, 0.9, false],
-	["tuft", 4.6, 5.2, 1.05, true],
-	["tuft", -7.6, 2.0, 0.95, false],
-	["tuft", 7.0, 1.2, 1.0, true],
-	["tuft", 10.2, 3.8, 0.9, false],
-	["tuft", 0.4, 6.2, 1.05, false],
-	["tuft", -2.4, 6.8, 0.95, true],
-	["tuft", 5.2, -2.4, 1.0, false],
-	["rock", 10.4, -3.2, 0.8, false],
-	["bush", 2.4, -6.6, 0.9, true],
-]
-
-## Winding dirt path towards the cottage door, in world XZ.
-const PATH := [
-	Vector2(5.2, 9.6), Vector2(3.0, 6.2), Vector2(0.8, 3.2),
-	Vector2(-1.2, 1.0), Vector2(-2.6, -0.4),
-]
-const PATH_WIDTH := 1.6
-
-const GROUND_SIZE := Vector2(26.0, 20.0)
-
-## One tile = one metre. The valley is 26x20 tiles, so the minimap is 26 pixels
-## of data across at its smallest - small enough to rebuild on the CPU in the
-## same frame the player changes tile, and detailed enough that the path, the
-## cottage and the tree line are recognisable shapes.
-const TILE_M := 1.0
-## How far the knight can see for the map's fog. The valley is small, so this is
-## most of it after a short walk; on a big region the same number leaves the
-## distance dark, which is the point.
-const SIGHT_M := 6.0
-
+var _region: RefCounted
+var _view: Node3D
 var _sun: DirectionalLight3D
 var _camera: Node3D
 var _env: Environment
@@ -120,22 +58,64 @@ var _clock: Node
 var _atmosphere: Node
 var _lamp: OmniLight3D
 var _map: RefCounted
+var _zone := ""
+var _last_tile := Vector2i(-9999, -9999)
+var _stream_timer := 0.0
 
 
 func _ready() -> void:
 	_build_environment()
-	_build_ground()
-	_build_path()
-	_build_props()
+	_load_region()
+	_build_view()
 	_build_map()
 	_build_atmosphere()
 	_build_clock()
 	_build_camera()
+	_stream_now(_start_position())
+	print("[WORLD] %s %dx%d ubin, %d chunk, %d prop, %d marker, %d zona" % [
+		String(_region.get("label")) if _region != null else "(tanpa peta)",
+		int(_region.get("width")) if _region != null else 0,
+		int(_region.get("height")) if _region != null else 0,
+		int(_region.call("chunk_count")) if _region != null else 0,
+		(int((_region.get("decor") as Dictionary).size()) if _region != null else 0),
+		(_region.get("markers") as Array).size() if _region != null else 0,
+		(_region.get("zones") as Array).size() if _region != null else 0])
+
+
+# ------------------------------------------------------------------ loading ---
+func _load_region() -> void:
+	if not ResourceLoader.exists(DATA_SCRIPT) or not FileAccess.file_exists(REGION_JSON):
+		push_error("[WORLD] peta region tidak ada di paket dunia: %s" % REGION_JSON)
+		return
+	var script: Script = load(DATA_SCRIPT)
+	if script == null:
+		push_error("[WORLD] RegionData.gd gagal dimuat")
+		return
+	var region: RefCounted = script.new()
+	if not bool(region.call("load_file", REGION_JSON)):
+		push_error("[WORLD] peta region gagal dibaca")
+		return
+	_region = region
+
+
+func _build_view() -> void:
+	if _region == null:
+		return
+	if not ResourceLoader.exists(VIEW_SCRIPT):
+		push_error("[WORLD] RegionView.gd tidak ada di paket dunia")
+		return
+	var script: Script = load(VIEW_SCRIPT)
+	if script == null:
+		return
+	_view = script.new() as Node3D
+	_view.name = "Region"
+	add_child(_view)
+	_view.call("setup", _region, VIEW_RADIUS)
 
 
 # --------------------------------------------------------------- lighting ----
 func _build_environment() -> void:
-	print("[WORLD] renderer=%s diorama building" % RenderingServer.get_video_adapter_name())
+	print("[WORLD] renderer=%s, membangun Yaros" % RenderingServer.get_video_adapter_name())
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.42, 0.35, 0.30)
@@ -149,7 +129,9 @@ func _build_environment() -> void:
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.68, 0.62)
 	env.fog_light_energy = 0.55
-	env.fog_density = 0.0045
+	# thinner than the valley's: the region is 192 m across and the camera looks
+	# 60 m, so the old density would paint a wall of haze at the far chunk
+	env.fog_density = 0.006
 	env.fog_sky_affect = 0.0
 	env.glow_enabled = true
 	env.glow_intensity = 0.30
@@ -173,6 +155,8 @@ func _build_environment() -> void:
 	_sun.light_energy = 1.1
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	# 60 m of shadow map covers the visible chunks; further out the fog does the
+	# hiding and a bigger map would only cost resolution on the phone
 	_sun.directional_shadow_max_distance = 60.0
 	_sun.shadow_bias = 0.04
 	_sun.shadow_normal_bias = 1.2
@@ -180,9 +164,6 @@ func _build_environment() -> void:
 	add_child(_sun)
 
 
-# -------------------------------------------------------------- atmosphere ----
-## The pieces that move: dust, petals, fireflies, ground mist. Built before the
-## clock so the clock's first phase can switch them on.
 func _build_atmosphere() -> void:
 	if not ResourceLoader.exists(ATMOSPHERE_SCRIPT):
 		push_warning("[WORLD] Atmosphere.gd tidak ada di paket ini")
@@ -196,21 +177,25 @@ func _build_atmosphere() -> void:
 	_atmosphere.call("setup")
 
 
-## The day cycle and the lamp that comes on with it.
+## The village lamp: one warm pool of light where the torches are, so the village
+## has a heart at dusk. Placed from the region marker, not from a number here.
 func _build_clock() -> void:
 	_lamp = OmniLight3D.new()
-	_lamp.name = "CottageLamp"
-	# just outside the cottage door, at window height: the light pools on the
-	# doorstep instead of lighting the whole meadow
-	_lamp.position = Vector3(-2.2, 1.55, 0.25)
+	_lamp.name = "VillageLamp"
 	_lamp.light_color = Color(1.0, 0.78, 0.45)
-	_lamp.omni_range = 7.5
+	_lamp.omni_range = 9.0
 	_lamp.light_energy = 0.0
 	_lamp.shadow_enabled = false
 	add_child(_lamp)
+	if _region != null:
+		var m: Dictionary = _region.call("marker", "Kembali ke desa")
+		if not m.is_empty():
+			var p: Vector2 = _region.call("marker_pos", m)
+			var y := float(_region.call("height_at", p)) + 1.9
+			_lamp.position = Vector3(p.x, y, p.y)
 
 	if not ResourceLoader.exists(CLOCK_SCRIPT):
-		push_warning("[WORLD] WorldClock.gd tidak ada, diorama tetap dengan satu waktu")
+		push_warning("[WORLD] WorldClock.gd tidak ada, dunia tetap dengan satu waktu")
 		return
 	var script: Script = load(CLOCK_SCRIPT)
 	if script == null:
@@ -229,69 +214,225 @@ func _build_clock() -> void:
 	_on_phase_changed(String(want))
 
 
-## The ground as data (WorldMap.gd): terrain per tile plus the places of
-## interest. Built from the very layout that places the props, so the minimap
-## cannot drift away from the world it describes.
+# -------------------------------------------------------------------- map ----
+## Paint WorldMap's byte grid from the region. One loop over 36 864 tiles at
+## boot (~40 ms), then the minimap can render any window of it for free.
 func _build_map() -> void:
-	if not ResourceLoader.exists(MAP_SCRIPT):
-		push_warning("[WORLD] WorldMap.gd tidak ada di paket ini")
+	if _region == null or not ResourceLoader.exists(MAP_SCRIPT):
+		push_warning("[WORLD] WorldMap.gd tidak ada, minimap kosong")
 		return
 	var script: Script = load(MAP_SCRIPT)
 	if script == null:
 		return
 	var map: RefCounted = script.new()
-	map.call("setup", int(GROUND_SIZE.x / TILE_M), int(GROUND_SIZE.y / TILE_M),
-		TILE_M, Vector2.ZERO)
-	map.set("label", AREA_NAME)
+	var w := int(_region.get("width"))
+	var h := int(_region.get("height"))
+	var cell := float(_region.get("cell"))
+	map.call("setup", w, h, cell, _region.get("origin"))
+	map.set("label", String(_region.get("label")))
 	map.set("sight_m", SIGHT_M)
-	# Constants are not properties: `get()` cannot see them, the script's own
-	# constant map can (same trick as the clock's DAY_SECONDS).
+
 	var kinds: Dictionary = script.get_script_constant_map()
-	var kind_grass := int(kinds.get("KIND_GRASS", 0))
-	var kind_dirt := int(kinds.get("KIND_DIRT", 1))
-	var kind_forest := int(kinds.get("KIND_FOREST", 4))
-	var kind_rock := int(kinds.get("KIND_ROCK", 3))
-	var kind_building := int(kinds.get("KIND_BUILDING", 5))
-	map.call("fill", kind_grass)
+	var K_GRASS := int(kinds.get("KIND_GRASS", 0))
+	var K_DIRT := int(kinds.get("KIND_DIRT", 1))
+	var K_WATER := int(kinds.get("KIND_WATER", 2))
+	var K_ROCK := int(kinds.get("KIND_ROCK", 3))
+	var K_FOREST := int(kinds.get("KIND_FOREST", 4))
+	var K_BUILDING := int(kinds.get("KIND_BUILDING", 5))
+	var K_DEEP := int(kinds.get("KIND_DEEP", 6))
+	var K_STONE := int(kinds.get("KIND_STONE", 7))
+	var K_SNOW := int(kinds.get("KIND_SNOW", 8))
+	var K_SAND := int(kinds.get("KIND_SAND", 9))
 
-	# trees first: a rock beside a pine should stay a rock, and the path is
-	# painted last so it always reads as a road through whatever it crosses
-	for entry in LAYOUT:
-		var kind := String(entry[0])
-		var at := Vector2(float(entry[1]), float(entry[2]))
+	for tz in range(h):
+		for tx in range(w):
+			var kind := K_GRASS
+			var ter := int(_region.call("tile_terrain", tx, tz))
+			var code := int(_region.call("struct_code", tx, tz))
+			match ter:
+				7:
+					kind = K_WATER
+				8:
+					kind = K_DEEP
+				3:
+					kind = K_ROCK
+				10:
+					kind = K_STONE
+				6:
+					kind = K_SNOW
+				4:
+					kind = K_SAND
+				2:
+					kind = K_DIRT
+				5:
+					kind = K_DIRT
+				9:
+					kind = K_DIRT
+				_:
+					kind = K_GRASS
+			if code == 2:
+				kind = K_DIRT   # a bridge reads as road on the map
+			if int(_region.call("tile_height", tx, tz)) >= 4 and kind == K_GRASS:
+				kind = K_STONE   # high ground is paler on the map, like on foot
+			map.call("set_tile", tx, tz, kind)
+
+	# woods and buildings from the decorations, painted ON TOP of the ground but
+	# only onto grass, so a road never disappears under a tree
+	var decor: Dictionary = _region.get("decor")
+	for kind_name in ["pine", "oak"]:
+		for raw in (decor.get(kind_name, []) as Array):
+			_paint_marker_tiles(map, raw, 2, K_FOREST)
+	for kind_name in ["cottage", "tower", "gate", "well", "dock"]:
+		var radius := 2 if kind_name in ["cottage", "tower", "gate", "dock"] else 1
+		for raw in (decor.get(kind_name, []) as Array):
+			_paint_marker_tiles(map, raw, radius, K_BUILDING)
+
+	# places of interest: the map's own markers, verbatim
+	for raw in (_region.get("markers") as Array):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var m: Dictionary = raw
+		var kind := String(m.get("kind", ""))
+		var poi := "landmark"
 		match kind:
-			"pine":
-				map.call("paint_disc", at, 1.5, kind_forest)
-			"oak":
-				map.call("paint_disc", at, 2.0, kind_forest)
-			"cottage":
-				map.call("paint_disc", at, 2.4, kind_building)
-			"rock":
-				map.call("paint_disc", at, 0.8, kind_rock)
-
-	# the track and the bare patch in front of the door are dirt
-	for i in range(PATH.size() - 1):
-		map.call("paint_line", PATH[i], PATH[i + 1], PATH_WIDTH * 0.5, kind_dirt)
-	map.call("paint_disc", Vector2(-2.2, 0.4), 2.2, kind_dirt)
-
-	# places of interest: the map may name a few doors and landmarks; who stands
-	# where is the cast's business (the cast writes its own markers)
-	map.call("add_poi", "door", "Pintu pondok", Vector2(-2.6, -0.2), 2.6)
-	map.call("add_poi", "landmark", "Tikungan", Vector2(3.0, 6.2), 1.8)
+			"npc_spawn":
+				poi = "npc"
+			"enemy_camp":
+				poi = "enemy"
+			"chest", "resource_node":
+				poi = "pickup"
+			"fast_travel":
+				poi = "door"
+			"region_gate":
+				poi = "gate"
+			"cave_entrance":
+				poi = "cave"
+			"home_plot":
+				poi = "home"
+			"player_start":
+				continue
+			_:
+				poi = "landmark"
+		map.call("add_poi", poi, String(m.get("name", "")),
+			Vector2(float(m.get("x", 0.0)), float(m.get("y", 0.0))),
+			float(m.get("radius", 2.5)))
 	_map = map
-	print("[WORLD] peta %dx%d ubin (%.1f m/ubin), poi %d" % [
-		int(map.get("width")), int(map.get("height")), float(map.get("cell")),
-		(map.get("pois") as Array).size()])
+	print("[WORLD] peta %dx%d ubin (%.0f m/ubin), poi %d, jenis peta %d" % [
+		w, h, cell, (map.get("pois") as Array).size(),
+		(kinds.size())])
+
+
+func _paint_marker_tiles(map: RefCounted, raw: Variant, radius: int, kind: int) -> void:
+	if typeof(raw) != TYPE_ARRAY:
+		return
+	var row: Array = raw
+	if row.size() < 2:
+		return
+	var x := int(floor(float(row[0]) * 0.1))
+	var z := int(floor(float(row[1]) * 0.1))
+	for dz in range(-radius, radius + 1):
+		for dx in range(-radius, radius + 1):
+			var tx := x + dx
+			var tz := z + dz
+			if int(map.call("tile_at", tx, tz)) == 0:
+				map.call("set_tile", tx, tz, kind)
+
+
+# ----------------------------------------------------------------- camera ----
+func _build_camera() -> void:
+	_camera = CAMERA_RIG.new()
+	_camera.name = "CameraRig"
+	_camera.start_zoom = 20.0
+	if _map != null:
+		# the leash comes from the map, so a bigger region widens it with no new
+		# number here
+		_camera.call("set_map_bounds", (_map.call("bounds") as Rect2).grow(-2.0))
+		_camera.bounds = (_map.call("bounds") as Rect2).size * 0.5 - Vector2(4.0, 4.0)
+	var cam := Camera3D.new()
+	cam.name = "Camera3D"
+	cam.fov = 30.0
+	cam.near = 0.5
+	# 160 m: the far chunk is inside the frame at the widest zoom, and the fog
+	# hides the cut
+	cam.far = 160.0
+	cam.position = Vector3(0.0, 0.0, _camera.start_zoom)
+	cam.current = true
+	_camera.add_child(cam)
+	add_child(_camera)
+	print("[WORLD] kamera siap, cam ada=%s" % (_camera.get_node_or_null("Camera3D") != null))
+
+
+# ------------------------------------------------------------------ frame ----
+func _process(delta: float) -> void:
+	if _region == null:
+		return
+	var player := _player_position()
+	if player == null:
+		return
+	var pos: Vector2 = player
+	var tile: Vector2i = _region.call("world_to_tile", pos)
+	# streaming only when the player crosses a tile: asking every frame would
+	# rebuild the same 3x3 ring sixty times a second
+	if tile != _last_tile:
+		_last_tile = tile
+		if _view != null:
+			_view.call("set_view_centre", pos)
+			_view.call("update_occluders", pos, _camera_xz())
+		_announce_zone(pos)
+	if _atmosphere != null:
+		# the pollen belongs to the camera, not to the origin of the world
+		_atmosphere.position = Vector3(pos.x, 0.0, pos.y)
+	_stream_timer += delta
+	if _stream_timer > 0.25:
+		_stream_timer = 0.0
+		if _view != null:
+			_view.call("update_occluders", pos, _camera_xz())
+			_view.call("set_player_xz", pos)
+
+
+func _player_position() -> Variant:
+	var cast := get_node_or_null("Characters")
+	if cast == null or not cast.has_method("player"):
+		return null
+	var p: Node3D = cast.call("player")
+	if p == null or not is_instance_valid(p):
+		return null
+	return Vector2(p.position.x, p.position.z)
+
+
+func _camera_xz() -> Vector2:
+	if _camera == null:
+		return Vector2.ZERO
+	return Vector2(_camera.global_position.x, _camera.global_position.z)
+
+
+## Banner text when the player enters a named zone.
+func _announce_zone(pos: Vector2) -> void:
+	var zone := String(_region.call("zone_at", pos))
+	if zone == _zone:
+		return
+	_zone = zone
+	var subtitle := "jalan tua"
+	for raw in (_region.get("zones") as Array):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var z: Dictionary = raw
+		if String(z.get("name", "")) != zone:
+			continue
+		subtitle = String(z.get("subtitle", z.get("kind", "")))
+		break
+	emit_signal("zone_changed", zone, subtitle)
 
 
 func _on_phase_changed(id: String) -> void:
 	if _atmosphere != null and _atmosphere.has_method("set_phase"):
 		_atmosphere.call("set_phase", id)
+	if _view != null and _sun != null:
+		# props are unshaded billboards; the phase warms them through this tint
+		_view.call("set_light_tint", _sun.light_color * (0.72 + 0.28 * _sun.light_energy))
 
 
-# --------------------------------------------------------------- time API ----
-## Everything below is for the HUD, VisualTest and WorldTest. No game rule reads
-## it: the clock is light and weather, not a timer the player is judged against.
+# ---------------------------------------------------------------- time API ---
 func set_phase(id: String) -> void:
 	if _clock != null:
 		_clock.call("set_phase", id)
@@ -312,8 +453,6 @@ func clock() -> Node:
 	return _clock
 
 
-## The terrain grid the minimap and the camera read. Null only if the world pack
-## shipped without WorldMap.gd.
 func map() -> RefCounted:
 	return _map
 
@@ -322,8 +461,6 @@ func camera_rig() -> Node3D:
 	return _camera
 
 
-## Quality preset: shadows are the expensive part of the sun, and they are the
-## first thing to go on a weak phone.
 func set_shadows_enabled(on: bool) -> void:
 	if _sun != null:
 		_sun.shadow_enabled = on
@@ -342,198 +479,84 @@ func lamp() -> OmniLight3D:
 	return _lamp
 
 
-# ----------------------------------------------------------------- ground ----
-func _build_ground() -> void:
-	var plane := PlaneMesh.new()
-	plane.size = GROUND_SIZE
-	var mi := MeshInstance3D.new()
-	mi.name = "Ground"
-	mi.mesh = plane
-	var grass := ART.tex(TEX_DIR + "grass_tile.png")
-	mi.material_override = ART.ground_material(
-		grass, GROUND_SIZE.x / 2.0, GROUND_SIZE.y / 2.0)
-	add_child(mi)
-
-	# A darker skirt around the meadow so the world does not end in mid-air.
-	var skirt := PlaneMesh.new()
-	skirt.size = GROUND_SIZE + Vector2(40.0, 40.0)
-	var base := MeshInstance3D.new()
-	base.name = "Skirt"
-	base.mesh = skirt
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.16, 0.20, 0.14)
-	m.roughness = 1.0
-	base.material_override = m
-	base.position.y = -0.35
-	add_child(base)
-
-
-func _build_path() -> void:
-	# The track is drawn as ONE quad per leg, offset a hair above the meadow.
-	# A hand-built strip mesh had unreliable winding (back-face culling made it
-	# vanish) and its long thin triangles smeared the texture into stripes.
-	var root := Node3D.new()
-	root.name = "Path"
-	add_child(root)
-	var dirt := ART.tex(TEX_DIR + "path_tile.png")
-	var grass_tex := ART.tex(TEX_DIR + "grass_tile.png")
-	var mat := ShaderMaterial.new()
-	var shader_ok := ResourceLoader.exists(WORLD_DIR + "path.gdshader")
-	if shader_ok:
-		mat.shader = load(WORLD_DIR + "path.gdshader")
-	mat.set_shader_parameter("dirt_tex", dirt)
-	mat.set_shader_parameter("grass_tex", grass_tex)
-	mat.set_shader_parameter("half_width", PATH_WIDTH * 0.5)
-	mat.set_shader_parameter("feather", 0.26)
-	mat.set_shader_parameter("dirt_tint", Color(0.94, 0.90, 0.84))
-	print("[WORLD] path shader exists=%s loaded=%s dirt=%s grass=%s legs=%d" % [
-		shader_ok, mat.shader != null, dirt != null, grass_tex != null,
-		PATH.size() - 1])
-
-	var run := 0.0
-	for i in range(PATH.size() - 1):
-		var a: Vector2 = PATH[i]
-		var b: Vector2 = PATH[i + 1]
-		var leg := a.distance_to(b)
-		var quad := QuadMesh.new()
-		# a little longer than the leg so the joints overlap instead of gapping
-		quad.size = Vector2(PATH_WIDTH, leg + PATH_WIDTH * 0.6)
-		var mi := MeshInstance3D.new()
-		mi.name = "Leg%d" % i
-		mi.mesh = quad
-		mi.material_override = mat
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var mid := (a + b) * 0.5
-		mi.position = Vector3(mid.x, 0.02, mid.y)
-		# QuadMesh lies in XY; lay it flat and point +Y along the leg
-		mi.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
-		mi.rotate_y(atan2(-(b - a).x, -(b - a).y))
-		root.add_child(mi)
-		run += leg
-	# a soft patch of bare earth in front of the door
-	_add_dirt_patch(root, mat, Vector2(-2.2, 0.4), 2.6)
-
-
-func _add_dirt_patch(parent: Node3D, mat: ShaderMaterial, at: Vector2, size: float) -> void:
-	var quad := QuadMesh.new()
-	quad.size = Vector2(size, size * 1.2)
-	var mi := MeshInstance3D.new()
-	mi.name = "Yard"
-	mi.mesh = quad
-	mi.material_override = mat
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.position = Vector3(at.x, 0.015, at.y)
-	mi.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
-	parent.add_child(mi)
-
-
-# ------------------------------------------------------------------ props ----
-func _build_props() -> void:
-	var root := Node3D.new()
-	root.name = "Props"
-	add_child(root)
-	for entry in LAYOUT:
-		var kind := String(entry[0])
-		var x: float = entry[1]
-		var z: float = entry[2]
-		var s: float = entry[3]
-		var flip: bool = entry[4]
-		var node := _make_prop(kind, s, flip)
-		if node == null:
-			continue
-		# only X/Z: node.position.y already lifts the quad so its bottom edge
-		# sits on the ground. Overwriting y buried the lower half of every prop
-		# (the first capture showed roofs growing out of the grass).
-		node.position.x = x
-		node.position.z = z
-		root.add_child(node)
-	# painter's order for the shadow caster list; billboards still face the camera
-
-
-func _make_prop(kind: String, s: float, flip: bool) -> Node3D:
-	var size: Vector2 = PROP_SIZE[kind]
-	var texture := ART.tex(TEX_DIR + String(PROP_TEXTURE[kind]))
-	if texture == null:
-		return null
-	var quad := QuadMesh.new()
-	quad.size = size
-	var mi := MeshInstance3D.new()
-	mi.name = kind
-	mi.mesh = quad
-	var tint := Color.WHITE
-	if kind == "tuft":
-		tint = Color(0.92, 0.98, 0.88)
-	mi.material_override = ART.sprite_material(texture, tint)
-	# Stand the sprite on the ground: the quad is centred on its origin, so the
-	# lift is half its *scaled* height. Without the `* s` a prop scaled to 0.85
-	# hovered 15 % of its height above the grass (device report: floating trees
-	# and rocks), and one scaled above 1.0 sank halfway into it.
-	mi.position.y = size.y * 0.5 * s
-	mi.scale = Vector3(s * (-1.0 if flip else 1.0), s, s)
-	mi.cast_shadow = (GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if kind == "tuft"
-		else GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
-	return mi
-
-
-# ----------------------------------------------------------------- camera ----
-func _build_camera() -> void:
-	# Build the rig as a self-contained scene: the camera must be a child BEFORE
-	# the rig enters the tree, otherwise its @onready lookup runs too early and
-	# pan/zoom silently do nothing (this happened, and only the log showed it).
-	_camera = CAMERA_RIG.new()
-	_camera.name = "CameraRig"
-	_camera.bounds = Vector2(GROUND_SIZE.x * 0.5 - 4.0, GROUND_SIZE.y * 0.5 - 3.5)
-	_camera.start_zoom = 19.0
-	# The camera must not leave the ground. The rectangle comes from the map, so
-	# a larger map (step 2) widens the leash without a single new number here.
-	if _map != null:
-		_camera.call("set_map_bounds", (_map.call("bounds") as Rect2).grow(-0.5))
-	var cam := Camera3D.new()
-	cam.name = "Camera3D"
-	cam.fov = 30.0
-	cam.near = 0.5
-	cam.far = 120.0
-	cam.position = Vector3(0.0, 0.0, _camera.start_zoom)
-	cam.current = true
-	_camera.add_child(cam)
-	add_child(_camera)
-	print("[WORLD] camera rig ready, cam present=%s" % (_camera.get_node_or_null("Camera3D") != null))
-
-
 func reset_view() -> void:
 	if _camera != null:
-		_camera.reset()
+		_camera.call("reset")
 
 
-# ------------------------------------------------------- actor interface ----
-## Footprints the character controller must not walk through. The props are
-## billboards without collision bodies, so the actors resolve against these
-## circles instead: no physics layer, no extra node per tree, and the layout
-## above stays the only place a prop position is written down.
+# -------------------------------------------------------- region interface ---
+## The movement/navigation data. RegionData is the only owner of the rules; the
+## cast keeps a reference and asks it.
+func region() -> RefCounted:
+	return _region
+
+
+func view() -> Node3D:
+	return _view
+
+
+func start_position() -> Vector2:
+	return _start_position()
+
+
+func _start_position() -> Vector2:
+	if _region == null:
+		return Vector2.ZERO
+	return _region.call("start_position")
+
+
+func zone_at(pos: Vector2) -> String:
+	if _region == null:
+		return ""
+	return String(_region.call("zone_at", pos))
+
+
+func stream_now(pos: Vector2) -> void:
+	_stream_now(pos)
+
+
+func _stream_now(pos: Vector2) -> void:
+	if _view == null:
+		return
+	_view.call("set_view_centre", pos)
+	_view.call("set_player_xz", pos)
+	_view.call("force_build")
+	_last_tile = _region.call("world_to_tile", pos) if _region != null else Vector2i.ZERO
+
+
+## Streaming numbers for the HUD's FPS line and for the CI report.
+func stream_stats() -> Dictionary:
+	if _view == null:
+		return {}
+	return _view.call("stats")
+
+
+## Props do not have collision bodies - they never did. The region rules and the
+## few footprints that matter (houses, the tower, the gate) are enough, and the
+## cast asks `can_stand` instead of scanning a list every frame.
 func blockers() -> Array:
 	var out: Array = []
-	for entry in LAYOUT:
-		var kind := String(entry[0])
-		var radius := 0.0
-		match kind:
-			"cottage":
-				radius = 2.1
-			"oak":
-				radius = 0.75
-			"pine":
-				radius = 0.5
-			"rock":
-				radius = 0.65
-			"bush":
-				radius = 0.5
-			_:
-				radius = 0.0
-		if radius <= 0.0:
-			continue
-		out.append({"x": float(entry[1]), "z": float(entry[2]), "r": radius, "kind": kind})
+	if _region == null:
+		return out
+	# radii in metres; a static function on RegionData cannot be reached through
+	# an instance, so the footprint table lives here next to the code that uses it
+	var radii := {"cottage": 2.0, "tower": 2.4, "gate": 2.2, "well": 0.9}
+	for kind_name in radii.keys():
+		var radius := float(radii[kind_name])
+		var decor: Dictionary = _region.get("decor")
+		for raw in (decor.get(kind_name, []) as Array):
+			if typeof(raw) != TYPE_ARRAY:
+				continue
+			var row: Array = raw
+			if row.size() < 2:
+				continue
+			out.append({"x": float(row[0]) * 0.1, "z": float(row[1]) * 0.1,
+				"r": radius, "kind": kind_name})
 	return out
 
 
 ## Walkable area in world XZ, used as the outer fence for the actors.
 func ground_rect() -> Rect2:
-	return Rect2(-GROUND_SIZE.x * 0.5, -GROUND_SIZE.y * 0.5, GROUND_SIZE.x, GROUND_SIZE.y)
+	if _region == null:
+		return Rect2(0.0, 0.0, 1.0, 1.0)
+	return (_region.call("bounds") as Rect2).grow(-1.0)

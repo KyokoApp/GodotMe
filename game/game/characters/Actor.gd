@@ -53,6 +53,9 @@ var facing := 1.0
 ## Footprint circles ({x, z, r}) and the walkable rectangle, both in world XZ.
 var blockers: Array = []
 var bounds := Rect2(-12.0, -9.0, 24.0, 18.0)
+## The region's rules (RegionData), when the world has tiers. Without it every
+## actor behaves exactly as it did on the flat glade of step 1.
+var nav: RefCounted = null
 
 var _anim := ""
 var _hitstop := 0.0
@@ -275,13 +278,47 @@ func _move(step: Vector3) -> void:
 	if grid > 0.0:
 		p.x = roundf(p.x / grid) * grid
 		p.y = roundf(p.y / grid) * grid
-	position = Vector3(p.x, position.y, p.y)
+	# the feet follow the ground: banks, stairs and bridge decks are all the same
+	# interpolation the mesh draws, so the blob shadow never floats
+	var y := position.y
+	if nav != null:
+		y = float(nav.call("height_at", p))
+	position = Vector3(p.x, y, p.y)
 
 
-## Circle-vs-circle push-out against the prop footprints, plus the meadow edge.
+## Resolve a wanted position into a reachable one.
+##
+## Two rules, in order: the prop footprints (houses, trees, the tower) push the
+## body out, then the REGION decides whether the result is ground a body may
+## stand on. When the region says no, the move slides along the obstacle one axis
+## at a time - walking into a cliff at an angle should keep the sideways part of
+## the step, not stop the knight dead.
+func resolve_position(p: Vector2) -> Vector2:
+	var from := Vector2(position.x, position.z)
+	var target := _resolve_props(p)
+	if nav == null:
+		return target
+	if _standable(target):
+		return target
+	var along_x := Vector2(target.x, from.y)
+	if _standable(along_x):
+		return along_x
+	var along_z := Vector2(from.x, target.y)
+	if _standable(along_z):
+		return along_z
+	return from
+
+
+func _standable(p: Vector2) -> bool:
+	if nav == null:
+		return true
+	return bool(nav.call("can_stand", p, body_radius))
+
+
+## Circle-vs-circle push-out against the prop footprints, plus the outer fence.
 ## Cheap and deterministic: no physics body, no tunnelling, and the props stay
 ## pure billboards in the world pack.
-func resolve_position(p: Vector2) -> Vector2:
+func _resolve_props(p: Vector2) -> Vector2:
 	var r := body_radius
 	p.x = clampf(p.x, bounds.position.x + r, bounds.position.x + bounds.size.x - r)
 	p.y = clampf(p.y, bounds.position.y + r, bounds.position.y + bounds.size.y - r)

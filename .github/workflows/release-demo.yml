@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.7.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.8.0' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,6 +70,18 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
+              "Dunia baru: region Yaros 192x192 ubin dengan tinggi 0-5 level, dibangun dari data (tools/region/yaros_spec.json).",
+              "Sepuluh zona bernama: Lembah Senja, Ladang Timur, Hutan Pinus, Sungai Sedu, Menara Penjaga, Dataran Batu, Gua Berbisik, Danau Cermin, Pos Gunung, Jalan Tua.",
+              "Jalan utama 460 ubin dari desa ke Pos Gunung: sekitar 2,2 menit berjalan atau 84 detik berlari.",
+              "Tebing bermuka batu dengan bayangan palsu di kaki, tangga batu empat anak tangga, jembatan kayu berpagar, dan satu jembatan rusak yang harus diputar.",
+              "Air bergelombang dengan tepi busa; air dangkal bisa dilalui, air dalam tidak.",
+              "2.959 pohon, batu, semak, bunga dan alang-alang; satu atlas prop membuat satu chunk hanya satu draw call untuk semua prop-nya.",
+              "Dunia dialirkan per chunk 32x32: hanya sekitar 3x3 chunk di sekitar pemain yang ada di memori, sisanya dibuang.",
+              "Bila pohon atau rumah menghalangi pandangan, prop itu memudar dengan pola dither, bukan menghilang mendadak.",
+              "Minimap dan peta penuh digambar dari data region: warna medan, tebing, air, dan ikon menara/gua/gerbang desa; kabut tetap tersimpan di save.",
+              "Banner nama zona muncul saat pemain berjalan ke daerah baru.",
+              "Save lama tetap termuat; posisi dari peta lama yang tidak bisa dipijak diganti ke titik awal peta baru tanpa menghapus progres.",
+              "Paket yang berubah: world.pck (peta, atlas, shader, kode dunia), characters.pck (gerak mengikuti tinggi tanah), core.pck (banner zona). APK tetap.",
               "Layar lapangan kini hampir kosong: minimap kecil di kiri atas, satu tombol Menu di kanan atas, satu tombol aksi di kanan bawah.",
               "Minimap digambar dari data peta (bukan kamera kedua): ikon pemain, penjaga, orc dekat, tujuan, dan kabut yang terbuka saat berjalan.",
               "Ketuk minimap untuk membuka peta penuh; ketuk dua kali untuk dua tingkat zoom.",

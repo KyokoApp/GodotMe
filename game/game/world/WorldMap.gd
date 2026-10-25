@@ -23,6 +23,12 @@ const KIND_WATER := 2
 const KIND_ROCK := 3
 const KIND_FOREST := 4
 const KIND_BUILDING := 5
+## Step 2 grew the palette when the region arrived: a tiered map needs to show
+## how deep the water is, and the stone plateau and snow caps are not rock.
+const KIND_DEEP := 6
+const KIND_STONE := 7
+const KIND_SNOW := 8
+const KIND_SAND := 9
 
 ## Warm fantasy palette, matched to the game's parchment and to the diorama's
 ## grass/dirt textures. No blue neon, no saturated cyan "water" - the pond reads
@@ -34,6 +40,10 @@ const PALETTE := {
 	KIND_ROCK: Color(0.44, 0.40, 0.35),
 	KIND_FOREST: Color(0.19, 0.27, 0.17),
 	KIND_BUILDING: Color(0.53, 0.35, 0.25),
+	KIND_DEEP: Color(0.20, 0.31, 0.36),
+	KIND_STONE: Color(0.55, 0.52, 0.46),
+	KIND_SNOW: Color(0.78, 0.82, 0.82),
+	KIND_SAND: Color(0.72, 0.64, 0.47),
 }
 const UNEXPLORED := Color(0.11, 0.09, 0.07)
 ## How much of the colour survives in a tile that is remembered but out of the
@@ -42,7 +52,8 @@ const SEEN_DIM := 0.45
 
 ## Kinds the knight may stand on. Forest is walkable ground with trees on it (the
 ## prop footprints do the real blocking), water, bare rock and buildings are not.
-const WALKABLE := [KIND_GRASS, KIND_DIRT, KIND_FOREST]
+const WALKABLE := [KIND_GRASS, KIND_DIRT, KIND_FOREST, KIND_STONE, KIND_SNOW,
+	KIND_SAND, KIND_ROCK]
 
 const FOG_KEY := "fog"
 const FOG_SCHEMA := 1

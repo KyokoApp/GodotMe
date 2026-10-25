@@ -149,8 +149,20 @@ func _report_down() -> void:
 
 ## Walk the knight up to the guard and press Bicara for him. Everything here is
 ## the same path a thumb takes - it just has no thumb.
+## The guard's own marker, moved a step to the side: the scene under test is the
+## real region, so nothing here may assume a hand-placed coordinate.
+func _guard_spot() -> Vector2:
+	if _diorama != null and _diorama.has_method("region"):
+		var region: RefCounted = _diorama.call("region")
+		if region != null:
+			var m: Dictionary = region.call("marker", "Penjaga Bram")
+			if not m.is_empty():
+				return (region.call("marker_pos", m) as Vector2) + Vector2(-1.0, 0.4)
+	return Vector2(3.4, 5.8)
+
+
 func _open_dialogue() -> void:
-	_cast.call("teleport_player", Vector2(3.4, 5.8))
+	_cast.call("teleport_player", _guard_spot())
 	if _dialog_mode == "after":
 		# pretend three orcs are down and the first meeting already happened:
 		# this is the branch a returning player must see, proved by a capture

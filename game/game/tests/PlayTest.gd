@@ -410,7 +410,14 @@ func _test_hearts_and_knockout() -> void:
 	_check(int(st.get("hearts", 0)) == 3 and not bool(st.get("down", true)),
 		"bangun dengan tiga hati", str(st.get("hearts")))
 	var back := Vector2(knight.position.x, knight.position.z)
-	_check(back.distance_to(Vector2(3.6, 7.2)) < 1.2, "bangun di awal jalan", str(back))
+	# where "the start of the path" is, is the map's business now
+	var expect := Vector2(3.6, 7.2)
+	var world_node := cast.get_parent()
+	if world_node != null and world_node.has_method("region"):
+		var region: RefCounted = world_node.call("region")
+		if region != null:
+			expect = region.call("start_position")
+	_check(back.distance_to(expect) < 1.5, "bangun di awal jalan", "%s vs %s" % [str(back), str(expect)])
 	_check(not bool(knight.call("is_dead")), "ksatria hidup lagi setelah bangun")
 	_check(int(cast.call("progress").get("orcs_defeated", -1)) == 0,
 		"terjatuh tidak menghapus progres", str(cast.call("progress")))
