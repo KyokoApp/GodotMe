@@ -324,6 +324,7 @@ func _test_menu_fits() -> void:
 		menu.size = pair
 		menu.call("_layout")
 		await get_tree().process_frame
+		await get_tree().process_frame
 		var sheet: Control = menu.get("_sheet")
 		var rect := sheet.get_global_rect()
 		var inside: bool = rect.position.x >= -1.0 and rect.position.y >= -1.0 \
@@ -363,9 +364,11 @@ func _test_dialogue_clear_of_hud() -> void:
 	var vp := _main.get_viewport().get_visible_rect()
 	_check(drect.position.y > vp.size.y * 0.45 and drect.end.y <= vp.size.y + 1.0,
 		"dialog ringkas di bagian bawah layar", str(drect))
-	# first tap finishes the typewriter, second one closes the strip
-	dlg.call("advance")
-	await _wait_seconds(0.1)
-	dlg.call("advance")
-	await _wait_seconds(0.2)
+	# tap through the conversation: one tap finishes the typewriter, the next
+	# one turns the page, and the last one closes the strip
+	var guard := 0
+	while bool(dlg.get("is_open")) and guard < 14:
+		guard += 1
+		dlg.call("advance")
+		await _wait_seconds(0.12)
 	_check(not bool(dlg.get("is_open")), "dialog hilang total setelah selesai")

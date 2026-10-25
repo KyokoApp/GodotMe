@@ -134,6 +134,10 @@ func _build() -> void:
 		b.add_theme_font_size_override("font_size", 17)
 		b.add_theme_color_override("font_color", KIT.INK)
 		b.custom_minimum_size = Vector2(138.0, KIT.TOUCH_MIN)
+		# icon + label + side padding is what actually decides the width of a
+		# Button; custom_minimum_size is only a floor. _layout() trims these on a
+		# narrow screen (see the comment there).
+		b.add_theme_constant_override("h_separation", 6)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.toggle_mode = true
 		for state in ["normal", "hover", "pressed", "focus"]:
@@ -190,16 +194,37 @@ func _layout() -> void:
 	# shrink with it instead of pushing the parchment past the screen edge.
 	var inner := w - 76.0
 	if _tabs_row != null:
-		var each := clampf((inner - 6.0 * float(_tabs_row.get_child_count() - 1))
-			/ float(maxi(1, _tabs_row.get_child_count())), 88.0, 138.0)
+		var count := maxi(1, _tabs_row.get_child_count())
+		var each := clampf((inner - 6.0 * float(count - 1)) / float(count), 74.0, 138.0)
+		# On a 4:3 phone window (960x720) seven labeled tabs do not fit at the
+		# 1280x720 size: the label plus its icon is wider than the cell. Rather
+		# than clipping a tab (a tab you cannot read is a tab you cannot use), the
+		# icons step aside and the type shrinks one notch.
+		var roomy := each >= 124.0
 		for child in _tabs_row.get_children():
-			(child as Control).custom_minimum_size = Vector2(each, KIT.TOUCH_MIN)
+			var b := child as Button
+			if b == null:
+				continue
+			b.custom_minimum_size = Vector2(each, KIT.TOUCH_MIN)
+			b.icon = KIT.icon(_tab_icon_of(b)) if roomy else null
+			b.add_theme_font_size_override("font_size", 17 if roomy else 15)
+			b.add_theme_constant_override("h_separation", 6 if roomy else 0)
 	if _frame != null:
 		_frame.custom_minimum_size = Vector2(maxf(420.0, inner),
 			maxf(240.0, h - 210.0))
 	if _stack != null:
 		_stack.custom_minimum_size = Vector2(maxf(388.0, inner - 32.0),
 			maxf(208.0, h - 242.0))
+
+
+## A tab remembers which icon it was built with, so a narrow layout can drop it
+## and a wide one put it back without rebuilding the sheet.
+func _tab_icon_of(button: Button) -> String:
+	var id := String(button.name).trim_prefix("Tab_")
+	for entry in TABS:
+		if String(entry["id"]) == id:
+			return String(entry["icon"])
+	return "map"
 
 
 func _tab_style(active: bool) -> StyleBoxFlat:
