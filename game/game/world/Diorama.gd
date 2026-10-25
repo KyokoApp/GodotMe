@@ -124,7 +124,13 @@ func _build_environment() -> void:
 	env.ambient_light_energy = 0.70
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_exposure = 1.0
-	env.tonemap_white = 6.0
+	# White point 6.0 was chosen for the tiny lantern-lit glade of step 1, where
+	# everything sat in one pool of warm light. Against a 192 m region under an
+	# open sky it crushed a sunlit lawn to a brown smear: ACES maps an input of
+	# 1.0 to roughly 0.45 when white is 6, so half the world's brightness went
+	# away before it reached the screen. 1.5 keeps the highlight roll-off without
+	# eating the midtones.
+	env.tonemap_white = 1.5
 	# warm afternoon haze -> depth without a depth-of-field pass
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.68, 0.62)
@@ -288,9 +294,9 @@ func _build_map() -> void:
 	var decor: Dictionary = _region.get("decor")
 	for kind_name in ["pine", "oak"]:
 		for raw in (decor.get(kind_name, []) as Array):
-			_paint_marker_tiles(map, raw, 2, K_FOREST)
+			_paint_marker_tiles(map, raw, 1, K_FOREST)
 	for kind_name in ["cottage", "tower", "gate", "well", "dock"]:
-		var radius := 2 if kind_name in ["cottage", "tower", "gate", "dock"] else 1
+		var radius := 1
 		for raw in (decor.get(kind_name, []) as Array):
 			_paint_marker_tiles(map, raw, radius, K_BUILDING)
 

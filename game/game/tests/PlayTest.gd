@@ -182,6 +182,12 @@ func _test_props_stand_on_ground() -> void:
 	var outside := 0
 	for mi in mms:
 		var mm: MultiMesh = (mi as MultiMeshInstance3D).multimesh
+		if mm.instance_count > 0:
+			var t0: Transform3D = mm.get_instance_transform(0)
+			print("[PLAY] prop %s: %d inst, #0 pos=(%.2f,%.2f,%.2f) skala=(%.2f,%.2f)" % [
+				String((mi as Node).name), mm.instance_count,
+				t0.origin.x, t0.origin.y, t0.origin.z,
+				t0.basis.x.length(), t0.basis.y.length()])
 		for i in range(mm.instance_count):
 			var t: Transform3D = mm.get_instance_transform(i)
 			var height: float = t.basis.y.length()

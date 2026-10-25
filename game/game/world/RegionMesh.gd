@@ -176,6 +176,59 @@ static func quad(surf: Dictionary, p: Array, uv: Array, colour: Color,
 	idx.append(first + 1)
 
 
+## Same as `quad()`, but with one colour per corner. The ground uses this so the
+## grass can dissolve into the path across a tile edge instead of switching
+## texture on a dead-straight line.
+static func quad4(surf: Dictionary, p: Array, uv: Array, cols_in: Array,
+		shade: float, normal: Vector3) -> void:
+	var verts: PackedVector3Array = surf["verts"]
+	var norms: PackedVector3Array = surf["norms"]
+	var uvs: PackedVector2Array = surf["uvs"]
+	var uv2s: PackedVector2Array = surf["uv2s"]
+	var cols: PackedColorArray = surf["colors"]
+	var idx: PackedInt32Array = surf["indices"]
+	var first := verts.size()
+	for i in range(4):
+		verts.append(p[i])
+		norms.append(normal)
+		uvs.append(uv[i])
+		uv2s.append(Vector2(shade, 0.0))
+		cols.append(cols_in[i])
+	idx.append(first)
+	idx.append(first + 2)
+	idx.append(first + 1)
+	idx.append(first + 2)
+	idx.append(first + 3)
+	idx.append(first + 1)
+
+
+## Blend weights of the four tiles that share one corner of a tile. A path tile
+## meeting grass at a corner gives that corner a half-and-half colour, which the
+## interpolator then spreads across both tiles: the edge becomes a ragged 1 m
+## transition instead of a staircase of squares.
+static func _corner_weights(data: RefCounted, tx: int, tz: int) -> Array:
+	var out: Array = []
+	for i in range(4):
+		var dx := 0 if i % 2 == 0 else 1
+		var dz := 0 if i < 2 else 1
+		var total := Vector4.ZERO
+		var count := 0
+		for oz in range(-1, 1):
+			for ox in range(-1, 1):
+				var qx: int = tx + dx + ox
+				var qz: int = tz + dz + oz
+				if not bool(data.call("in_bounds", qx, qz)):
+					continue
+				var w: Vector4 = WEIGHTS.get(int(data.call("tile_terrain", qx, qz)),
+					Vector4.ZERO)
+				total += w
+				count += 1
+		if count > 0:
+			total /= float(count)
+		out.append(Color(total.x, total.y, total.z, total.w))
+	return out
+
+
 static func _normal(a: Vector3, b: Vector3, c: Vector3) -> Vector3:
 	# counter-clockwise seen from above: +Y for a flat tile
 	var n := (c - a).cross(b - a)
@@ -198,9 +251,8 @@ static func _add_top(data: RefCounted, tx: int, tz: int, base: Vector3, cell: fl
 		Vector2(p[0].x, p[0].z), Vector2(p[1].x, p[1].z),
 		Vector2(p[2].x, p[2].z), Vector2(p[3].x, p[3].z),
 	]
-	var w: Vector4 = WEIGHTS.get(ter, Vector4.ZERO)
-	quad(surf, p, uv, Color(w.x, w.y, w.z, w.w), float(SHADE.get(ter, 1.0)),
-		_normal(p[0], p[1], p[2]))
+	var cols := _corner_weights(data, tx, tz)
+	quad4(surf, p, uv, cols, float(SHADE.get(ter, 1.0)), _normal(p[0], p[1], p[2]))
 
 
 ## Bridge deck: wood, 12 cm above the road, plus rails where the neighbour is

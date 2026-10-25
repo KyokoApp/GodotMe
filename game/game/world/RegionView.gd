@@ -203,24 +203,32 @@ func _place_kind(kind: String, list: Variant) -> void:
 	if mat == null or mat.shader == null:
 		return
 	var size: Vector2 = _prop_size.get(kind, Vector2.ONE)
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-	mm.mesh = _quad
-	mm.instance_count = rows.size()
-	# the shader moves the quad towards the camera, so the AABB has to be the
-	# whole region or Godot culls the sprite that is behind the camera
-	mm.custom_aabb = AABB(Vector3(-8.0, -4.0, -8.0), Vector3(
-		float(data.get("width")) * float(data.get("cell")) + 16.0,
-		48.0,
-		float(data.get("height")) * float(data.get("cell")) + 16.0))
-	var n := 0
+	# Pass one: keep only the rows that are really there. Instance data is only
+	# handed to the GPU once instance_count is final, so no transform is ever
+	# written into a buffer that a later resize would throw away.
+	var good: Array = []
 	for raw in rows:
 		if typeof(raw) != TYPE_ARRAY:
 			continue
 		var row: Array = raw
 		if row.size() < 2:
 			continue
+		good.append(row)
+	if good.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = _quad
+	mm.instance_count = good.size()
+	# the shader moves the quad towards the camera, so the AABB has to be the
+	# whole region or Godot culls the sprite that is behind the camera
+	mm.custom_aabb = AABB(Vector3(-8.0, -4.0, -8.0), Vector3(
+		float(data.get("width")) * float(data.get("cell")) + 16.0,
+		48.0,
+		float(data.get("height")) * float(data.get("cell")) + 16.0))
+	for i in range(good.size()):
+		var row: Array = good[i]
 		# decor is stored in tenths of a metre, in world XZ
 		var x := float(row[0]) * 0.1
 		var z := float(row[1]) * 0.1
@@ -231,25 +239,16 @@ func _place_kind(kind: String, list: Variant) -> void:
 		var w := size.x * scale
 		var h := size.y * scale
 		var ground := float(data.call("height_at", Vector2(x, z)))
-		mm.set_instance_transform(n, Transform3D(
+		mm.set_instance_transform(i, Transform3D(
 			Basis().scaled(Vector3(w, h, 1.0)),
 			Vector3(x, ground + h * 0.5, z)))
 		# r = fade, g = mirror, b = shade. The shade breaks up a row of identical
 		# sprites without a second texture; it is a hash of the position, so it is
-		# stable across frames and across chunk builds.
+		# stable across frames.
 		var shade := 0.9 + 0.1 * fposmod(sin(x * 12.9898 + z * 78.233) * 43758.5453, 1.0)
-		mm.set_instance_color(n, Color(1.0, mirror, shade, 1.0))
+		mm.set_instance_color(i, Color(1.0, mirror, shade, 1.0))
 		if h > 1.3:
-			_tall.append([kind, n, x, z, h])
-		n += 1
-	if n != rows.size():
-		# a skipped row would leave an identity transform behind - a sprite at the
-		# origin of the world, standing at whatever height the corner tile has
-		push_warning("[REGION] %s: %d dari %d prop dilewati" % [
-			kind, rows.size() - n, rows.size()])
-	if n <= 0:
-		return
-	mm.instance_count = n
+			_tall.append([kind, i, x, z, h])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.name = "Props_%s" % kind
 	mmi.multimesh = mm
@@ -259,7 +258,7 @@ func _place_kind(kind: String, list: Variant) -> void:
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
 	_prop_mms[kind] = mmi
-	_stats["props"] = int(_stats.get("props", 0)) + n
+	_stats["props"] = int(_stats.get("props", 0)) + mm.instance_count
 
 
 # ---------------------------------------------------------------- streaming ---

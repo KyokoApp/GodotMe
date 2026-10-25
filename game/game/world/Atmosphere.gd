@@ -26,7 +26,7 @@ const TEX_DIR := "res://game/world/textures/atmosphere/"
 ## in the light, dusk is when leaves move, night belongs to the fireflies.
 const MIX := {
 	"pagi": {"dust": 0.55, "petals": 0.0, "fireflies": 0.0, "fog": 1.0},
-	"siang": {"dust": 0.90, "petals": 0.25, "fireflies": 0.0, "fog": 0.15},
+	"siang": {"dust": 0.90, "petals": 0.25, "fireflies": 0.0, "fog": 0.06},
 	"sore": {"dust": 0.50, "petals": 1.0, "fireflies": 0.15, "fog": 0.50},
 	"malam": {"dust": 0.0, "petals": 0.10, "fireflies": 1.0, "fog": 0.70},
 }
@@ -48,8 +48,11 @@ func setup() -> void:
 	_build("fireflies", "firefly.png", 34, 6.5, 0.95,
 		Vector2(0.22, 0.22), Color(1.0, 0.92, 0.62), true,
 		Vector3(0.0, 0.0, 0.0), Vector2(0.05, 0.22))
+	# 4.2 x 2.4 m, not 7 x 4: at that size ten overlapping puffs read as one
+	# bright ellipse parked on the camera, which is exactly what a fog system must
+	# never look like
 	_build("fog", "fog_puff.png", 10, 16.0, 0.45,
-		Vector2(7.0, 4.0), Color(0.93, 0.90, 0.86, 0.55), false,
+		Vector2(4.2, 2.4), Color(0.93, 0.90, 0.86, 0.42), false,
 		Vector3(0.05, 0.0, 0.0), Vector2(0.06, 0.18))
 	set_phase(_phase)
 	print("[WORLD] atmosfer siap: %d sistem, tekstur %d" % [
