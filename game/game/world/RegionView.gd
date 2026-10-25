@@ -243,7 +243,9 @@ func _place_kind(kind: String, list: Variant) -> void:
 		mm.set_instance_transform(i, Transform3D(
 			Basis().scaled(Vector3(w, h, 1.0)),
 			Vector3(x, ground + h * 0.5, z)))
-		_layout.append([kind, x, z, w, h, ground])
+		# the transform actually given to the MultiMesh, so the rules test can
+		# compare the sprite's feet with the ground instead of trusting a comment
+		_layout.append([kind, x, z, w, h, ground + h * 0.5])
 		# r = fade, g = mirror, b = shade. The shade breaks up a row of identical
 		# sprites without a second texture; it is a hash of the position, so it is
 		# stable across frames.
@@ -483,7 +485,8 @@ func chunk_nodes() -> Dictionary:
 	return _chunks
 
 
-## Every prop's placement as the mesher computed it: [kind, x, z, w, h, ground].
+## Every prop's placement as the mesher computed it: [kind, x, z, w, h, y] where
+## y is the centre of the instance, exactly what was handed to the MultiMesh.
 ## The rules test walks THIS instead of reading instance transforms back out of
 ## the MultiMesh, because a headless run has no render device and a read-back
 ## from the GPU buffer returns zeros there while the drawn world is correct.

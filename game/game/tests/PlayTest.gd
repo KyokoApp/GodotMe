@@ -191,9 +191,10 @@ func _test_props_stand_on_ground() -> void:
 		var x := float(row[1])
 		var z := float(row[2])
 		var h := float(row[4])
-		var ground := float(row[5])
+		var centre_y := float(row[5])
 		# the sprite is centred on its middle, so its feet are at y - h/2
-		var feet: float = ground + h * 0.5 - h * 0.5
+		var feet: float = centre_y - h * 0.5
+		var ground: float = float(region.call("height_at", Vector2(x, z)))
 		var diff: float = feet - ground
 		if absf(diff) > absf(worst):
 			worst = diff
