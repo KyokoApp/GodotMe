@@ -71,6 +71,10 @@ func _ready() -> void:
 	_build_banner()
 	_build_phase()
 	_build_fullmap()
+	# The window can change under us (rotation, 16:9 vs 20:9 vs 4:3 windows, the
+	# phone's own resize): every corner has to be re-anchored, not just once at
+	# boot, or the minimap ends up half off screen on a wider screen.
+	resized.connect(func() -> void: apply_safe_area(_insets))
 
 
 # ------------------------------------------------------------------- layout ---

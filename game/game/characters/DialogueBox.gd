@@ -320,11 +320,11 @@ func _on_root_input(event: InputEvent) -> void:
 		return
 	if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
 		_on_advance()
-		accept_event()
+		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
 			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		_on_advance()
-		accept_event()
+		get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:

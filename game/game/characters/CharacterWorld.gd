@@ -457,8 +457,9 @@ func _process(delta: float) -> void:
 	if world_dir.length() > 0.05:
 		_heading = world_dir.normalized()
 	_player.call("drive", world_dir, dir.length() > 0.55, delta)
-	if _player.has_method("set_block") and _controls != null:
-		_player.call("set_block", bool(_controls.get("block_held")) and not locked)
+	# No shield in the field any more (step 1 removed the Tahan button with the
+	# rest of the real-time combat), so the knight is never put into block here.
+	# Actor.set_block stays for the battle step.
 
 
 ## Screen stick -> ground direction, using the camera rig's own yaw so "up"
