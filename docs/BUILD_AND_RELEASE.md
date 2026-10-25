@@ -611,3 +611,31 @@ Bug yang tertangkap fase ini: tween menu dibuat saat `get_tree().paused = true`,
 sehingga tidak pernah berjalan — lembar jeda `visible` tetapi alpha 0, jadi
 menekan Jeda hanya membekukan dunia. Sekarang semua tween menu memakai
 `TWEEN_PAUSE_PROCESS`, dan UiTest memeriksa `modulate.a`, bukan hanya `visible`.
+
+### 0.6.0 — optimasi Android
+
+| Paket | 0.5.0 | 0.6.0 | Catatan |
+| --- | --- | --- | --- |
+| `core_100.pck` | 36.832 B | **41.408 B** | `Main.gd`: batas FPS, skala 3D, penghitung FPS, log `[PERF]` |
+| `ui_100.pck` | 39.196 B | **38.756 B** | tujuh ikon diganti satu atlas 182×26 + JSON |
+| `characters_100.pck` | 187.112 B | **186.304 B** | `arrow_*.png` dikeluarkan (belum dipakai) |
+| `world_100.pck` | 465.172 B | 465.172 B | tidak berubah |
+| `version.json` | 4.572 B | 5.027 B | `version: 0.6.0` |
+
+Total enam paket **732.604 B (≈715 KB)**, APK tetap 29.428.024 B.
+
+Isi: atlas ikon, preset grafis yang juga mengatur `Engine.max_fps` (30/60) dan
+`Viewport.scaling_3d_scale` (0,78 / 0,92 / 1,0), toggle **Tampilkan FPS**, log
+`[PERF]` tiap 5 detik untuk pengukuran di HP, dan `tools/pack_audit.py` sebagai
+gerbang CI yang menolak aset terpaket tapi tidak pernah dimuat.
+
+Uji: `UiTest` **39 pemeriksaan, 0 gagal** (termasuk atlas, batas FPS, skala 3D,
+penghitung FPS). Verifikasi rilis: `release-demo` **40160338949**, `ci`
+**40159999508**.
+
+**Belum dikerjakan:** kompresi tekstur ETC2/ASTC. Paket kita berisi PNG mentah
+tanpa `.import` dan game memuatnya sebagai byte; mengompres berarti membangun
+`.ctex` di CI (mengubah cara pack dibuat) atau `Image.compress()` saat memuat
+(menambah waktu muat, berisiko mengaburkan pixel art beralpha). Keduanya perlu
+diukur di HP dulu, jadi keputusannya diserahkan ke pemilik — lihat
+`DESIGN_NOTES.md` §18.5.
