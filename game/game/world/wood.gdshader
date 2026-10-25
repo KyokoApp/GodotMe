@@ -13,11 +13,12 @@ uniform sampler2D atlas : filter_nearest, repeat_enable;
 uniform vec2 cell_wood = vec2(0.5, 0.5);
 uniform float tile_scale = 1.0;
 uniform vec3 light_tint : source_color = vec3(1.0, 1.0, 1.0);
+uniform float ground_gain : hint_range(0.5, 4.0) = 1.35;
 
 void fragment() {
 	vec2 local = fract(UV / tile_scale);
 	vec3 plank = texture(atlas, cell_wood + vec2(local.x, local.y) * vec2(0.25, 0.5)).rgb;
-	ALBEDO = plank * COLOR.rgb * COLOR.a * light_tint;
+	ALBEDO = plank * COLOR.rgb * COLOR.a * ground_gain * light_tint;
 	ROUGHNESS = 0.9;
 	SPECULAR = 0.0;
 }

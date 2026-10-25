@@ -23,6 +23,8 @@ uniform float tile_scale = 2.0;
 uniform vec2 player_xz = vec2(-9999.0, -9999.0);
 uniform float window_radius = 2.6;
 uniform vec3 light_tint : source_color = vec3(1.0, 1.0, 1.0);
+// see terrain.gdshader: rock is mid-tone, so it needs less lifting than grass
+uniform float ground_gain : hint_range(0.5, 4.0) = 1.45;
 
 varying vec3 world_pos;
 
@@ -46,7 +48,7 @@ void fragment() {
 			discard;
 		}
 	}
-	ALBEDO = rock * COLOR.a * light_tint;
+	ALBEDO = rock * COLOR.a * ground_gain * light_tint;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
 }

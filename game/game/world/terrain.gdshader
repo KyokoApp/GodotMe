@@ -27,6 +27,11 @@ uniform vec2 cell_cliff = vec2(0.75, 0.0);
 uniform vec2 cell_snow = vec2(0.0, 0.5);
 uniform vec3 snow_tint : source_color = vec3(0.93, 0.95, 0.97);
 uniform vec3 light_tint : source_color = vec3(1.0, 1.0, 1.0);
+// The ground tiles were painted for a scene whose light was tuned by eye against
+// them; in linear space, under this sun, the meadow's own sRGB value comes back
+// unchanged and reads as a dark olive field. This lifts the GROUND only - the
+// props are separate unshaded sprites and keep their approved brightness.
+uniform float ground_gain : hint_range(0.5, 4.0) = 2.2;
 
 vec3 sample_cell(vec2 origin, vec2 uv) {
 	// v grows downwards in the atlas, uv grows upwards in the world
@@ -52,7 +57,7 @@ void fragment() {
 	// A terraced region is mostly in its own shadow at every sun angle, so the
 	// ground gets a small standing bounce of its own instead of going black in
 	// the lee of every wall.
-	c *= UV2.x;
+	c *= UV2.x * ground_gain;
 	ALBEDO = c * light_tint;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;

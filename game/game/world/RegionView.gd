@@ -59,7 +59,6 @@ var _prop_mms: Dictionary = {}      # kind -> MultiMeshInstance3D
 var _tall: Array = []               # [kind, index, x, z, height] of occluders
 var _layout: Array = []             # [kind, x, z, w, h, ground] every placed prop
 var _tex_cache: Dictionary = {}     # path -> ImageTexture
-var _diag_left := 6
 var _faded: Dictionary = {}         # "kind/index" -> 0.0 while dissolved
 var _quad: ArrayMesh
 var _chunks: Dictionary = {}        # Vector2i -> Node3D
@@ -110,10 +109,6 @@ func _build_materials() -> void:
 		"cell_wood": Vector2(0.5, 0.5),
 		"tile_scale": 1.0,
 	})
-	print("[REGION] DIAG atlas %s tex=%s ukuran=%s terr=%s cliff=%s" % [
-		ATLAS, atlas != null, str(atlas.get_size()) if atlas != null else "-",
-		(_terrain_mat.shader.resource_path if _terrain_mat.shader != null else "NUL"),
-		(_cliff_mat.shader.resource_path if _cliff_mat.shader != null else "NUL")])
 	_water_mat = _shader_material(WATER_SHADER, {
 		"water_tex": _tex(WATER_TEX),
 		"shallow_tint": Color(0.62, 0.80, 0.78),
@@ -458,14 +453,6 @@ func _upload(cc: Vector2i, arrays: Dictionary) -> void:
 		arr[Mesh.ARRAY_TEX_UV2] = surf.get("uv2s", PackedVector2Array())
 		arr[Mesh.ARRAY_COLOR] = surf.get("colors", PackedColorArray())
 		arr[Mesh.ARRAY_INDEX] = surf.get("indices", PackedInt32Array())
-		if _diag_left > 0:
-			_diag_left -= 1
-			var cols: PackedColorArray = surf.get("colors", PackedColorArray())
-			print("[REGION] DIAG chunk %s surface %s verts=%d warna0=%s mat=%s" % [
-				str(cc), SURFACES[i], verts.size(),
-				str(cols[0]) if cols.size() > 0 else "-",
-				(mats[i] as ShaderMaterial).shader.resource_path if mats[i] != null
-					and (mats[i] as ShaderMaterial).shader != null else "NUL"])
 		var surface := mesh.get_surface_count()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 		mesh.surface_set_material(surface, mats[i])
