@@ -184,10 +184,6 @@ func _layout() -> void:
 		size = vp
 	var w := minf(SHEET.x, vp.x - 48.0)
 	var h := minf(SHEET.y, vp.y - 56.0)
-	_sheet.offset_left = -w * 0.5
-	_sheet.offset_right = w * 0.5
-	_sheet.offset_top = -h * 0.5
-	_sheet.offset_bottom = h * 0.5
 	_sheet.custom_minimum_size = Vector2.ZERO
 	# The seven tabs and the content well were designed on 1280x720. On a 4:3
 	# window (960x720) they would be wider than the sheet, so their minimums
@@ -215,6 +211,18 @@ func _layout() -> void:
 	if _stack != null:
 		_stack.custom_minimum_size = Vector2(maxf(388.0, inner - 32.0),
 			maxf(208.0, h - 242.0))
+	# Size last, from what the content actually needs. Godot clamps a Control up
+	# to its minimum but never back down: setting the sheet to 912 px while the
+	# tabs still demanded 1052 left it stuck at the old width even after the tabs
+	# shrank (that is exactly what the 4:3 capture showed).
+	var need := _sheet.get_combined_minimum_size()
+	var fw := maxf(w, need.x)
+	var fh := maxf(h, need.y)
+	_sheet.offset_left = -fw * 0.5
+	_sheet.offset_right = fw * 0.5
+	_sheet.offset_top = -fh * 0.5
+	_sheet.offset_bottom = fh * 0.5
+	_sheet.size = Vector2(fw, fh)
 
 
 ## A tab remembers which icon it was built with, so a narrow layout can drop it
