@@ -1080,4 +1080,6 @@ jari menyentuh layar, jadi tangkapan layar HUD kosong selalu tampak "tanpa
 stik". Harness tangkapan memanggil `TouchControls.preview_stick(true)`, yang
 menggambar pangkalan + kenop pada posisi dorong **tanpa** menggerakkan ksatria
 (tidak menyentuh `stick_vector`). Hanya dipakai CI; permainan tidak pernah
-memanggilnya.
+memanggilnya. Sekalian opasitas stik dinaikkan tipis (cincin 0,22 → 0,30; kenop
+0,36 → 0,50) karena di tangkapan layar pertama cincinnya nyaris hilang di atas
+rumput terang — ibu jari harus bisa menemukannya tanpa melihat ke bawah.

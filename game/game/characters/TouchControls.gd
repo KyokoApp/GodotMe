@@ -186,7 +186,7 @@ func preview_stick(shown: bool, push: Vector2 = Vector2(56.0, -28.0)) -> void:
 		_reset()
 		return
 	var vp := get_viewport().get_visible_rect().size
-	_place_stick(Vector2(vp.x * 0.22, vp.y - 150.0))
+	_place_stick(Vector2(vp.x * 0.20, vp.y * 0.60))
 	_knob.position = Vector2(STICK_SIZE, STICK_SIZE) * 0.5 - _knob.size * 0.5 + push
 	_base.visible = true
 	_knob.visible = true
@@ -217,8 +217,8 @@ func _reset() -> void:
 
 func _stick_style() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.10, 0.08, 0.06, 0.22)
-	sb.border_color = Color(BRASS.r, BRASS.g, BRASS.b, 0.45)
+	sb.bg_color = Color(0.10, 0.08, 0.06, 0.30)
+	sb.border_color = Color(BRASS.r, BRASS.g, BRASS.b, 0.60)
 	sb.set_border_width_all(3)
 	sb.set_corner_radius_all(98)
 	return sb
@@ -226,8 +226,8 @@ func _stick_style() -> StyleBoxFlat:
 
 func _knob_style() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(BRASS.r, BRASS.g, BRASS.b, 0.36)
-	sb.border_color = Color(0.98, 0.94, 0.86, 0.45)
+	sb.bg_color = Color(BRASS.r, BRASS.g, BRASS.b, 0.50)
+	sb.border_color = Color(0.98, 0.94, 0.86, 0.65)
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(40)
 	return sb
