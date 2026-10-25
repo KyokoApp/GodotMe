@@ -43,6 +43,10 @@ var view_radius := 1
 ## Chunks are built one ring further out than they are shown, so the next chunk
 ## is ready before the player walks into it.
 var prefetch := true
+## Bake chunks on WorkerThreadPool tasks. The rules test turns this off so the
+## measurement is the worst case (one thread) and so the process can quit without
+## a baker task alive underneath it.
+var threaded := true
 
 var _terrain_mat: ShaderMaterial
 var _cliff_mat: ShaderMaterial
@@ -321,6 +325,9 @@ func _process(_delta: float) -> void:
 
 
 func _spawn_task(cc: Vector2i) -> void:
+	if not threaded:
+		_build_now(cc)
+		return
 	if not ResourceLoader.exists(MESH_SCRIPT):
 		_build_now(cc)
 		return

@@ -378,6 +378,9 @@ func _test_props() -> void:
 func _test_streaming() -> void:
 	var view: Node3D = VIEW_SCRIPT.new() as Node3D
 	view.name = "StreamProbe"
+	# one thread, on purpose: the number this check prints is the worst case, and
+	# the process can quit without a baker task still holding the byte grids
+	view.set("threaded", false)
 	add_child(view)
 	view.call("setup", _region, 1)
 	var spots: Array = []
