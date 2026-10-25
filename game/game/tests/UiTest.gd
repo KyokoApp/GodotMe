@@ -210,6 +210,19 @@ func _test_menu() -> void:
 	var permanent: Array = [hud.call("minimap"), hud.call("menu_button")]
 	_check(permanent[0] != null and permanent[1] != null,
 		"HUD hanya punya minimap dan satu tombol menu")
+	# In the valley of step 1 the spawn point was empty, so "no button at boot"
+	# was true for free. In Yaros the region's start marker sits a few metres from
+	# the fast-travel post, and standing next to a post IS something to act on -
+	# so the rule is checked from open meadow instead of from the doorstep.
+	var cast: Node = _main.get("_cast")
+	var diorama: Node = _main.get("_diorama")
+	if cast != null and diorama != null and diorama.has_method("region"):
+		var region: RefCounted = diorama.call("region")
+		var start: Vector2 = region.call("start_position")
+		cast.call("teleport_player", start + Vector2(-11.0, -9.0))
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_main.call("_refresh_field")
 	_check(not bool(hud.call("action_visible")), "tombol aksi tidak menetap di layar")
 	_check(hud.call("fps_label") == null, "tidak ada teks FPS tanpa mode debug")
 	_check(int(menu.call("current_page")) >= 0, "menu punya halaman awal")
@@ -309,14 +322,14 @@ func _test_menu() -> void:
 	hud.call("open_map")
 	await get_tree().process_frame
 	var full: Control = hud.call("full_map")
-	var opened := full != null and bool(full.call("full_map_open"))
+	var opened := full != null and bool(full.get("is_open"))
 	_check(opened, "peta penuh bisa dibuka")
 	if full != null:
 		_check(String(full.get("_title").text) == "Lembah Senja",
 			"peta penuh memakai nama area", String(full.get("_title").text))
 		full.call("close_panel")
 		await get_tree().process_frame
-		_check(not bool(full.call("full_map_open")), "peta penuh bisa ditutup")
+		_check(not bool(full.get("is_open")), "peta penuh bisa ditutup")
 
 	_main.queue_free()
 	await get_tree().process_frame
