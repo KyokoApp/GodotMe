@@ -730,6 +730,14 @@ func set_virtual_stick(v: Vector2) -> void:
 		_controls.set("stick_vector", v.limit_length(1.0))
 
 
+## Hold the shield without a thumb. The world re-applies `block_held` to the
+## knight every frame, so a test that called `set_block(true)` directly would be
+## overwritten on the next frame - this goes through the same door a finger does.
+func set_virtual_block(on: bool) -> void:
+	if _controls != null:
+		_controls.set("block_held", on)
+
+
 func player() -> Node3D:
 	return _player
 

@@ -389,8 +389,8 @@ func _test_hearts_and_knockout() -> void:
 
 	# shield up: the blow is free
 	await _wait(1.0)
-	knight.call("set_block", true)
-	await _wait(0.1)
+	cast.call("set_virtual_block", true)
+	await _wait(0.2)
 	knight.call("take_hit")
 	await _wait(0.1)
 	st = cast.call("hud_state")
@@ -398,7 +398,7 @@ func _test_hearts_and_knockout() -> void:
 		str(st.get("hearts")))
 	_check(String(knight.get("state")) == "block", "ksatria tidak keluar dari tahanan perisai",
 		String(knight.get("state")))
-	knight.call("set_block", false)
+	cast.call("set_virtual_block", false)
 
 	# down to zero: fall, then wake up at the start of the path
 	await _wait(1.0)
