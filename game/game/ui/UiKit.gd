@@ -28,7 +28,7 @@ const DANGER := Color(0.55, 0.16, 0.12)
 ## missing PNG is a readable error instead of a blank button.
 const ICONS := [
 	"heart_full", "heart_empty", "sun", "moon", "gear", "save", "arrow_left",
-	"talk", "door", "inspect", "take", "map", "close",
+	"talk", "door", "inspect", "take", "map", "close", "book",
 ]
 
 ## Touch floors, in DESIGN pixels of the 1280x720 canvas.

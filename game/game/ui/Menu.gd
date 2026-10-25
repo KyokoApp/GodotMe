@@ -20,7 +20,7 @@ const KIT := preload("res://game/ui/UiKit.gd")
 
 const TABS := [
 	{"id": "lanjut", "label": "Lanjut", "icon": "arrow_left"},
-	{"id": "jurnal", "label": "Jurnal", "icon": "map"},
+	{"id": "jurnal", "label": "Jurnal", "icon": "book"},
 	{"id": "peta", "label": "Peta", "icon": "map"},
 	{"id": "inventori", "label": "Inventori", "icon": "take"},
 	{"id": "pengaturan", "label": "Pengaturan", "icon": "gear"},

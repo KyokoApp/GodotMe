@@ -173,6 +173,21 @@ ICONS = {
         "............",
         "............",
     ],
+    # A closed book with a brass clasp: the journal / quest log.
+    "book": [
+        "............",
+        "..oooooooo..",
+        ".oBBBBBBBBo.",
+        ".oBbBBBBbBo.",
+        ".oBbBBBBbGo.",
+        ".oBbBBBBbGo.",
+        ".oBbBBBBbBo.",
+        ".oBbBBBBbBo.",
+        ".oBbBBBBbBo.",
+        "..oooooooo..",
+        "............",
+        "............",
+    ],
     # A brass cross: close the panel.
     "close": [
         "............",

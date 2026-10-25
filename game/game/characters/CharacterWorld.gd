@@ -492,9 +492,11 @@ func _to_world(dir: Vector2) -> Vector2:
 func _update_interaction() -> void:
 	if _down or _player == null or not is_instance_valid(_player):
 		_interaction = {}
+		_hide_name_plate()
 		return
 	if _dialogue != null and bool(_dialogue.get("is_open")):
 		_interaction = {}
+		_hide_name_plate()
 		return
 	var here := Vector2(_player.position.x, _player.position.z)
 
@@ -503,9 +505,11 @@ func _update_interaction() -> void:
 		if bool(_npc.call("can_talk_to", _player)):
 			_interaction = {"kind": "talk", "label": "Bicara",
 				"pos": Vector2(_npc.position.x, _npc.position.z)}
+			_show_name_plate()
 			return
 
 	# 2. a door, or anything the map marks as worth taking, inside its radius
+	_hide_name_plate()
 	var map := _world_map()
 	if map != null:
 		var best: Dictionary = {}
@@ -558,6 +562,30 @@ func act() -> void:
 				_show_toast("Orc patroli. Pertarungan belum ada di versi ini.")
 		_:
 			pass
+
+
+## Who the knight is standing next to, by name, once: his name plate doubles as
+## the "you can talk to him" hint, so the HUD does not need a second element.
+func _show_name_plate() -> void:
+	if _dialogue == null or _npc == null or not is_instance_valid(_npc):
+		return
+	if not _dialogue.has_method("set_line"):
+		return
+	var defeated := 0
+	if _save != null:
+		defeated = int(_save.call("get_counter", "orcs_defeated"))
+	var greeting := "Orc masih berkeliaran di tepi hutan. Hati-hati di tikungan."
+	if defeated >= ORCS_TOTAL:
+		greeting = "Jalur sudah bersih. Terima kasih, pengembara."
+	var name_text := String(_defs["soldier"].get("display_name")) \
+		if _defs.has("soldier") else "Penjaga"
+	_dialogue.call("set_line", name_text, greeting, _portrait_for("soldier"))
+
+
+func _hide_name_plate() -> void:
+	if _dialogue != null and _dialogue.has_method("set_line") \
+			and bool(_dialogue.get("_line_only")):
+		_dialogue.call("set_line", "", "")
 
 
 func _world_map() -> RefCounted:

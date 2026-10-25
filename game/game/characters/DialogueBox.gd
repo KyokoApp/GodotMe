@@ -45,6 +45,9 @@ var _font_body: Font
 var _font_title: Font
 var _open_speaker := "?"
 var _blink := 0.0
+## True while the strip is a name plate ("who is this, and can I talk to him")
+## rather than a conversation. See set_line().
+var _line_only := false
 
 
 func _ready() -> void:
@@ -151,7 +154,40 @@ func set_portrait(tex: Texture2D) -> void:
 	_portrait_frame.visible = tex != null
 
 
+## A name plate, not a conversation: the speaker's name, one short greeting and
+## his portrait, shown while the knight stands within talking range with nobody
+## talking yet. Why it exists: without it the guard's own sprite stands exactly
+## where a floating hint would sit, and drawing his name over his head was the
+## only thing that made the field HUD look busy. It is also the honest place for
+## it - it disappears the moment he is out of reach or a conversation starts.
+func set_line(speaker: String, text: String, portrait: Texture2D = null) -> void:
+	if is_open:
+		return
+	if text == "":
+		_line_only = false
+		_advance.text = ""
+		visible = false
+		return
+	_line_only = true
+	visible = true
+	_typing = false
+	_choices.visible = false
+	_clear_choices()
+	_name_label.text = speaker
+	_text.text = text
+	_text.visible_ratio = 1.0
+	_advance.text = ""
+	set_portrait(portrait)
+	_fit_panel()
+	_fit_panel_later()
+
+
+func is_line_only() -> bool:
+	return _line_only
+
+
 func open(speaker: String, pages: Array, options: Array = [], portrait: Texture2D = null) -> void:
+	_line_only = false
 	_pages = pages.duplicate()
 	_options = options.duplicate()
 	_index = 0
@@ -309,6 +345,7 @@ func _close() -> void:
 	if not is_open:
 		return
 	is_open = false
+	_line_only = false
 	visible = false
 	closed.emit()
 
@@ -316,7 +353,7 @@ func _close() -> void:
 ## Anywhere on the screen advances - except a tap on an answer row, which the
 ## button eats before it gets here.
 func _on_root_input(event: InputEvent) -> void:
-	if not is_open:
+	if not is_open or _line_only:
 		return
 	if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
 		_on_advance()
