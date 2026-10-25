@@ -34,3 +34,5 @@
 # re-run 22:40 perbaikan boot: skrip game tanpa class_name; paket 0.2.1
 # re-run 23:12 perbaikan stun + prop melayang; paket 0.2.2
 # re-run 23:40 billboard sumbu Y, kamera follow, stik dinamis; paket 0.3.0
+
+0.3.1

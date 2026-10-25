@@ -20,7 +20,7 @@ on:
         required: true
       pack_version:
         description: "Version written into version.json"
-        default: "0.3.0"
+        default: "0.3.1"
         required: true
   push:
     branches: ["arena/**"]
@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.3.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.3.1' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,6 +70,10 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
+              "Cerita penjaga kini berganti sesuai progres: pertemuan pertama, kunjungan ulang, lalu kisah setelah ketiga orc dibersihkan.",
+              "Progres permainan tersimpan: orc yang sudah dikalahkan tidak muncul lagi dan ksatria bangun di tempat ia berhenti.",
+              "Save berversi dengan cadangan otomatis: tulisan atomik, pulih dari .bak bila berkas rusak, dan save dari versi lebih baru tidak pernah ditimpa.",
+              "Cerita kini data (bram.json), bukan kode: menambah karakter baru tidak perlu menyentuh skrip. Paket yang berubah: characters.pck saja.",
               "Perbaikan: karakter dan prop tidak lagi melayang (kuad tidak ikut miring bersama kamera).",
               "Kamera kini mengikuti ksatria; geser pandangan dengan dua jari.",
               "Stik jalan muncul di mana pun ibu jari mendarat di layar kiri.",
