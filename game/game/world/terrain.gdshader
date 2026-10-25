@@ -45,8 +45,11 @@ void fragment() {
 	c = mix(c, rock, COLOR.g);
 	c = mix(c, sand, COLOR.b);
 	c = mix(c, snow * snow_tint, COLOR.a);
+	// A terraced region is mostly in its own shadow at every sun angle, so the
+	// ground gets a small standing bounce of its own instead of going black in
+	// the lee of every wall.
 	c *= UV2.x;
-	ALBEDO = c * light_tint;
+	ALBEDO = c * light_tint * vec3(1.16, 1.18, 1.08);
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
 }

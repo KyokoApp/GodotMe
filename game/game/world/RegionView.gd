@@ -242,6 +242,11 @@ func _place_kind(kind: String, list: Variant) -> void:
 		if h > 1.3:
 			_tall.append([kind, n, x, z, h])
 		n += 1
+	if n != rows.size():
+		# a skipped row would leave an identity transform behind - a sprite at the
+		# origin of the world, standing at whatever height the corner tile has
+		push_warning("[REGION] %s: %d dari %d prop dilewati" % [
+			kind, rows.size() - n, rows.size()])
 	if n <= 0:
 		return
 	mm.instance_count = n
@@ -418,7 +423,10 @@ func _upload(cc: Vector2i, arrays: Dictionary) -> void:
 		var mi := MeshInstance3D.new()
 		mi.name = "Ground"
 		mi.mesh = mesh
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		# the ground never casts: props are unshaded billboards that cast nothing,
+		# so the only caster left is the knight, and letting a 192 m flat sheet
+		# cast onto itself is the classic recipe for shadow acne on every tile
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		node.add_child(mi)
 
 	add_child(node)

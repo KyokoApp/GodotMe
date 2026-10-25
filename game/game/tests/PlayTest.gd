@@ -177,6 +177,7 @@ func _test_props_stand_on_ground() -> void:
 	var region: RefCounted = world.call("region")
 	var worst := 0.0
 	var worst_kind := ""
+	var worst_where := ""
 	var count := 0
 	var outside := 0
 	for mi in mms:
@@ -191,6 +192,8 @@ func _test_props_stand_on_ground() -> void:
 			if absf(diff) > absf(worst):
 				worst = diff
 				worst_kind = String((mi as Node).name)
+				worst_where = "i=%d at=(%.1f,%.1f) y=%.2f h=%.2f" % [
+					i, t.origin.x, t.origin.z, t.origin.y, height]
 			count += 1
 			var b: Rect2 = region.call("bounds")
 			if not b.has_point(Vector2(t.origin.x, t.origin.z)):
@@ -199,7 +202,7 @@ func _test_props_stand_on_ground() -> void:
 	_check(outside == 0, "setiap prop berdiri di dalam peta", str(outside))
 	# 2 cm is a fifth of one source pixel at the world pixel size: invisible.
 	_check(absf(worst) <= 0.02, "semua prop menapak di tanah",
-		"%s melayang %.3f m" % [worst_kind, worst])
+		"%s melayang %.3f m (%s)" % [worst_kind, worst, worst_where])
 	world.queue_free()
 
 

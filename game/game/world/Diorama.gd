@@ -120,8 +120,8 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.42, 0.35, 0.30)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.50, 0.56, 0.72)
-	env.ambient_light_energy = 0.48
+	env.ambient_light_color = Color(0.56, 0.60, 0.72)
+	env.ambient_light_energy = 0.70
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_exposure = 1.0
 	env.tonemap_white = 6.0
@@ -157,9 +157,9 @@ func _build_environment() -> void:
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	# 60 m of shadow map covers the visible chunks; further out the fog does the
 	# hiding and a bigger map would only cost resolution on the phone
-	_sun.directional_shadow_max_distance = 60.0
-	_sun.shadow_bias = 0.04
-	_sun.shadow_normal_bias = 1.2
+	_sun.directional_shadow_max_distance = 42.0
+	_sun.shadow_bias = 0.06
+	_sun.shadow_normal_bias = 0.8
 	_sun.shadow_blur = 1.4
 	add_child(_sun)
 
