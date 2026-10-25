@@ -53,9 +53,7 @@ void fragment() {
 	// ground gets a small standing bounce of its own instead of going black in
 	// the lee of every wall.
 	c *= UV2.x;
-	// DIAGNOSTIC BUILD (temporary): show the raw grass cell only, so one capture
-	// tells us whether the atlas/cell maths or the vertex weights are wrong.
-	ALBEDO = grass * light_tint;
+	ALBEDO = c * light_tint;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
 }
