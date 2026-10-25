@@ -108,7 +108,8 @@ func _test_config() -> void:
 			"terukur %.2f" % below)
 
 	# No setting anywhere may offer a zoom. The player cannot change the lens.
-	var consts: Dictionary = SETTINGS_SCRIPT.get_script_constant_map()
+	var settings_script: Script = SETTINGS_SCRIPT
+	var consts: Dictionary = settings_script.get_script_constant_map()
 	var defaults: Dictionary = consts.get("DEFAULTS", {})
 	var zoom_key := false
 	for key in defaults.keys():
@@ -354,6 +355,12 @@ func _test_follow_is_smooth() -> void:
 	if _cast == null or _rig == null:
 		_check(false, "pemain dan rig ada untuk uji kehalusan")
 		return
+	# a straight run of open ground: the map corner the previous test ended on
+	# would have the knight walking into the fence
+	var start: Variant = _start_spot()
+	if start != null:
+		_cast.call("teleport_player", start)
+		await _wait(0.5)
 	_frames = []
 	_recording = true
 	_cast.call("set_virtual_stick", Vector2(0.18, -0.98))
@@ -455,6 +462,16 @@ func _boot_main() -> bool:
 		_rig = diorama.call("camera_rig") as Node3D
 	_check(_cast != null and _rig != null, "Main, cast, dan rig kamera termuat")
 	return _cast != null and _rig != null
+
+
+func _start_spot() -> Variant:
+	var diorama: Node3D = _main.get("_diorama") as Node3D
+	if diorama == null:
+		return null
+	var region: RefCounted = diorama.call("region")
+	if region == null:
+		return null
+	return region.call("start_position")
 
 
 func _npc_spot() -> Variant:
