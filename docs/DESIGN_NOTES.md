@@ -1343,6 +1343,22 @@ horizon masuk gambar dan latar bekas "satu warna" berubah menjadi dinding kelabu
 `far` kamera naik 160 → 420 m supaya cincin terjauh masuk; `fog_sky_affect`
 0 → 0,35 supaya langit ikut berkabut di kaki langit.
 
+**Yang terukur, bukan yang diharapkan.** Dengan lensa 18 m dan pitch/fov yang
+diuji, ujung atas layar masih menunjuk ke bawah: sinar teratas berpotongan dengan
+tanah pada
+
+```
+jarak = 18 sin(pitch) / tan(pitch - fov/2)
+```
+
+yaitu 34 m (P25 F25), 36 m (P30 F32), 32 m (P40 F40), 18 m (P50 F25). Semuanya
+lebih dekat daripada ujung dunia, jadi **langit dan pegunungan tidak pernah
+masuk gambar pada sudut-sudut ini** - seperti di Octopath, seluruh layar memang
+tanah. Yang menutup tepi peta adalah hamparan kabut (dan fog), dan cincin
+pegunungan tetap ada sebagai jaring pengaman untuk sudut di bawah ~16° atau
+kamera adegan skrip/battle. Ini dicatat supaya tidak ada yang mengira langit
+hilang karena bug: ia memang di luar bingkai.
+
 ### 21.5 Occlusion pada sudut rendah
 
 Koridor lama 0,85 m dibuat untuk kamera yang menunjuk hampir lurus ke bawah. Pada
