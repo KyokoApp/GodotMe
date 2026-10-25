@@ -325,7 +325,13 @@ func _test_menu() -> void:
 	var opened := full != null and bool(full.get("is_open"))
 	_check(opened, "peta penuh bisa dibuka")
 	if full != null:
-		_check(String(full.get("_title").text) == "Lembah Senja",
+		# step 2 replaced the valley with the region: the title comes from the
+		# map's own label (Yaros), not from a constant in the diorama
+		var map_label := "Yaros"
+		if diorama != null and diorama.has_method("region"):
+			var reg: RefCounted = diorama.call("region")
+			map_label = String(reg.get("label"))
+		_check(String(full.get("_title").text) == map_label,
 			"peta penuh memakai nama area", String(full.get("_title").text))
 		full.call("close_panel")
 		await get_tree().process_frame
