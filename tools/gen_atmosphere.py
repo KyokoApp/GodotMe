@@ -43,40 +43,49 @@ def _dither_alpha(base: float, x: int, y: int) -> int:
 
 
 def mote_dust() -> Image.Image:
-    """A speck of pollen caught in a sunbeam: 5x5, cream, no outline."""
-    w = h = 5
+    """A speck of pollen caught in a sunbeam: 4x4, cream, one soft rim pixel.
+
+    Smooth alpha, not dithered. A dithered 5x5 magnified to 0.10 m reads as a
+    checkerboard of little squares floating in the air - the first capture of
+    phase 6 was full of them (see DESIGN_NOTES.md §15).
+    """
+    w = h = 4
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     px = img.load()
-    core = (250, 238, 210)
     for y in range(h):
         for x in range(w):
-            dx, dy = x - 2, y - 2
+            dx, dy = x - 1.5, y - 1.5
             d = (dx * dx + dy * dy) ** 0.5
-            if d > 2.2:
-                continue
-            if d > 1.1 and _dither_alpha(0.55 - (d - 1.1) * 0.5, x, y) == 0:
-                continue
-            px[x, y] = core + (255 if d <= 1.1 else 170,)
+            if d <= 1.0:
+                px[x, y] = (252, 243, 216, 255)
+            elif d <= 1.8:
+                px[x, y] = (250, 238, 210, 120)
+            else:
+                px[x, y] = (250, 238, 210, 40)
     return img
 
 
 def firefly() -> Image.Image:
-    """Warm lamp-glow bug: 7x7, gold core fading to amber. Additive-safe."""
-    w = h = 7
+    """Warm lamp-glow bug: 9x9, gold core fading to amber, additive.
+
+    Light is continuous, so this sprite's alpha is smooth on purpose; a dithered
+    halo around forty of them turned the night into a field of grey squares.
+    """
+    w = h = 9
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     px = img.load()
     for y in range(h):
         for x in range(w):
-            dx, dy = x - 3, y - 3
+            dx, dy = x - 4, y - 4
             d = (dx * dx + dy * dy) ** 0.5
-            if d > 3.2:
+            if d > 4.3:
                 continue
-            if d <= 1.2:
-                px[x, y] = (255, 244, 190, 255)
-            elif d <= 2.2:
-                px[x, y] = (248, 206, 104, 235) if _dither_alpha(0.9, x, y) else (0, 0, 0, 0)
+            if d <= 1.3:
+                px[x, y] = (255, 246, 198, 255)
+            elif d <= 2.6:
+                px[x, y] = (250, 214, 120, 190)
             else:
-                px[x, y] = (214, 150, 58, 140) if _dither_alpha(0.55, x, y) else (0, 0, 0, 0)
+                px[x, y] = (214, 152, 62, 90)
     return img
 
 
@@ -104,9 +113,21 @@ def petal() -> Image.Image:
     return img
 
 
+def _value_noise(x: int, y: int, seed: int) -> float:
+    """Cheap deterministic hash noise, 0..1 - breaks the perfect ellipse up."""
+    n = (x * 374761393 + y * 668265263 + seed * 2654435761) & 0xFFFFFFFF
+    n = (n ^ (n >> 13)) * 1274126177 & 0xFFFFFFFF
+    return ((n ^ (n >> 16)) & 0xFFFF) / 65535.0
+
+
 def fog_puff() -> Image.Image:
-    """Ground mist: 40x24 soft ellipse, cream-grey, dithered so it stays pixel."""
-    w, h = 40, 24
+    """Ground mist: 96x40 soft ellipse, cream-grey, smooth alpha with noise.
+
+    Smooth on purpose. This quad is seven metres wide, so a dithered alpha turns
+    into a visible grid of squares across half the screen - which is exactly what
+    the first version did (DESIGN_NOTES §15).
+    """
+    w, h = 96, 40
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     px = img.load()
     for y in range(h):
@@ -116,11 +137,13 @@ def fog_puff() -> Image.Image:
             d = (nx * nx + ny * ny) ** 0.5
             if d >= 1.0:
                 continue
-            cover = (1.0 - d) ** 1.6
-            if _dither_alpha(cover, x, y) == 0:
+            cover = (1.0 - d) ** 1.8
+            wobble = 0.72 + 0.28 * _value_noise(x // 3, y // 3, 7)
+            a = int(255 * cover * wobble * 0.55)
+            if a <= 0:
                 continue
-            warm = 232 - int(18 * ny)
-            px[x, y] = (warm, warm - 6, warm - 16, 150)
+            warm = 236 - int(16 * ny)
+            px[x, y] = (warm, warm - 5, warm - 14, a)
     return img
 
 
