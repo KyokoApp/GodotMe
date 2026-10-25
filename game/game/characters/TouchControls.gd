@@ -34,6 +34,32 @@ const CURVE := 0.85
 const STICK_ZONE_X := 0.55
 const STICK_ZONE_Y := 0.15
 
+## Engraving on the stick, drawn (not a PNG) so it stays crisp at any UI scale.
+## Four cardinals plus a thin inner ring: enough to read as a brass dial instead
+## of a plain translucent circle lying on the grass.
+class Marks extends Control:
+	var accent := Color(0.74, 0.58, 0.31)
+	var knob := false
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.5
+		if r < 8.0:
+			return
+		if knob:
+			draw_arc(c, r * 0.52, 0.0, TAU, 28, Color(1.0, 0.97, 0.88, 0.30), 1.5, true)
+			draw_circle(c, 3.0, Color(0.10, 0.08, 0.06, 0.40))
+			return
+		draw_arc(c, r * 0.60, 0.0, TAU, 48, Color(accent.r, accent.g, accent.b, 0.16), 1.0, true)
+		for i in 8:
+			var a := TAU * float(i) / 8.0
+			var dir := Vector2(cos(a), sin(a))
+			var long := i % 2 == 0
+			draw_line(c + dir * r * (0.78 if long else 0.83), c + dir * r * 0.92,
+				Color(accent.r, accent.g, accent.b, 0.46 if long else 0.28),
+				2.0 if long else 1.0, true)
+
+
 var stick_vector := Vector2.ZERO
 var fixed_mode := false:
 	set(value):
@@ -62,12 +88,14 @@ func _build() -> void:
 	_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_base.visible = false
 	add_child(_base)
+	_add_face(_base, false)
 
 	_knob = Panel.new()
 	_knob.add_theme_stylebox_override("panel", _knob_style())
 	_knob.size = Vector2(80.0, 80.0)
 	_knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_base.add_child(_knob)
+	_add_face(_knob, true)
 	_knob.position = Vector2(STICK_SIZE, STICK_SIZE) * 0.5 - _knob.size * 0.5
 	if fixed_mode:
 		_place_fixed()
@@ -213,6 +241,18 @@ func _reset() -> void:
 		return
 	_base.visible = false
 	_knob.visible = false
+
+
+## Stretch an engraving over a panel and keep it out of the way of touches.
+func _add_face(host: Control, knob: bool) -> Marks:
+	var face := Marks.new()
+	face.knob = knob
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(face)
+	# explicit rect: the panels have a fixed size, so this is exact at any UI scale
+	face.position = Vector2.ZERO
+	face.size = host.size
+	return face
 
 
 func _stick_style() -> StyleBoxFlat:
