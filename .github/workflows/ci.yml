@@ -134,6 +134,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: UI rules (icons, settings, menu)
+        # Headless: a screenshot of the menu proves it looks right, not that its
+        # buttons do anything. These checks press them.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/UiTest.tscn 2>&1 | tee /tmp/ui.log
+          code=${PIPESTATUS[0]}
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### ui rules (exit $code)"; echo '```'; tail -c 20000 /tmp/ui.log; echo '```'; } > /tmp/ui.md
+            gh pr comment "$PR" --body-file /tmp/ui.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Character sprite contract (strips + SpriteFrames)
         # Fails the build, it does not guess: a strip whose width is not
         # frames x frame_width, a stale pivot or an empty animation stops here.
@@ -283,6 +300,14 @@ jobs:
             "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
             -- --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=08_diorama \
             2>&1 | tee -a /tmp/capture.log | tail -20
+          # --- the menu, in both of its pages --------------------------------
+          for variant in "jeda 20_menu" "pengaturan 21_pengaturan"; do
+            set -- $variant
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              -- --menu="$1" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
+          done
           # --- character stage: three-up test sheet --------------------------
           xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
             "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \

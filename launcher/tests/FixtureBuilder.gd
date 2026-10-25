@@ -12,9 +12,8 @@ const PACK_FILES := {
 		"files": [
 			"game/Main.tscn",
 			"game/Main.gd",
-			"game/assets/crest.png",
-			"game/assets/PixelifySans-SemiBold.woff2",
-			"game/assets/parchment.png",
+			"game/ui/UiKit.gd",
+			"game/ui/Settings.gd",
 		],
 	},
 	"characters": {
@@ -22,7 +21,6 @@ const PACK_FILES := {
 		# every character script, definition and strip: this is the package a
 		# sprite update replaces on its own, without touching world or core.
 		"files": [
-			"game/assets/parchment.png",
 			"game/characters/CharacterDef.gd",
 			"game/characters/CharacterAssets.gd",
 			"game/characters/Actor.gd",
@@ -107,8 +105,20 @@ const PACK_FILES := {
 	"ui": {
 		"order": 50,
 		"files": [
-			"game/assets/Jacquard12.woff2",
+			# every UI asset lives here, so a UI pass never forces a core download
 			"game/assets/PixelifySans.woff2",
+			"game/assets/PixelifySans-SemiBold.woff2",
+			"game/assets/parchment.png",
+			"game/assets/crest.png",
+			"game/assets/divider.png",
+			"game/assets/bg.png",
+			"game/assets/ui/icons/heart_full.png",
+			"game/assets/ui/icons/heart_empty.png",
+			"game/assets/ui/icons/sun.png",
+			"game/assets/ui/icons/moon.png",
+			"game/assets/ui/icons/gear.png",
+			"game/assets/ui/icons/save.png",
+			"game/assets/ui/icons/arrow_left.png",
 		],
 	},
 	"audio": {

@@ -33,6 +33,8 @@ const MIX := {
 
 var _systems := {}
 var _base_alpha := {}
+var _base_amount := {}
+var _amount_scale := 1.0
 var _phase := "sore"
 
 
@@ -104,6 +106,7 @@ func _build(id: String, texture_file: String, amount: int, lifetime: float,
 	p.visibility_aabb = AABB(Vector3(-24.0, -4.0, -18.0), Vector3(48.0, 16.0, 36.0))
 	add_child(p)
 	_systems[id] = p
+	_base_amount[id] = amount
 
 
 ## Switch the mood. Alpha carries the amount: keeping `amount` fixed avoids the
@@ -124,6 +127,20 @@ func set_phase(id: String) -> void:
 		var base := float(_base_alpha.get(key, 1.0))
 		p.color = Color(tint.r, tint.g, tint.b, clampf(amount * base, 0.0, 1.0))
 		p.emitting = amount > 0.03
+
+
+## Quality preset hook: weak phones pay less for the same picture. `amount` is
+## the only knob that really costs, so it is the only one scaled.
+func set_amount_scale(scale: float) -> void:
+	_amount_scale = clampf(scale, 0.1, 2.0)
+	for key in _systems.keys():
+		var p: CPUParticles3D = _systems[key]
+		var base := int(_base_amount.get(key, p.amount))
+		p.amount = maxi(1, int(round(float(base) * _amount_scale)))
+
+
+func amount_scale() -> float:
+	return _amount_scale
 
 
 func phase() -> String:

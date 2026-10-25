@@ -244,6 +244,18 @@ func clock() -> Node:
 	return _clock
 
 
+## Quality preset: shadows are the expensive part of the sun, and they are the
+## first thing to go on a weak phone.
+func set_shadows_enabled(on: bool) -> void:
+	if _sun != null:
+		_sun.shadow_enabled = on
+
+
+func set_atmosphere_scale(scale: float) -> void:
+	if _atmosphere != null and _atmosphere.has_method("set_amount_scale"):
+		_atmosphere.call("set_amount_scale", scale)
+
+
 func atmosphere() -> Node:
 	return _atmosphere
 

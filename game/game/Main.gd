@@ -18,6 +18,9 @@ const FONT_TITLE := "res://game/assets/PixelifySans-SemiBold.woff2"
 const PARCH := "res://game/assets/parchment.png"
 const CREST := "res://game/assets/crest.png"
 
+const KIT := preload("res://game/ui/UiKit.gd")
+const SETTINGS := preload("res://game/ui/Settings.gd")
+
 const INK := Color(0.17, 0.12, 0.09)
 const INK_SOFT := Color(0.36, 0.28, 0.20)
 const BRASS := Color(0.78, 0.62, 0.33)
@@ -34,6 +37,16 @@ var _hearts_label: Label
 var _pause_root: Control
 var _save_note: Label
 var _hud_timer := 0.0
+var _settings: RefCounted
+var _tilt_mat: ShaderMaterial
+var _page_jeda: Control
+var _page_set: Control
+var _sheet_title: Label
+var _status_label: Label
+var _hearts_icons: Array = []
+var _phase_icon: TextureRect
+var _phase_label: Label
+var _toggles := {}
 
 
 func _ready() -> void:
@@ -42,10 +55,13 @@ func _ready() -> void:
 		OS.crash("Simulasi paket rusak (FAIL_BOOT)")
 
 	_report_healthy_boot()
+	_settings = SETTINGS.new()
+	_settings.call("load_settings")
 	_font_body = _font(FONT_BODY, 1)
 	_font_title = _font(FONT_TITLE, 3)
 	_build_world()
 	_build_hud()
+	_apply_settings()
 	_fade_in()
 	_maybe_capture_or_quit()
 
@@ -72,6 +88,7 @@ func _build_world() -> void:
 	var mat := ShaderMaterial.new()
 	if ResourceLoader.exists(TILT_SHIFT):
 		mat.shader = load(TILT_SHIFT)
+	_tilt_mat = mat
 	rect.material = mat
 	layer.add_child(rect)
 
@@ -185,12 +202,28 @@ func _build_hud() -> void:
 	_objective_label.custom_minimum_size = Vector2(352, 0)
 	quest_box.add_child(_objective_label)
 
-	_hearts_label = Label.new()
-	_hearts_label.text = "Nyawa 3 / 3"
-	_hearts_label.add_theme_font_override("font", _font_title)
-	_hearts_label.add_theme_font_size_override("font_size", 17)
-	_hearts_label.add_theme_color_override("font_color", INK_SOFT)
-	quest_box.add_child(_hearts_label)
+	# hearts are drawn, not spelled out: three icons say "you have three lives"
+	# faster than any sentence, and they are the only HUD element that changes
+	# colour when the player is in trouble
+	var hearts_row := HBoxContainer.new()
+	hearts_row.add_theme_constant_override("separation", 4)
+	quest_box.add_child(hearts_row)
+	for i in range(3):
+		var heart := KIT.icon_rect("heart_full", 24.0)
+		heart.name = "Heart%d" % i
+		hearts_row.add_child(heart)
+		_hearts_icons.append(heart)
+	_hearts_label = KIT.label("Nyawa 3 / 3", 16, INK_SOFT)
+	hearts_row.add_child(_hearts_label)
+
+	# which hour of the day the valley is in, with the matching icon
+	var phase_row := HBoxContainer.new()
+	phase_row.add_theme_constant_override("separation", 6)
+	quest_box.add_child(phase_row)
+	_phase_icon = KIT.icon_rect("sun", 20.0)
+	phase_row.add_child(_phase_icon)
+	_phase_label = KIT.label("Sore", 16, INK_SOFT)
+	phase_row.add_child(_phase_label)
 
 	# --- crest + engine note, bottom left
 	var note := PanelContainer.new()
@@ -296,9 +329,9 @@ func _build_hud() -> void:
 	tw.tween_property(_hint, "modulate:a", 0.0, 1.2)
 
 
-## Themed pause sheet. It is the only node that keeps processing while the tree
-## is paused, which is exactly what a pause menu needs: the world freezes, the
-## buttons do not.
+## Themed pause sheet: two pages (jeda and pengaturan) inside one parchared
+## frame. Buttons keep working while the tree is paused because the whole sheet
+## is PROCESS_MODE_WHEN_PAUSED - the world freezes, the menu does not.
 func _build_pause_sheet(parent: Control) -> void:
 	_pause_root = Control.new()
 	_pause_root.name = "PauseSheet"
@@ -313,68 +346,147 @@ func _build_pause_sheet(parent: Control) -> void:
 	_pause_root.add_child(dim)
 
 	var sheet := PanelContainer.new()
+	sheet.name = "Sheet"
 	sheet.theme = _theme()
-	sheet.add_theme_stylebox_override("panel", _nine(PARCH, 20, 34, 28))
+	sheet.add_theme_stylebox_override("panel", _nine(PARCH, 20, 34, 26))
 	sheet.anchor_left = 0.5
 	sheet.anchor_right = 0.5
 	sheet.anchor_top = 0.5
 	sheet.anchor_bottom = 0.5
-	sheet.offset_left = -210.0
-	sheet.offset_right = 210.0
-	sheet.offset_top = -172.0
-	sheet.offset_bottom = 172.0
+	sheet.offset_left = -216.0
+	sheet.offset_right = 216.0
+	sheet.offset_top = -196.0
+	sheet.offset_bottom = 196.0
 	_pause_root.add_child(sheet)
 
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
+	box.add_theme_constant_override("separation", 10)
 	sheet.add_child(box)
 
-	var title := Label.new()
-	title.text = "Jeda"
-	title.add_theme_font_override("font", _font_title)
-	title.add_theme_font_size_override("font_size", 32)
-	title.add_theme_color_override("font_color", INK)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
+	_sheet_title = KIT.label("Jeda", 30, INK, true)
+	_sheet_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_sheet_title)
 
-	var line := Label.new()
-	line.text = "Progres tersimpan otomatis setiap 12 detik, dan saat percakapan ditutup."
-	line.add_theme_font_override("font", _font_body)
-	line.add_theme_font_size_override("font_size", 15)
-	line.add_theme_color_override("font_color", INK_SOFT)
-	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	line.custom_minimum_size = Vector2(352, 0)
-	box.add_child(line)
+	_status_label = KIT.label("", 15, INK_SOFT)
+	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label.custom_minimum_size = Vector2(352, 0)
+	box.add_child(_status_label)
 
-	box.add_child(_sheet_button("Lanjutkan", _on_resume_pressed))
-	box.add_child(_sheet_button("Simpan sekarang", _on_save_pressed))
+	# --- page 1: pause
+	_page_jeda = VBoxContainer.new()
+	_page_jeda.name = "PageJeda"
+	_page_jeda.add_theme_constant_override("separation", 10)
+	box.add_child(_page_jeda)
+	_page_jeda.add_child(KIT.button("Lanjutkan", Vector2(352, 50)))
+	_page_jeda.get_child(0).connect("pressed", Callable(self, "_on_resume_pressed"))
+	_page_jeda.add_child(KIT.button("Simpan sekarang", Vector2(352, 50)))
+	_page_jeda.get_child(1).connect("pressed", Callable(self, "_on_save_pressed"))
+	_page_jeda.add_child(KIT.button("Pengaturan", Vector2(352, 50)))
+	_page_jeda.get_child(2).connect("pressed", Callable(self, "_show_settings"))
+	_page_jeda.add_child(KIT.button("Peluncur", Vector2(352, 50)))
+	_page_jeda.get_child(3).connect("pressed", Callable(self, "_on_pause_back_pressed"))
 
-	_save_note = Label.new()
-	_save_note.text = ""
-	_save_note.add_theme_font_override("font", _font_body)
-	_save_note.add_theme_font_size_override("font_size", 15)
-	_save_note.add_theme_color_override("font_color", INK_SOFT)
+	# --- page 2: settings
+	_page_set = VBoxContainer.new()
+	_page_set.name = "PagePengaturan"
+	_page_set.add_theme_constant_override("separation", 10)
+	_page_set.visible = false
+	box.add_child(_page_set)
+	_set_button("tilt_shift", "Tilt-shift: Nyala")
+	_set_button("shake", "Getar kamera: Nyala")
+	_set_button("quality", "Kualitas: Sedang")
+	_page_set.add_child(KIT.button("Kembali", Vector2(352, 50)))
+	_page_set.get_child(3).connect("pressed", Callable(self, "_show_pause"))
+
+	_save_note = KIT.label("", 15, INK_SOFT)
 	_save_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_save_note.custom_minimum_size = Vector2(352, 20)
 	box.add_child(_save_note)
 
-	box.add_child(_sheet_button("Peluncur", _on_pause_back_pressed))
+
+func _set_button(key: String, text: String) -> void:
+	var btn := KIT.button(text, Vector2(352, 50))
+	btn.name = "Set_" + key
+	btn.pressed.connect(Callable(self, "_on_toggle").bind(key))
+	_page_set.add_child(btn)
+	_toggles[key] = btn
 
 
-func _sheet_button(text: String, action: Callable) -> Button:
-	var btn := Button.new()
-	btn.text = text
-	btn.theme = _theme()
-	btn.add_theme_stylebox_override("normal", _nine(PARCH, 20, 22, 12))
-	btn.add_theme_stylebox_override("hover", _nine(PARCH, 20, 22, 12))
-	btn.add_theme_stylebox_override("pressed", _nine(PARCH, 20, 22, 12))
-	btn.add_theme_font_override("font", _font_title)
-	btn.add_theme_font_size_override("font_size", 19)
-	btn.add_theme_color_override("font_color", INK)
-	btn.custom_minimum_size = Vector2(352, 50)
-	btn.pressed.connect(action)
-	return btn
+## Fade between the two pages instead of snapping: the parchment stays put and
+## only its contents change, which reads as one sheet being turned over.
+func _show_page(page: Control, title: String) -> void:
+	if _pause_root == null or page == null:
+		return
+	var other: Control = _page_set if page == _page_jeda else _page_jeda
+	_sheet_title.text = title
+	other.visible = false
+	page.visible = true
+	page.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(page, "modulate:a", 1.0, 0.16).set_trans(Tween.TRANS_SINE)
+
+
+func _show_pause() -> void:
+	_show_page(_page_jeda, "Jeda")
+	_save_note.text = ""
+
+
+func _show_settings() -> void:
+	_refresh_toggles()
+	_show_page(_page_set, "Pengaturan")
+	_save_note.text = "Tersimpan di perangkat ini."
+
+
+func _refresh_toggles() -> void:
+	if _settings == null:
+		return
+	var tilt := "Nyala" if bool(_settings.call("get_value", "tilt_shift")) else "Mati"
+	var shake := "Nyala" if bool(_settings.call("get_value", "shake")) else "Mati"
+	var q := String(_settings.call("quality"))
+	for key in _toggles.keys():
+		var btn: Button = _toggles[key]
+		match key:
+			"tilt_shift":
+				btn.text = "Tilt-shift: " + tilt
+			"shake":
+				btn.text = "Getar kamera: " + shake
+			"quality":
+				btn.text = "Kualitas: " + q.capitalize()
+
+
+## One button per setting; every press is written to disk immediately, because a
+## player who changes the blur and then kills the app expects it to stay changed.
+func _on_toggle(key: String) -> void:
+	if _settings == null:
+		return
+	if key == "quality":
+		_settings.call("cycle_quality")
+	else:
+		_settings.call("set_value", key, not bool(_settings.call("get_value", key)))
+	var err := String(_settings.call("save"))
+	_apply_settings()
+	_refresh_toggles()
+	_save_note.text = "Pengaturan tersimpan." if err == "" else "Gagal menyimpan: " + err
+
+
+## Push the current settings into the running world. Everything here is optional
+## on purpose: if a pack is missing, the toggle simply has nothing to act on.
+func _apply_settings() -> void:
+	if _settings == null:
+		return
+	if _tilt_mat != null:
+		_tilt_mat.set_shader_parameter("blur_pixels", float(_settings.call("tilt_blur")))
+		var vignette := 0.0 if String(_settings.call("quality")) == "rendah" else 0.34
+		_tilt_mat.set_shader_parameter("vignette", vignette)
+	if _cast != null and is_instance_valid(_cast) and _cast.has_method("set_shake_scale"):
+		var scale := 1.0 if bool(_settings.call("get_value", "shake")) else 0.0
+		_cast.call("set_shake_scale", scale)
+	if _diorama != null:
+		if _diorama.has_method("set_shadows_enabled"):
+			_diorama.call("set_shadows_enabled", bool(_settings.call("shadows_enabled")))
+		if _diorama.has_method("set_atmosphere_scale"):
+			_diorama.call("set_atmosphere_scale", float(_settings.call("atmosphere_scale")))
 
 
 func _process(delta: float) -> void:
@@ -392,27 +504,71 @@ func _refresh_hud() -> void:
 	var st: Dictionary = _cast.call("hud_state")
 	if _objective_label != null:
 		_objective_label.text = String(st.get("objective", ""))
+	var hearts := int(st.get("hearts", 0))
+	var most := int(st.get("max_hearts", 3))
+	for i in range(_hearts_icons.size()):
+		var icon: TextureRect = _hearts_icons[i]
+		icon.texture = KIT.icon("heart_full" if i < hearts else "heart_empty")
 	if _hearts_label != null:
-		var hearts := int(st.get("hearts", 0))
-		var most := int(st.get("max_hearts", 3))
 		_hearts_label.text = "Nyawa %d / %d" % [hearts, most]
-		var low := hearts <= 1
 		_hearts_label.add_theme_color_override("font_color",
-			Color(0.55, 0.16, 0.12) if low else INK_SOFT)
+			KIT.DANGER if hearts <= 1 else INK_SOFT)
+	_refresh_phase()
+
+
+func _refresh_phase() -> void:
+	if _diorama == null or not _diorama.has_method("phase_name"):
+		return
+	var phase := String(_diorama.call("phase_name"))
+	if phase == "" or _phase_label == null:
+		return
+	var night := phase == "malam"
+	_phase_icon.texture = KIT.icon("moon" if night else "sun")
+	_phase_label.text = phase.capitalize()
 
 
 func _on_pause_pressed() -> void:
 	if _pause_root == null:
 		return
-	_pause_root.visible = true
+	_refresh_hud()
+	_refresh_toggles()
+	_show_page(_page_jeda, "Jeda")
 	_save_note.text = ""
+	_status_label.text = _status_text()
+	_pause_root.visible = true
+	_pause_root.modulate.a = 0.0
+	var sheet := _pause_root.get_node_or_null("Sheet") as Control
+	if sheet != null:
+		sheet.scale = Vector2(0.96, 0.96)
+		sheet.pivot_offset = sheet.size * 0.5
+		var st := create_tween()
+		st.set_parallel(true)
+		st.tween_property(sheet, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK)
+	var tw := create_tween()
+	tw.tween_property(_pause_root, "modulate:a", 1.0, 0.16).set_trans(Tween.TRANS_SINE)
 	get_tree().paused = true
+
+
+## One line of state in the menu, so a player who paused to think can see where
+## the run stands without closing the sheet.
+func _status_text() -> String:
+	if _cast == null or not is_instance_valid(_cast) or not _cast.has_method("hud_state"):
+		return ""
+	var st: Dictionary = _cast.call("hud_state")
+	var phase := ""
+	if _diorama != null and _diorama.has_method("phase_name"):
+		phase = String(_diorama.call("phase_name")).capitalize()
+	return "Orc %d / %d · Nyawa %d / %d · %s" % [
+		int(st.get("orcs_defeated", 0)), int(st.get("orcs_total", 3)),
+		int(st.get("hearts", 0)), int(st.get("max_hearts", 3)), phase]
 
 
 func _on_resume_pressed() -> void:
 	get_tree().paused = false
 	if _pause_root != null:
-		_pause_root.visible = false
+		var tw := create_tween()
+		tw.tween_property(_pause_root, "modulate:a", 0.0, 0.14).set_trans(Tween.TRANS_SINE)
+		tw.tween_callback(Callable(_pause_root, "hide"))
 
 
 ## Manual save: same code path as the autosave, so what the button writes is
@@ -503,6 +659,14 @@ func _maybe_capture_or_quit() -> void:
 			print("[GAME] keluar otomatis untuk pengujian.")
 			get_tree().quit(0)
 			return
+		if a.begins_with("--menu="):
+			var page := String(a.substr("--menu=".length()))
+			await get_tree().create_timer(1.6).timeout
+			_on_pause_pressed()
+			if page == "pengaturan":
+				_show_settings()
+			await get_tree().create_timer(0.6).timeout
+			continue
 		if a.begins_with("--capture="):
 			var dir: String = a.substr("--capture=".length())
 			var shot_name := "08_diorama"
