@@ -368,6 +368,14 @@ func take_hit() -> void:
 	# move at all. One flinch per 0.2 s is enough to feel the hit.
 	if state == STATE_HURT and _state_time < 0.2:
 		return
+	# A raised shield absorbs the blow. The world still hears `hurt` (it decides
+	# what a hit costs), but the knight does not flinch out of his guard.
+	if state == STATE_BLOCK:
+		_flash = FLASH_SEC
+		_squash = 0.1
+		_squash_kind = 1.0
+		hurt.emit(self)
+		return
 	_hitstop = HITSTOP_SEC
 	_flash = FLASH_SEC
 	_squash = 0.18
@@ -403,6 +411,24 @@ func fade_out(seconds: float) -> void:
 
 func is_dead() -> bool:
 	return _dead
+
+
+## Back on his feet after a knockout. Only the player is ever revived - a dead
+## enemy stays down - so this clears the death flag, shows the sprite again and
+## returns to idle instead of trying to rewind the death strip.
+func revive() -> void:
+	if not _dead:
+		return
+	_dead = false
+	_fading = false
+	_hitstop = 0.0
+	sprite.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	sprite.modulate = Color.WHITE
+	sprite.speed_scale = 1.0
+	_anim_speed = 1.0
+	show()
+	_enter_state(STATE_IDLE)
+	_play(STATE_IDLE, 1.0, true)
 
 
 func anim_name() -> String:

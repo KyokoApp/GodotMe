@@ -28,6 +28,12 @@ var _font_title: Font
 var _hud: CanvasLayer
 var _hint: Label
 var _diorama: Node3D
+var _cast: Node3D
+var _objective_label: Label
+var _hearts_label: Label
+var _pause_root: Control
+var _save_note: Label
+var _hud_timer := 0.0
 
 
 func _ready() -> void:
@@ -85,6 +91,7 @@ func _add_cast() -> void:
 	var cast: Node3D = script.new()
 	cast.name = "Characters"
 	_diorama.add_child(cast)
+	_cast = cast
 	print("[GAME] penghuni dimuat dari paket karakter")
 
 
@@ -145,6 +152,46 @@ func _build_hud() -> void:
 	sub_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(sub_label)
 
+	# --- objective + hearts, under the area plaque
+	var quest := PanelContainer.new()
+	quest.theme = _theme()
+	quest.add_theme_stylebox_override("panel", _nine(PARCH, 20, 24, 16))
+	quest.anchor_left = 0.0
+	quest.anchor_top = 0.0
+	quest.offset_left = 26.0
+	quest.offset_top = 124.0
+	quest.offset_right = 366.0
+	quest.offset_bottom = 124.0
+	quest.grow_vertical = Control.GROW_DIRECTION_END
+	root.add_child(quest)
+
+	var quest_box := VBoxContainer.new()
+	quest_box.add_theme_constant_override("separation", 4)
+	quest.add_child(quest_box)
+
+	var quest_head := Label.new()
+	quest_head.text = "TUJUAN"
+	quest_head.add_theme_font_override("font", _font_title)
+	quest_head.add_theme_font_size_override("font_size", 14)
+	quest_head.add_theme_color_override("font_color", INK_SOFT)
+	quest_box.add_child(quest_head)
+
+	_objective_label = Label.new()
+	_objective_label.text = "Menyiapkan lembah…"
+	_objective_label.add_theme_font_override("font", _font_body)
+	_objective_label.add_theme_font_size_override("font_size", 19)
+	_objective_label.add_theme_color_override("font_color", INK)
+	_objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_objective_label.custom_minimum_size = Vector2(292, 0)
+	quest_box.add_child(_objective_label)
+
+	_hearts_label = Label.new()
+	_hearts_label.text = "Nyawa 3 / 3"
+	_hearts_label.add_theme_font_override("font", _font_title)
+	_hearts_label.add_theme_font_size_override("font_size", 17)
+	_hearts_label.add_theme_color_override("font_color", INK_SOFT)
+	quest_box.add_child(_hearts_label)
+
 	# --- crest + engine note, bottom left
 	var note := PanelContainer.new()
 	note.theme = _theme()
@@ -173,7 +220,7 @@ func _build_hud() -> void:
 	note_box.add_child(crest)
 
 	var note_label := Label.new()
-	note_label.text = "Fase 2 · tahap 2: penghuni lembah.\nKsatria bisa digerakkan, penjaga punya cerita, orc berpatroli di tepi hutan."
+	note_label.text = "Lembah Pertama.\nJalan tua menuju pegunungan. Penjaga Bram berdiri di tikungan; tiga orc berkeliaran di tepi hutan."
 	note_label.add_theme_font_override("font", _font_body)
 	note_label.add_theme_font_size_override("font_size", 15)
 	note_label.add_theme_color_override("font_color", INK_SOFT)
@@ -203,9 +250,31 @@ func _build_hud() -> void:
 	back.pressed.connect(_on_back_pressed)
 	root.add_child(back)
 
+	# --- pause sheet, top right (left of the launcher button)
+	var pause_btn := Button.new()
+	pause_btn.text = "  Jeda"
+	pause_btn.theme = _theme()
+	pause_btn.add_theme_stylebox_override("normal", _nine(PARCH, 20, 22, 12))
+	pause_btn.add_theme_stylebox_override("hover", _nine(PARCH, 20, 22, 12))
+	pause_btn.add_theme_stylebox_override("pressed", _nine(PARCH, 20, 22, 12))
+	pause_btn.add_theme_font_override("font", _font_title)
+	pause_btn.add_theme_font_size_override("font_size", 18)
+	pause_btn.add_theme_color_override("font_color", INK)
+	pause_btn.custom_minimum_size = Vector2(130, 46)
+	pause_btn.anchor_left = 1.0
+	pause_btn.anchor_right = 1.0
+	pause_btn.offset_left = -326.0
+	pause_btn.offset_right = -196.0
+	pause_btn.offset_top = 24.0
+	pause_btn.offset_bottom = 70.0
+	pause_btn.pressed.connect(_on_pause_pressed)
+	root.add_child(pause_btn)
+
+	_build_pause_sheet(root)
+
 	# --- one-time control hint near the bottom centre
 	_hint = Label.new()
-	_hint.text = "Sentuh kiri untuk stik jalan (dorong penuh = lari) · Serang · Tahan · Bicara\nDua jari untuk menggeser pandangan · cubit untuk memperbesar"
+	_hint.text = "Sentuh kiri untuk stik jalan (dorong penuh = lari) · Serang · Tahan perisai · Bicara\nDua jari menggeser pandangan · cubit memperbesar · Jeda untuk menyimpan dan keluar"
 	_hint.add_theme_font_override("font", _font_body)
 	_hint.add_theme_font_size_override("font_size", 16)
 	_hint.add_theme_color_override("font_color", CREAM)
@@ -225,6 +294,141 @@ func _build_hud() -> void:
 	var tw := create_tween()
 	tw.tween_interval(5.0)
 	tw.tween_property(_hint, "modulate:a", 0.0, 1.2)
+
+
+## Themed pause sheet. It is the only node that keeps processing while the tree
+## is paused, which is exactly what a pause menu needs: the world freezes, the
+## buttons do not.
+func _build_pause_sheet(parent: Control) -> void:
+	_pause_root = Control.new()
+	_pause_root.name = "PauseSheet"
+	_pause_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_root.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+	_pause_root.visible = false
+	parent.add_child(_pause_root)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.07, 0.05, 0.04, 0.62)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_root.add_child(dim)
+
+	var sheet := PanelContainer.new()
+	sheet.theme = _theme()
+	sheet.add_theme_stylebox_override("panel", _nine(PARCH, 20, 34, 28))
+	sheet.anchor_left = 0.5
+	sheet.anchor_right = 0.5
+	sheet.anchor_top = 0.5
+	sheet.anchor_bottom = 0.5
+	sheet.offset_left = -210.0
+	sheet.offset_right = 210.0
+	sheet.offset_top = -172.0
+	sheet.offset_bottom = 172.0
+	_pause_root.add_child(sheet)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	sheet.add_child(box)
+
+	var title := Label.new()
+	title.text = "Jeda"
+	title.add_theme_font_override("font", _font_title)
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", INK)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+
+	var line := Label.new()
+	line.text = "Progres tersimpan otomatis setiap 12 detik, dan saat percakapan ditutup."
+	line.add_theme_font_override("font", _font_body)
+	line.add_theme_font_size_override("font_size", 15)
+	line.add_theme_color_override("font_color", INK_SOFT)
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.custom_minimum_size = Vector2(352, 0)
+	box.add_child(line)
+
+	box.add_child(_sheet_button("Lanjutkan", _on_resume_pressed))
+	box.add_child(_sheet_button("Simpan sekarang", _on_save_pressed))
+
+	_save_note = Label.new()
+	_save_note.text = ""
+	_save_note.add_theme_font_override("font", _font_body)
+	_save_note.add_theme_font_size_override("font_size", 15)
+	_save_note.add_theme_color_override("font_color", INK_SOFT)
+	_save_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_save_note.custom_minimum_size = Vector2(352, 20)
+	box.add_child(_save_note)
+
+	box.add_child(_sheet_button("Peluncur", _on_pause_back_pressed))
+
+
+func _sheet_button(text: String, action: Callable) -> Button:
+	var btn := Button.new()
+	btn.text = text
+	btn.theme = _theme()
+	btn.add_theme_stylebox_override("normal", _nine(PARCH, 20, 22, 12))
+	btn.add_theme_stylebox_override("hover", _nine(PARCH, 20, 22, 12))
+	btn.add_theme_stylebox_override("pressed", _nine(PARCH, 20, 22, 12))
+	btn.add_theme_font_override("font", _font_title)
+	btn.add_theme_font_size_override("font_size", 19)
+	btn.add_theme_color_override("font_color", INK)
+	btn.custom_minimum_size = Vector2(352, 50)
+	btn.pressed.connect(action)
+	return btn
+
+
+func _process(delta: float) -> void:
+	_hud_timer += delta
+	if _hud_timer < 0.2:
+		return
+	_hud_timer = 0.0
+	_refresh_hud()
+
+
+## The world owns the numbers; the HUD only reads them.
+func _refresh_hud() -> void:
+	if _cast == null or not is_instance_valid(_cast) or not _cast.has_method("hud_state"):
+		return
+	var st: Dictionary = _cast.call("hud_state")
+	if _objective_label != null:
+		_objective_label.text = String(st.get("objective", ""))
+	if _hearts_label != null:
+		var hearts := int(st.get("hearts", 0))
+		var most := int(st.get("max_hearts", 3))
+		_hearts_label.text = "Nyawa %d / %d" % [hearts, most]
+		var low := hearts <= 1
+		_hearts_label.add_theme_color_override("font_color",
+			Color(0.55, 0.16, 0.12) if low else INK_SOFT)
+
+
+func _on_pause_pressed() -> void:
+	if _pause_root == null:
+		return
+	_pause_root.visible = true
+	_save_note.text = ""
+	get_tree().paused = true
+
+
+func _on_resume_pressed() -> void:
+	get_tree().paused = false
+	if _pause_root != null:
+		_pause_root.visible = false
+
+
+## Manual save: same code path as the autosave, so what the button writes is
+## exactly what the next boot reads.
+func _on_save_pressed() -> void:
+	var note := "save tidak tersedia"
+	if _cast != null and _cast.has_method("save_now"):
+		note = String(_cast.call("save_now"))
+	_save_note.text = "Progres tersimpan." if note == "" else "Gagal menyimpan: " + note
+
+
+func _on_pause_back_pressed() -> void:
+	get_tree().paused = false
+	if _pause_root != null:
+		_pause_root.visible = false
+	_on_back_pressed()
 
 
 func _on_back_pressed() -> void:

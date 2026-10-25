@@ -18,6 +18,7 @@ var _walk_seconds := 6.0
 ## "" = the walking shot, "page" = a dialogue page, "choices" = the branch fork.
 var _dialog_mode := ""
 var _dialog_done := false
+var _down_done := false
 
 
 func _ready() -> void:
@@ -33,6 +34,11 @@ func _run() -> void:
 	if _dialog_mode == "choices":
 		default_name = "13_pilihan"
 		delay = 3.2
+	elif _dialog_mode == "down":
+		# hearts empty: the knight on the ground, HUD at 0/3 and the toast telling
+		# the player he will get up - the stakes, captured instead of described
+		default_name = "16_terjatuh"
+		delay = 4.4
 	elif _dialog_mode == "after":
 		# the same guard, after the player cleared the valley: a different story
 		default_name = "15_dialog_setelah"
@@ -73,6 +79,12 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	if _cast == null:
 		return
+	if _dialog_mode == "down":
+		_cast.call("set_virtual_stick", Vector2.ZERO)
+		if not _down_done and _elapsed > 1.0:
+			_down_done = true
+			_fall_down()
+		return
 	if _dialog_mode != "":
 		_cast.call("set_virtual_stick", Vector2.ZERO)
 		if not _dialog_done and _elapsed > 1.0:
@@ -89,6 +101,17 @@ func _process(delta: float) -> void:
 		# slow zoom so a single capture proves the sprite stays crisp and the
 		# billboard keeps facing the camera at a non-default distance
 		_cam_rig.call("set_zoom", 15.0 + 2.5 * sin(_elapsed * 0.55))
+
+
+## Three orc hits' worth of damage, spaced out so the knight's own
+## invulnerability window does not swallow them, ending with him on the ground.
+func _fall_down() -> void:
+	var knight: Node3D = _cast.call("player")
+	for _i in 3:
+		if knight == null or not is_instance_valid(knight):
+			return
+		knight.call("take_hit")
+		await get_tree().create_timer(1.05).timeout
 
 
 ## Walk the knight up to the guard and press Bicara for him. Everything here is

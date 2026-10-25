@@ -33,6 +33,7 @@ func _ready() -> void:
 	await _test_camera_follows_player()
 	await _test_dynamic_stick()
 	await _test_cleared_valley_stays_clear()
+	await _test_hearts_and_knockout()
 
 	print("[PLAY] %d pemeriksaan, %d gagal" % [checks, failures])
 	get_tree().quit(0 if failures == 0 else 1)
@@ -347,4 +348,97 @@ func _test_cleared_valley_stays_clear() -> void:
 		var f: String = "user://playsave/slot1.json" + suffix
 		if FileAccess.file_exists(f):
 			DirAccess.remove_absolute(f)
+	OS.set_environment("RT_SAVE_DIR", "")
+
+
+## Hearts, the shield, and the knockout. A demo without stakes is a diorama; this
+## makes the valley cost something, and proves that falling down never erases
+## progress.
+func _test_hearts_and_knockout() -> void:
+	for suffix in ["", ".bak", ".tmp"]:
+		var f: String = "user://playhearts/slot1.json" + suffix
+		if FileAccess.file_exists(f):
+			DirAccess.remove_absolute(f)
+	OS.set_environment("RT_SAVE_DIR", "user://playhearts")
+
+	var world := Node3D.new()
+	add_child(world)
+	var cast: Node3D = (load("res://game/characters/CharacterWorld.gd") as Script).new()
+	world.add_child(cast)
+	for _i in 6:
+		await get_tree().process_frame
+
+	var knight: Node3D = cast.call("player")
+	var st: Dictionary = cast.call("hud_state")
+	_check(int(st.get("hearts", 0)) == 3, "ksatria mulai dengan tiga hati", str(st.get("hearts")))
+	_check(String(st.get("objective", "")).begins_with("Bersihkan jalur"),
+		"tujuan awal: bersihkan jalur", String(st.get("objective")))
+
+	knight.call("take_hit")
+	await _wait(0.15)
+	st = cast.call("hud_state")
+	_check(int(st.get("hearts", 0)) == 2, "satu pukulan memakan satu hati", str(st.get("hearts")))
+
+	# the second orc swings in the same second: one heart, not two
+	await _wait(0.15)
+	knight.call("take_hit")
+	await _wait(0.1)
+	st = cast.call("hud_state")
+	_check(int(st.get("hearts", 0)) == 2, "pukulan beruntun tidak menggerus hati",
+		str(st.get("hearts")))
+
+	# shield up: the blow is free
+	await _wait(1.0)
+	knight.call("set_block", true)
+	await _wait(0.1)
+	knight.call("take_hit")
+	await _wait(0.1)
+	st = cast.call("hud_state")
+	_check(int(st.get("hearts", 0)) == 2, "perisai menahan pukulan tanpa kehilangan hati",
+		str(st.get("hearts")))
+	_check(String(knight.get("state")) == "block", "ksatria tidak keluar dari tahanan perisai",
+		String(knight.get("state")))
+	knight.call("set_block", false)
+
+	# down to zero: fall, then wake up at the start of the path
+	await _wait(1.0)
+	knight.call("take_hit")
+	await _wait(1.0)
+	knight.call("take_hit")
+	await _wait(0.15)
+	st = cast.call("hud_state")
+	_check(int(st.get("hearts", 0)) == 0 and bool(st.get("down", false)),
+		"habis hati = ksatria terjatuh", str(st.get("hearts")))
+	await _wait(2.6)
+	st = cast.call("hud_state")
+	_check(int(st.get("hearts", 0)) == 3 and not bool(st.get("down", true)),
+		"bangun dengan tiga hati", str(st.get("hearts")))
+	var back := Vector2(knight.position.x, knight.position.z)
+	_check(back.distance_to(Vector2(3.6, 7.2)) < 1.2, "bangun di awal jalan", str(back))
+	_check(not bool(knight.call("is_dead")), "ksatria hidup lagi setelah bangun")
+	_check(int(cast.call("progress").get("orcs_defeated", -1)) == 0,
+		"terjatuh tidak menghapus progres", str(cast.call("progress")))
+
+	# the objective follows the save, and a manual save really writes
+	cast.call("set_progress", 3, [])
+	_check(String(cast.call("hud_state").get("objective", "")) == "Kembali ke Penjaga Bram",
+		"tujuan berganti setelah tiga orc", String(cast.call("hud_state").get("objective")))
+	cast.call("set_progress", 3, ["bram_ucap_terima_kasih"])
+	_check(String(cast.call("hud_state").get("objective", "")).begins_with("Jalur aman"),
+		"tujuan selesai setelah laporan ke penjaga",
+		String(cast.call("hud_state").get("objective")))
+	var note := String(cast.call("save_now"))
+	_check(note == "" and FileAccess.file_exists("user://playhearts/slot1.json"),
+		"simpan manual menulis berkas", note)
+	var reader: RefCounted = (load("res://game/save/SaveGame.gd") as Script).new("user://playhearts")
+	reader.call("load_game")
+	_check(int(reader.call("get_counter", "deaths")) == 1, "jumlah terjatuh tersimpan",
+		str(reader.call("get_counter", "deaths")))
+
+	world.queue_free()
+	await get_tree().process_frame
+	for suffix in ["", ".bak", ".tmp"]:
+		var f2: String = "user://playhearts/slot1.json" + suffix
+		if FileAccess.file_exists(f2):
+			DirAccess.remove_absolute(f2)
 	OS.set_environment("RT_SAVE_DIR", "")

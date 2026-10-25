@@ -581,3 +581,64 @@ ditutup, dan ksatria berdiri kembali di tempat ia berhenti.
 
 Untuk pengujian, folder save bisa dialihkan lewat `RT_SAVE_DIR` (dipakai
 `SaveTest`/`PlayTest` dan QA di perangkat); build normal tidak menyetelnya.
+
+---
+
+## 14. Taruhan dan tujuan (0.3.2)
+
+Fase 3 membuat progres bisa disimpan; fase ini membuat progres **terasa**.
+Sebelumnya orc memukul dan ksatria hanya berkedip — tidak ada yang dipertaruhkan.
+
+### 14.1 Tiga hati
+
+| Angka | Nilai | Alasan |
+| --- | --- | --- |
+| `MAX_HEARTS` | 3 | satu kesalahan masih termaafkan, dua orc serentak tidak |
+| `INVULN_SEC` | 0,9 s | lebih panjang dari flinch guard 0,2 s bawaan `Actor`, supaya dua pukulan dalam detik yang sama = satu hati |
+
+Kehilangan hati terjadi di **dunia**, bukan di `Actor`: `Actor` tetap hanya tahu
+"aku dipukul" (sinyal `hurt`), sedangkan `CharacterWorld` yang memutuskan
+harganya. Dengan begitu seluruh perbaikan fase 2 (hit-stop, re-flinch, watchdog)
+tidak disentuh sama sekali.
+
+### 14.2 Perisai yang benar-benar menahan
+
+Sebelumnya tombol **Tahan** hanya memutar animasi `block`; pukulan tetap
+dihitung. Sekarang `Actor.take_hit()` keluar lebih awal bila state = `block`:
+kilau singkat, sinyal `hurt` tetap dikirim (dunia perlu tahu ada pukulan), tetapi
+ksatria tidak terlempar ke animasi `hurt` dan tidak kehilangan hati. Jadi menahan
+memang pilihan, bukan hiasan.
+
+### 14.3 Terjatuh, lalu bangun — tanpa kehilangan apa pun
+
+Hati habis → animasi `death` ksatria dimainkan, kontrol disembunyikan, pesan
+"Kau terjatuh" muncul, lalu setelah 2,2 s ia bangun di awal jalan dengan tiga
+hati. Counter `deaths` disimpan, tetapi **tidak ada** yang dihapus: orc yang sudah
+dikalahkan tetap mati, flag cerita tetap ada, dan save ditulis ulang saat bangun.
+Alasannya sederhana: hukuman yang menghapus progres membuat pemain berhenti
+bermain, dan itu bukan jenis kesulitan yang diinginkan brief.
+
+### 14.4 Panel tujuan
+
+HUD kiri atas kini punya blok **TUJUAN** + **Nyawa x / 3**. Teks tujuan
+diturunkan dari save, bukan dari variabel sesi:
+
+| Kondisi save | Yang dibaca pemain |
+| --- | --- |
+| `orcs_defeated < 3` | "Bersihkan jalur — n dari 3 orc" |
+| `orcs_defeated = 3`, flag `bram_ucap_terima_kasih` belum ada | "Kembali ke Penjaga Bram" |
+| flag itu ada | "Jalur aman — teruskan perjalanan" |
+
+Karena sumbernya save, menutup aplikasi di tengah jalan tidak menghilangkan
+petunjuk berikutnya.
+
+### 14.5 Jeda dan simpan manual
+
+Tombol **Jeda** membuka lembar perkamen: *Lanjutkan*, *Simpan sekarang*,
+*Peluncur*. Selama jeda `get_tree().paused = true`, tetapi lembar itu sendiri
+memakai `PROCESS_MODE_WHEN_PAUSED`, jadi tombolnya tetap hidup sementara dunia
+berhenti. "Simpan sekarang" memanggil jalur yang sama dengan autosave
+(`save_progress()`); tidak ada penulis save kedua yang bisa menyimpang.
+
+Catatan kecil: teks lama "Orc menghadang — pertempuran menyusul." dihapus. Itu
+janji fitur yang tidak ada, dan sekarang orc memang menghadang.

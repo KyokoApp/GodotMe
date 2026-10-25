@@ -44,6 +44,14 @@ const TREE_SCRIPT := "res://game/dialogue/DialogueTree.gd"
 const ORCS_TOTAL := 3
 const AUTOSAVE_SEC := 12.0
 
+## Three hearts: enough that a mistake is survivable, few enough that the orcs
+## are a real threat. `INVULN_SEC` is a shade longer than the knight's own
+## 0.2 s flinch guard, so two orcs swinging together cost one heart, not three.
+const MAX_HEARTS := 3
+const INVULN_SEC := 0.9
+## How long the knight stays down before he is helped back to his feet.
+const DOWN_SEC := 2.2
+
 var _defs := {}
 var _player: Node3D
 var _npc: Node3D
@@ -65,6 +73,10 @@ var _shake := 0.0
 var _shake_base := Vector3.ZERO
 var _toast_time := 0.0
 var _ready_ok := false
+var _hearts := MAX_HEARTS
+var _invuln := 0.0
+var _down := false
+var _deaths := 0
 
 
 func _ready() -> void:
@@ -379,13 +391,14 @@ func _process(delta: float) -> void:
 	_update_shake(delta)
 	_update_toast(delta)
 	_update_hint()
+	_invuln = maxf(0.0, _invuln - delta)
 	_session += delta
 	_autosave += delta
 	if _autosave >= AUTOSAVE_SEC:
 		_autosave = 0.0
 		save_progress()
 
-	var locked := _dialogue != null and bool(_dialogue.get("is_open"))
+	var locked := _down or (_dialogue != null and bool(_dialogue.get("is_open")))
 	var dir := Vector2.ZERO
 	if not locked and _controls != null:
 		var stick: Vector2 = _controls.get("stick_vector")
@@ -431,7 +444,7 @@ func _update_hint() -> void:
 	var near := false
 	if _npc.has_method("can_talk_to"):
 		near = bool(_npc.call("can_talk_to", _player))
-	var locked := _dialogue != null and bool(_dialogue.get("is_open"))
+	var locked := _down or (_dialogue != null and bool(_dialogue.get("is_open")))
 	_hint.text = "Tekan Bicara untuk bercakap dengan penjaga" if (near and not locked) else ""
 	if _controls != null:
 		_controls.set("interact_enabled", near and not locked)
@@ -541,13 +554,96 @@ func _strike_orcs() -> void:
 		best.call("die")
 
 
+## The orc's club landed. A raised shield takes the blow for free; otherwise the
+## knight loses one heart, and a short window of invulnerability stops two orcs
+## from stripping all three hearts in the same second.
 func _on_player_hurt(_actor: Node3D) -> void:
 	_shake = maxf(_shake, 0.8)
+	if _down or _player == null or not is_instance_valid(_player):
+		return
+	if String(_player.get("state")) == "block":
+		_show_toast("Perisai menahan pukulan")
+		return
+	if _invuln > 0.0:
+		return
+	_invuln = INVULN_SEC
+	_hearts = maxi(0, _hearts - 1)
+	if _hearts > 0:
+		_show_toast("Nyawa %d dari %d" % [_hearts, MAX_HEARTS])
+		return
+	_begin_down()
+
+
+## No hearts left: the knight falls, control is handed back for a moment, then he
+## wakes at the start of the path. Nothing is erased - the orcs he already beat
+## stay beaten and the save is written, not reset.
+func _begin_down() -> void:
+	_down = true
+	if _controls != null and _controls.has_method("show_controls"):
+		_controls.call("show_controls", false)
+	_player.call("die")
+	_show_toast("Kau terjatuh — bangun sebentar lagi…")
+	await get_tree().create_timer(DOWN_SEC).timeout
+	if not is_instance_valid(self) or not _ready_ok:
+		return
+	_wake_up()
+
+
+func _wake_up() -> void:
+	_down = false
+	_hearts = MAX_HEARTS
+	_invuln = INVULN_SEC
+	_deaths += 1
+	if _save != null:
+		_save.call("set_counter", "deaths", _deaths)
+	_player.call("revive")
+	teleport_player(PLAYER_START)
+	if _controls != null and _controls.has_method("show_controls"):
+		_controls.call("show_controls", true)
+	_show_toast("Kau bangun di awal jalan. Cerita tetap tersimpan.")
+	save_progress()
+
+
+## What the HUD needs, in one call. `Main.gd` polls this a few times a second
+## instead of reaching into the cast's internals.
+func hud_state() -> Dictionary:
+	var defeated := 0
+	var flags: Array = []
+	if _save != null:
+		defeated = int(_save.call("get_counter", "orcs_defeated"))
+		flags = _save.call("flag_list")
+	return {
+		"hearts": _hearts,
+		"max_hearts": MAX_HEARTS,
+		"down": _down,
+		"deaths": _deaths,
+		"orcs_defeated": defeated,
+		"orcs_total": ORCS_TOTAL,
+		"objective": _objective_text(defeated, flags),
+	}
+
+
+## The line the player reads at the top of the screen. It is derived from the
+## save, so reopening the game picks the same instruction back up.
+func _objective_text(defeated: int, flags: Array) -> String:
+	if defeated < ORCS_TOTAL:
+		return "Bersihkan jalur — %d dari %d orc" % [defeated, ORCS_TOTAL]
+	if not flags.has("bram_ucap_terima_kasih"):
+		return "Kembali ke Penjaga Bram"
+	return "Jalur aman — teruskan perjalanan"
+
+
+## Write the save on demand (the pause menu's "Simpan sekarang"). Empty string
+## means it worked; anything else is the reason it did not.
+func save_now() -> String:
+	if _save == null:
+		return "save tidak tersedia"
+	return save_progress()
 
 
 func _on_battle_triggered(_actor: Node3D) -> void:
 	_shake = maxf(_shake, 0.9)
-	_show_toast("Orc menghadang — pertempuran menyusul.")
+	_show_toast("Orc menghadang!")
 
 
 func _show_toast(text: String) -> void:

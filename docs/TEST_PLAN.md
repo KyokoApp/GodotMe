@@ -175,3 +175,22 @@ Tambahan `PlayTest` (25 Okt 2026, fase cerita):
 | D5 | 3 orc + `bram_kenal` → `setelah_bersih`; 2 orc → belum | progres mengubah cerita |
 | D6 | sudah kenal tapi belum bersih → `ulangan` yang tetap berisi | kunjungan ulang tidak kosong |
 | D7 | pilihan menyetel flag, flag tersimpan, dan nama pembicara berganti per halaman | cabang + penyajian dua arah |
+
+Tambahan `PlayTest` (25 Okt 2026, fase taruhan):
+
+| # | Yang diuji | Kenapa |
+| --- | --- | --- |
+| P21 | ksatria mulai dengan tiga hati dan tujuan "Bersihkan jalur" | dasar HUD |
+| P22 | satu pukulan memakan satu hati | harga pukulan |
+| P23 | pukulan beruntun dalam satu detik tetap satu hati | dua orc dulu menguras semua hati |
+| P24 | perisai menahan pukulan tanpa kehilangan hati, state tetap `block` | tombol Tahan harus berarti |
+| P25 | hati 0 → `down` (animasi mati dimainkan, kontrol hilang) | taruhan nyata |
+| P26 | bangun setelah 2,2 s: tiga hati, di awal jalan, tidak `is_dead` | tidak boleh macet mati |
+| P27 | terjatuh tidak menghapus progres orc | hukuman bukan penghapusan |
+| P28 | tujuan berganti ke "Kembali ke Penjaga Bram" lalu "Jalur aman" | HUD dibaca dari save |
+| P29 | "Simpan sekarang" menulis berkas dan count `deaths` ikut tersimpan | jalur simpan manual = autosave |
+| P30 | `16_terjatuh.png` memotret ksatria di tanah dengan HUD 0/3 | bukti visual, bukan klaim |
+
+Yang **belum** teruji otomatis: tombol di lembar jeda (butuh layar sungguhan
+untuk menilai tata letaknya) — diperiksa manual di HP: Jeda → Simpan sekarang →
+tutup aplikasi → buka lagi, tujuan dan posisi harus sama.
