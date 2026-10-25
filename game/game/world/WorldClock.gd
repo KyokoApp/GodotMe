@@ -151,7 +151,7 @@ func _segment() -> int:
 ## time of day instead of sliding continuously.
 func _blend() -> float:
 	var u := day * float(PHASES.size())
-	var frac := u - floor(u)
+	var frac: float = u - floorf(u)
 	return smoothstep(0.62, 1.0, frac)
 
 
