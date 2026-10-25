@@ -157,6 +157,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Field rules (camera leash, minimap, action button, fog)
+        # Headless: a screenshot shows that the field looks empty, not that the
+        # camera stops at the map edge, that the minimap survives a bigger map,
+        # that the button follows distance, or that fog survives a save.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/FieldTest.tscn 2>&1 | tee /tmp/field.log
+          code=${PIPESTATUS[0]}
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### field rules (exit $code)"; echo '```'; tail -c 20000 /tmp/field.log; echo '```'; } > /tmp/field.md
+            gh pr comment "$PR" --body-file /tmp/field.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Character sprite contract (strips + SpriteFrames)
         # Fails the build, it does not guess: a strip whose width is not
         # frames x frame_width, a stale pivot or an empty animation stops here.
@@ -306,13 +324,34 @@ jobs:
             "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
             -- --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=08_diorama \
             2>&1 | tee -a /tmp/capture.log | tail -20
-          # --- the menu, in both of its pages --------------------------------
-          for variant in "jeda 20_menu" "pengaturan 21_pengaturan"; do
-            set -- $variant
+          # --- step 1: the field, the banner, the dialogue, the menu, the map,
+          # --- the fog, and the same field at three screen ratios -------------
+          # Each run goes through the real game (Main.tscn) and the same doors a
+          # thumb uses; nothing is drawn by a test-only path.
+          for variant in "menu:lanjut 20_menu" "menu:pengaturan 21_pengaturan" \
+                         "field 22_lapangan" "banner 23_banner" \
+                         "dialogue 24_dialog" "menu:jurnal 25_jurnal" \
+                         "map 26_peta" "fog 27_fog"; do
+            arg="${variant% *}"; name="${variant#* }"
+            case "$arg" in
+              menu:*) extra="--menu=${arg#menu:}" ;;
+              *) extra="--hud=$arg" ;;
+            esac
             xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
               "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
-              -- --menu="$1" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
-              --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
+              -- $extra --walk=1.2 --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$name" 2>&1 | tee -a /tmp/capture.log | tail -12
+          done
+          # the same HUD at 20:9 and 4:3, to prove nothing drifts or overlaps
+          for variant in "1440x648 28_rasio_20x9" "960x720 29_rasio_4x3"; do
+            set -- $variant
+            screen="${1%x*}"
+            xvfb-run -a -s "-screen 0 ${1}x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution "$1" \
+              -- --hud=field --walk=1.2 \
+              --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -12
+            echo "ratio capture $1 -> $2 (screen width $screen)"
           done
           # --- character stage: three-up test sheet --------------------------
           xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \

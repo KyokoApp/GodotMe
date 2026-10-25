@@ -8,16 +8,29 @@ extends RefCounted
 ##
 ## Same discipline as SaveGame: schema number, defaults for missing keys, and a
 ## corrupt file falls back to defaults instead of crashing the boot.
+##
+## Schema history:
+##   1  tilt-shift, shake, quality, show_fps
+##   2  + ui_scale (one knob for the whole HUD/menu), stick_sensitivity,
+##      stick_mode, debug. A schema-1 file simply keeps its four values and
+##      receives the new defaults; nothing has to be migrated by hand.
 
-const SCHEMA := 1
+const SCHEMA := 2
 const FILE_NAME := "settings.json"
 const QUALITIES := ["rendah", "sedang", "tinggi"]
+
+const UI_SCALES := ["kecil", "sedang", "besar"]
+const STICK_MODES := ["mengambang", "tetap"]
 
 const DEFAULTS := {
 	"tilt_shift": true,
 	"shake": true,
 	"quality": "sedang",
 	"show_fps": false,
+	"ui_scale": "sedang",
+	"stick_sensitivity": 1.0,
+	"stick_mode": "mengambang",
+	"debug": false,
 }
 
 var values := {}
@@ -76,6 +89,10 @@ func save() -> String:
 		"shake": bool(values.get("shake", true)),
 		"quality": String(values.get("quality", "sedang")),
 		"show_fps": bool(values.get("show_fps", false)),
+		"ui_scale": String(values.get("ui_scale", "sedang")),
+		"stick_sensitivity": float(values.get("stick_sensitivity", 1.0)),
+		"stick_mode": String(values.get("stick_mode", "mengambang")),
+		"debug": bool(values.get("debug", false)),
 	}
 	var err := OK
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -96,7 +113,7 @@ func get_value(key: String) -> Variant:
 ## has to re-check that "quality" is one of three words.
 func set_value(key: String, value: Variant) -> bool:
 	match key:
-		"tilt_shift", "shake", "show_fps":
+		"tilt_shift", "shake", "show_fps", "debug":
 			values[key] = bool(value)
 			return true
 		"quality":
@@ -104,6 +121,21 @@ func set_value(key: String, value: Variant) -> bool:
 			if not QUALITIES.has(q):
 				return false
 			values[key] = q
+			return true
+		"ui_scale":
+			var u := String(value)
+			if not UI_SCALES.has(u):
+				return false
+			values[key] = u
+			return true
+		"stick_mode":
+			var m := String(value)
+			if not STICK_MODES.has(m):
+				return false
+			values[key] = m
+			return true
+		"stick_sensitivity":
+			values[key] = clampf(float(value), 0.5, 1.6)
 			return true
 	return false
 
@@ -174,9 +206,37 @@ func render_scale() -> float:
 
 ## Extra setting, off by default: an on-screen counter plus a `[PERF]` log line,
 ## so the owner can measure a real phone instead of trusting a desktop capture.
+## Since step 1 the counter is a *debug* readout: the field HUD stays empty, and
+## FPS only appears when both debug and show_fps are on. That keeps a permanent
+## number off a screen the owner asked to look like a painting.
 func fps_visible() -> bool:
-	return bool(values.get("show_fps", false))
+	return bool(values.get("show_fps", false)) and debug_enabled()
 
 
 func set_fps_visible(on: bool) -> void:
 	values["show_fps"] = on
+
+
+func debug_enabled() -> bool:
+	return bool(values.get("debug", false))
+
+
+## One knob for the whole interface. Returned as a multiplier on the 1280x720
+## design canvas; every HUD layer is scaled by it (see UiKit.apply_layer_scale),
+## so "ukuran UI" never means hunting down fifty font sizes.
+func ui_scale() -> float:
+	match String(values.get("ui_scale", "sedang")):
+		"kecil":
+			return 0.86
+		"besar":
+			return 1.14
+		_:
+			return 1.0
+
+
+func stick_sensitivity() -> float:
+	return clampf(float(values.get("stick_sensitivity", 1.0)), 0.5, 1.6)
+
+
+func stick_fixed() -> bool:
+	return String(values.get("stick_mode", "mengambang")) == "tetap"

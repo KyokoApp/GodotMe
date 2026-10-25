@@ -155,8 +155,11 @@ func _test_migration_from_v0() -> void:
 		"counter baru mulai dari nol, bukan crash")
 	_check(String(a.call("save_now")) == "", "hasil migrasi bisa disimpan lagi")
 	var on_disk := _read_dict(TEST_DIR.path_join("slot1.json"))
-	_check(int(on_disk.get("schema", -1)) == 1, "berkas kini berskema 1",
+	# the migration chain runs all the way to the current schema, fog included
+	_check(int(on_disk.get("schema", -1)) == 2, "berkas kini berskema 2",
 		str(on_disk.get("schema")))
+	_check(typeof(on_disk.get("fog", null)) == TYPE_DICTIONARY,
+		"save lama mendapat fog kosong", str(on_disk.get("fog", "tidak ada")))
 
 
 ## A save from a newer build must survive: we do not understand it, so we must

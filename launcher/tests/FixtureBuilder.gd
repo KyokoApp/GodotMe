@@ -14,6 +14,14 @@ const PACK_FILES := {
 			"game/Main.gd",
 			"game/ui/UiKit.gd",
 			"game/ui/Settings.gd",
+			# step 1's field interface lives with Main: the HUD, the minimap, the
+			# full map and the one menu are all read by Main through `load()`, and
+			# keeping them in the same pack as their caller means no script here
+			# ever has to `preload` across a pack boundary.
+			"game/ui/FieldHud.gd",
+			"game/ui/Minimap.gd",
+			"game/ui/FullMap.gd",
+			"game/ui/Menu.gd",
 		],
 	},
 	"characters": {
@@ -86,6 +94,10 @@ const PACK_FILES := {
 			"game/world/WorldArt.gd",
 			"game/world/WorldClock.gd",
 			"game/world/Atmosphere.gd",
+			# the ground as data: terrain per tile plus the explored-ground fog.
+			# The minimap, the camera leash and (in step 2) the tiered terrain all
+			# read this one file.
+			"game/world/WorldMap.gd",
 			"game/world/tiltshift.gdshader",
 			"game/world/path.gdshader",
 			"game/world/textures/tree_pine.png",

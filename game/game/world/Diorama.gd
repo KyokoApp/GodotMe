@@ -20,6 +20,7 @@ const ART := preload("res://game/world/WorldArt.gd")
 const CAMERA_RIG := preload("res://game/world/DioramaCamera.gd")
 const CLOCK_SCRIPT := "res://game/world/WorldClock.gd"
 const ATMOSPHERE_SCRIPT := "res://game/world/Atmosphere.gd"
+const MAP_SCRIPT := "res://game/world/WorldMap.gd"
 
 const AREA_NAME := "Lembah Senja"
 const AREA_SUBTITLE := "Yaros, awal perjalanan"
@@ -102,12 +103,23 @@ const PATH_WIDTH := 1.6
 
 const GROUND_SIZE := Vector2(26.0, 20.0)
 
+## One tile = one metre. The valley is 26x20 tiles, so the minimap is 26 pixels
+## of data across at its smallest - small enough to rebuild on the CPU in the
+## same frame the player changes tile, and detailed enough that the path, the
+## cottage and the tree line are recognisable shapes.
+const TILE_M := 1.0
+## How far the knight can see for the map's fog. The valley is small, so this is
+## most of it after a short walk; on a big region the same number leaves the
+## distance dark, which is the point.
+const SIGHT_M := 6.0
+
 var _sun: DirectionalLight3D
 var _camera: Node3D
 var _env: Environment
 var _clock: Node
 var _atmosphere: Node
 var _lamp: OmniLight3D
+var _map: RefCounted
 
 
 func _ready() -> void:
@@ -115,6 +127,7 @@ func _ready() -> void:
 	_build_ground()
 	_build_path()
 	_build_props()
+	_build_map()
 	_build_atmosphere()
 	_build_clock()
 	_build_camera()
@@ -216,6 +229,61 @@ func _build_clock() -> void:
 	_on_phase_changed(String(want))
 
 
+## The ground as data (WorldMap.gd): terrain per tile plus the places of
+## interest. Built from the very layout that places the props, so the minimap
+## cannot drift away from the world it describes.
+func _build_map() -> void:
+	if not ResourceLoader.exists(MAP_SCRIPT):
+		push_warning("[WORLD] WorldMap.gd tidak ada di paket ini")
+		return
+	var script: Script = load(MAP_SCRIPT)
+	if script == null:
+		return
+	var map: RefCounted = script.new()
+	map.call("setup", int(GROUND_SIZE.x / TILE_M), int(GROUND_SIZE.y / TILE_M),
+		TILE_M, Vector2.ZERO)
+	map.set("label", AREA_NAME)
+	map.set("sight_m", SIGHT_M)
+	# Constants are not properties: `get()` cannot see them, the script's own
+	# constant map can (same trick as the clock's DAY_SECONDS).
+	var kinds: Dictionary = script.get_script_constant_map()
+	var kind_grass := int(kinds.get("KIND_GRASS", 0))
+	var kind_dirt := int(kinds.get("KIND_DIRT", 1))
+	var kind_forest := int(kinds.get("KIND_FOREST", 4))
+	var kind_rock := int(kinds.get("KIND_ROCK", 3))
+	var kind_building := int(kinds.get("KIND_BUILDING", 5))
+	map.call("fill", kind_grass)
+
+	# trees first: a rock beside a pine should stay a rock, and the path is
+	# painted last so it always reads as a road through whatever it crosses
+	for entry in LAYOUT:
+		var kind := String(entry[0])
+		var at := Vector2(float(entry[1]), float(entry[2]))
+		match kind:
+			"pine":
+				map.call("paint_disc", at, 1.5, kind_forest)
+			"oak":
+				map.call("paint_disc", at, 2.0, kind_forest)
+			"cottage":
+				map.call("paint_disc", at, 2.4, kind_building)
+			"rock":
+				map.call("paint_disc", at, 0.8, kind_rock)
+
+	# the track and the bare patch in front of the door are dirt
+	for i in range(PATH.size() - 1):
+		map.call("paint_line", PATH[i], PATH[i + 1], PATH_WIDTH * 0.5, kind_dirt)
+	map.call("paint_disc", Vector2(-2.2, 0.4), 2.2, kind_dirt)
+
+	# places of interest: the map may name a few doors and landmarks; who stands
+	# where is the cast's business (the cast writes its own markers)
+	map.call("add_poi", "door", "Pintu pondok", Vector2(-2.6, -0.2), 2.6)
+	map.call("add_poi", "landmark", "Tikungan", Vector2(3.0, 6.2), 1.8)
+	_map = map
+	print("[WORLD] peta %dx%d ubin (%.1f m/ubin), poi %d" % [
+		int(map.get("width")), int(map.get("height")), float(map.get("cell")),
+		(map.get("pois") as Array).size()])
+
+
 func _on_phase_changed(id: String) -> void:
 	if _atmosphere != null and _atmosphere.has_method("set_phase"):
 		_atmosphere.call("set_phase", id)
@@ -242,6 +310,16 @@ func set_time_of_day(night: bool) -> void:
 
 func clock() -> Node:
 	return _clock
+
+
+## The terrain grid the minimap and the camera read. Null only if the world pack
+## shipped without WorldMap.gd.
+func map() -> RefCounted:
+	return _map
+
+
+func camera_rig() -> Node3D:
+	return _camera
 
 
 ## Quality preset: shadows are the expensive part of the sun, and they are the
@@ -406,6 +484,10 @@ func _build_camera() -> void:
 	_camera.name = "CameraRig"
 	_camera.bounds = Vector2(GROUND_SIZE.x * 0.5 - 4.0, GROUND_SIZE.y * 0.5 - 3.5)
 	_camera.start_zoom = 19.0
+	# The camera must not leave the ground. The rectangle comes from the map, so
+	# a larger map (step 2) widens the leash without a single new number here.
+	if _map != null:
+		_camera.call("set_map_bounds", (_map.call("bounds") as Rect2).grow(-0.5))
 	var cam := Camera3D.new()
 	cam.name = "Camera3D"
 	cam.fov = 30.0

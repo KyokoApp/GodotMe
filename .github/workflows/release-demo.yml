@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.6.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.7.0' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,6 +70,17 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
+              "Layar lapangan kini hampir kosong: minimap kecil di kiri atas, satu tombol Menu di kanan atas, satu tombol aksi di kanan bawah.",
+              "Minimap digambar dari data peta (bukan kamera kedua): ikon pemain, penjaga, orc dekat, tujuan, dan kabut yang terbuka saat berjalan.",
+              "Ketuk minimap untuk membuka peta penuh; ketuk dua kali untuk dua tingkat zoom.",
+              "Kamera mengikuti ksatria dengan lembut, tidak bisa keluar dari batas peta, dan zoom-nya menempel ke tangga agar sprite tetap tajam.",
+              "Satu menu dengan tujuh tab: Lanjut, Jurnal, Peta, Inventori, Pengaturan, Simpan, Peluncur (peluncur minta konfirmasi).",
+              "Dialog kini ringkas di bawah layar dengan potret pembicara dan ketuk-untuk-lanjut.",
+              "Kotak tujuan, hati, narasi, dan angka FPS hilang dari lapangan; semuanya pindah ke menu Jurnal dan Pengaturan.",
+              "Tombol Serang dan Tahan dihapus dari lapangan: permainan turn-based, dan pertarungan belum ada di versi ini.",
+              "Pengaturan baru: ukuran UI, sensitivitas stik, stik mengambang/tetap, dan FPS hanya tampil dalam mode debug.",
+              "Fog of war (area yang sudah dijelajahi) tersimpan di save; save lama tetap terbaca dan mulai dari peta gelap.",
+              "Paket yang berubah: core.pck, world.pck, characters.pck, ui.pck (ikon baru). Paket lain tidak diunduh ulang, APK tetap.",
               "Preset grafis kini juga mengatur batas FPS (30/60) dan resolusi 3D: preset rendah jauh lebih ringan di HP.",
               "Ikon HUD digabung jadi satu atlas, dan semua aset yang tidak dipakai dibuang dari paket (paket total ±707 KB).",
               "Pengaturan baru: Tampilkan FPS, plus log [PERF] tiap 5 detik untuk mengukur di perangkat lewat adb logcat.",

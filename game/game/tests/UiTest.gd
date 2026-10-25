@@ -1,5 +1,5 @@
 extends Node
-## Headless gate for phase 7: the UI kit, the settings file and the menu.
+## Headless gate for the UI kit, the settings file and the one menu.
 ##
 ##   godot --headless --path game res://game/tests/UiTest.tscn
 ##
@@ -159,6 +159,20 @@ func _test_settings() -> void:
 	_check(is_zero_approx(float(preset.call("tilt_blur"))), "tilt-shift mati = blur 0")
 
 	# frame budget and 3D resolution are part of the same preset
+	# step 1 added one UI size knob and two joystick preferences
+	_check(bool(preset.call("set_value", "ui_scale", "besar"))
+		and is_equal_approx(float(preset.call("ui_scale")), 1.14),
+		"ukuran UI besar = skala 1,14", "%.2f" % float(preset.call("ui_scale")))
+	_check(not bool(preset.call("set_value", "ui_scale", "raksasa")),
+		"ukuran UI asing ditolak")
+	_check(bool(preset.call("set_value", "stick_mode", "tetap"))
+		and bool(preset.call("stick_fixed")), "stik bisa dipilih tetap")
+	preset.call("set_value", "stick_sensitivity", 9.0)
+	_check(is_equal_approx(float(preset.call("stick_sensitivity")), 1.6),
+		"sensitivitas stik dijepit ke batas atas",
+		"%.2f" % float(preset.call("stick_sensitivity")))
+	preset.call("set_value", "stick_sensitivity", 1.0)
+
 	var low_fps := int(preset.call("fps_cap"))
 	var low_render := float(preset.call("render_scale"))
 	preset.call("set_value", "quality", "tinggi")
@@ -182,35 +196,46 @@ func _test_menu() -> void:
 	_main = load(MAIN_SCENE).instantiate() as Control
 	_main.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_main)
-	for _i in 8:
+	for _i in 10:
 		await get_tree().process_frame
 
-	var sheet: Control = _main.get("_pause_root")
-	_check(sheet != null and not sheet.visible, "lembar jeda ada dan tersembunyi")
+	var menu: Control = _main.get("_menu")
+	var hud: Control = _main.get("_hud")
+	_check(menu != null and not menu.visible, "menu ada dan tersembunyi saat bermain")
+	_check(hud != null, "HUD lapangan terbangun")
 	var inset: Vector2 = _main.call("_safe_insets")
 	_check(inset.x >= 0.0 and inset.y >= 0.0, "safe area tidak pernah negatif", str(inset))
-	var icons: Array = _main.get("_hearts_icons")
-	_check(icons.size() == 3, "HUD punya tiga ikon hati", str(icons.size()))
 
-	_main.call("_on_pause_pressed")
+	# --- the field is almost empty: no objective box, no hearts, no FPS text
+	var permanent: Array = [hud.call("minimap"), hud.call("menu_button")]
+	_check(permanent[0] != null and permanent[1] != null,
+		"HUD hanya punya minimap dan satu tombol menu")
+	_check(not bool(hud.call("action_visible")), "tombol aksi tidak menetap di layar")
+	_check(hud.call("fps_label") == null, "tidak ada teks FPS tanpa mode debug")
+	_check(int(menu.call("current_page")) >= 0, "menu punya halaman awal")
+
+	# --- one button opens every panel
+	var page_ids: Array = []
+	for id in ["lanjut", "jurnal", "peta", "inventori", "pengaturan", "simpan", "peluncur"]:
+		if menu.call("page_node", id) != null:
+			page_ids.append(id)
+	_check(page_ids.size() == 7, "menu punya tujuh tab", str(page_ids))
+
+	_main.call("_on_menu_pressed")
 	await get_tree().process_frame
-	_check(sheet.visible and get_tree().paused, "jeda membuka lembar dan menghentikan dunia")
-	# and it must actually be on screen: a sheet at alpha 0 freezes the world and
-	# shows the player nothing (that was the first version of this menu)
-	await get_tree().create_timer(0.4).timeout
-	_check(sheet.modulate.a > 0.95, "lembar jeda benar-benar tampak", str(sheet.modulate.a))
+	_check(menu.visible and get_tree().paused, "tombol menu membuka panel dan menghentikan dunia")
+	await get_tree().create_timer(0.35).timeout
+	_check(menu.modulate.a > 0.95, "panel menu benar-benar tampak", str(menu.modulate.a))
 
-	var page_jeda: Control = _main.get("_page_jeda")
-	var page_set: Control = _main.get("_page_set")
-	_check(page_jeda != null and page_jeda.get_child_count() == 4,
-		"halaman jeda punya empat tombol", str(page_jeda.get_child_count() if page_jeda else -1))
-	_check(page_set != null and page_set.get_child_count() == 5,
-		"halaman pengaturan punya lima tombol", str(page_set.get_child_count() if page_set else -1))
-
-	_main.call("_show_settings")
+	menu.call("show_page", "jurnal")
 	await get_tree().process_frame
-	_check(page_set.visible and not page_jeda.visible, "pindah ke halaman pengaturan")
+	_check(String(menu.call("current_page")) == "jurnal", "pindah ke tab Jurnal")
+	var objective: Label = menu.get("_journal_objective")
+	_check(objective != null and objective.text != "" and objective.text != "—",
+		"Jurnal memuat tujuan aktif", objective.text if objective != null else "")
 
+	menu.call("show_page", "pengaturan")
+	await get_tree().process_frame
 	var settings: RefCounted = _main.get("_settings")
 	var before := bool(settings.call("get_value", "shake"))
 	_main.call("_on_toggle", "shake")
@@ -235,22 +260,63 @@ func _test_menu() -> void:
 		"skala resolusi 3D diterapkan ke viewport",
 		str(vp.scaling_3d_scale if vp != null else -1.0))
 
-	# the counter exists so the owner can read FPS off the phone
+	# one knob for the whole interface, applied to the HUD's canvas layer
+	var before_scale := float(menu.get("_settings").call("ui_scale"))
+	_main.call("_on_toggle", "ui_scale")
+	await get_tree().process_frame
+	var after_scale := float(settings.call("ui_scale"))
+	var layer: CanvasLayer = _main.get("_hud_layer")
+	_check(not is_equal_approx(before_scale, after_scale)
+		and is_equal_approx(layer.transform.get_scale().x, after_scale),
+		"ukuran UI mengubah skala seluruh layer HUD",
+		"%.2f -> %.2f (layer %.2f)" % [before_scale, after_scale,
+			layer.transform.get_scale().x])
+	_main.call("_on_toggle", "ui_scale")
+	_main.call("_on_toggle", "ui_scale")
+	await get_tree().process_frame
+
+	# FPS is a debug readout: it needs both switches
+	_main.call("_on_toggle", "debug")
+	await get_tree().process_frame
+	_check(bool(settings.call("debug_enabled")), "mode debug bisa dinyalakan")
 	_main.call("_on_toggle", "show_fps")
 	await get_tree().process_frame
-	var overlay: Label = _main.get("_fps_label")
-	_check(overlay != null, "penghitung FPS muncul saat diaktifkan")
+	_check(hud.call("fps_label") != null, "penghitung FPS muncul saat debug + FPS nyala")
 	_main.call("_on_toggle", "show_fps")
+	_main.call("_on_toggle", "debug")
 	await get_tree().process_frame
-	_check(_main.get("_fps_label") == null, "penghitung FPS hilang saat dimatikan")
+	_check(hud.call("fps_label") == null, "penghitung FPS hilang lagi")
 
 	var blur := float((_main.get("_tilt_mat") as ShaderMaterial).get_shader_parameter("blur_pixels"))
 	_check(blur >= 0.0, "tilt-shift mendapat nilai blur", str(blur))
 	var status := String(_main.call("_status_text"))
 	_check(status.contains("Orc") and status.contains("Nyawa"), "status di menu terbaca", status)
 
+	# --- the launcher door needs a second tap
+	menu.call("show_page", "peluncur")
+	await get_tree().process_frame
+	menu.call("_on_launcher_pressed")
+	await get_tree().process_frame
+	_check(menu.get("_launcher_armed"), "tombol peluncur minta konfirmasi dulu")
+	# arm it again by hand rather than pressing twice: the second press really
+	# would close the world, and this test is not here to leave the scene
+	menu.set("_launcher_armed", false)
 	_main.call("_on_resume_pressed")
 	await get_tree().create_timer(0.25).timeout
-	_check(not get_tree().paused, "lanjutkan melepas jeda")
+	_check(not get_tree().paused and not menu.visible, "lanjutkan melepas jeda dan menutup panel")
+
+	# --- full map panel opens from the minimap data, and closes again
+	hud.call("open_map")
+	await get_tree().process_frame
+	var full: Control = hud.call("full_map")
+	var opened := full != null and bool(full.call("full_map_open"))
+	_check(opened, "peta penuh bisa dibuka")
+	if full != null:
+		_check(String(full.get("_title").text) == "Lembah Senja",
+			"peta penuh memakai nama area", String(full.get("_title").text))
+		full.call("close_panel")
+		await get_tree().process_frame
+		_check(not bool(full.call("full_map_open")), "peta penuh bisa ditutup")
+
 	_main.queue_free()
 	await get_tree().process_frame

@@ -20,12 +20,15 @@ extends RefCounted
 ## Version history:
 ##   0  implicit, never shipped: {flags: {...}} only, no counters, no position
 ##   1  first shipped schema: flags, counters, player position, play time
+##   2  + `fog`: the ground the player has already explored, as the map's own
+##      versioned blob (see WorldMap.fog_payload). A schema-1 save simply starts
+##      with an empty fog, which is exactly what "never been anywhere" means.
 
 const SAVE_DIR := "user://save"
 const SLOT_FILE := "slot1.json"
 const BAK_SUFFIX := ".bak"
 const TMP_SUFFIX := ".tmp"
-const SCHEMA := 1
+const SCHEMA := 2
 const GAME_ID := "re-traveller"
 
 var path := ""
@@ -42,6 +45,9 @@ var _counters: Dictionary = {}
 var _position := Vector2.ZERO
 var _has_position := false
 var _play_time_s := 0.0
+## Explored map ground, kept as an opaque dictionary: the save does not need to
+## know what a tile is, only how to carry it safely between runs.
+var _fog: Dictionary = {}
 
 
 func _init(dir: String = "") -> void:
@@ -115,6 +121,11 @@ func _migrate(data: Dictionary, from_version: int) -> Dictionary:
 		if not out.has("position"):
 			out["position"] = {}
 		v = 1
+	if v < 2:
+		# schema 2 added the explored ground; an older save has seen nothing.
+		if not out.has("fog"):
+			out["fog"] = {}
+		v = 2
 	out["schema"] = v
 	return out
 
@@ -139,6 +150,8 @@ func _absorb(data: Dictionary) -> void:
 		_position = Vector2.ZERO
 		_has_position = false
 	_play_time_s = float(data.get("play_time_s", 0.0))
+	var fog: Variant = data.get("fog", {})
+	_fog = fog if typeof(fog) == TYPE_DICTIONARY else {}
 
 
 # ------------------------------------------------------------------ queries --
@@ -170,6 +183,20 @@ func player_position() -> Vector2:
 
 func play_time() -> float:
 	return _play_time_s
+
+
+## The explored-ground blob as written last time. Empty for a new game or for a
+## save that predates the map.
+func fog() -> Dictionary:
+	return _fog.duplicate(true)
+
+
+func set_fog(payload: Dictionary) -> void:
+	_fog = payload.duplicate(true)
+
+
+func has_fog() -> bool:
+	return not _fog.is_empty()
 
 
 # ------------------------------------------------------------------ changes --
@@ -213,6 +240,7 @@ func to_dictionary() -> Dictionary:
 		"counters": _counters.duplicate(true),
 		"position": pos,
 		"play_time_s": _play_time_s,
+		"fog": _fog.duplicate(true),
 	}
 	payload["sha256"] = _hash_of(payload)
 	return payload

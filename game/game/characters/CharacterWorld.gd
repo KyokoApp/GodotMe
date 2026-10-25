@@ -54,6 +54,15 @@ const INVULN_SEC := 0.9
 ## punishment screen.
 const DOWN_SEC := 2.6
 
+## How close the knight must be for the one contextual button to offer an action.
+## A talking range is generous on purpose (a thumb should never have to pixel
+## hunt); the door is a rectangle of ground in front of the cottage.
+const TALK_RANGE := 2.2
+const DOOR_RANGE := 2.8
+## Near enough to an orc that the button offers "Periksa".
+const INSPECT_RANGE := 3.4
+const PORTRAIT_SCRIPT := "res://game/characters/CharacterAssets.gd"
+
 var _defs := {}
 var _player: Node3D
 var _npc: Node3D
@@ -62,7 +71,6 @@ var _camera_rig: Node3D
 var _controls: Node
 var _dialogue: Node
 var _toast: Label
-var _hint: Label
 var _blocker_list: Array = []
 var _bounds_rect := Rect2(-12.0, -9.0, 24.0, 18.0)
 var _save: RefCounted
@@ -81,6 +89,16 @@ var _down := false
 var _deaths := 0
 ## 0 turns camera shake off without touching the code that asks for it.
 var _shake_scale := 1.0
+## Last direction the knight actually walked, for the minimap's arrow. Sprites
+## only know left/right; the map needs the real heading.
+var _heading := Vector2(0.0, -1.0)
+## What the contextual button would do right now: {} or {kind, label, pos}.
+var _interaction := {}
+## Field combat is off until the battle system exists. The orcs still patrol,
+## notice the knight and block his road (battle_triggered -> notice), but they no
+## longer take hearts in real time: step 1 removed the attack and shield buttons,
+## so damage without a way to answer would just be unfair.
+var _combat_live := false
 
 
 func _ready() -> void:
@@ -91,6 +109,9 @@ func _ready() -> void:
 	_load_progress()
 	_load_story()
 	_wire_ground()
+	_load_fog()
+	# the ground around the starting point is known before the first step
+	_open_fog_around_player()
 	_spawn_cast()
 	_restore_player()
 	_build_ui()
@@ -162,6 +183,7 @@ func _load_story() -> void:
 func save_progress() -> String:
 	if _save == null:
 		return "tidak ada save"
+	_persist_fog()
 	if _player != null and is_instance_valid(_player):
 		_save.call("set_player_position",
 			Vector2(_player.position.x, _player.position.z))
@@ -181,6 +203,42 @@ func _restore_player() -> void:
 	var pos: Vector2 = _save.call("player_position")
 	# Keep him inside the valley even if the save is older than the layout.
 	_player.position = Vector3(pos.x, 0.0, pos.y)
+
+
+# ------------------------------------------------------------ fog of war ----
+## The explored ground travels with the save so a returning player keeps their map.
+## The blob carries its own schema and size; a save from a bigger or older map is
+## simply ignored, which is what "no map yet" looks like too.
+func _load_fog() -> void:
+	var map := _world_map()
+	if map == null or _save == null:
+		return
+	if not bool(_save.call("has_fog")):
+		print("[CHAR] peta: belum ada fog tersimpan, mulai dari gelap")
+		return
+	var note := String(map.call("load_fog", _save.call("fog")))
+	if note != "":
+		print("[CHAR] peta: fog lama tidak dipakai (%s)" % note)
+		return
+	print("[CHAR] peta: fog dipulihkan, %.0f%% dijelajahi" % (
+		float(map.call("explored_ratio")) * 100.0))
+
+
+func _persist_fog() -> void:
+	var map := _world_map()
+	if map == null or _save == null:
+		return
+	_save.call("set_fog", map.call("fog_payload"))
+
+
+## Open the map where the knight stands. Called on boot and every frame from the
+## HUD anyway (the minimap needs its window); this one just makes sure the very
+## first frame is not pitch black.
+func _open_fog_around_player() -> void:
+	var map := _world_map()
+	if map == null or _player == null:
+		return
+	map.call("reveal", Vector2(_player.position.x, _player.position.z))
 
 
 ## Test/debug hook: pretend the player has already done this much.
@@ -293,6 +351,7 @@ func _spawn_cast() -> void:
 		orc.name = "Orc%d" % i
 		orc.set("patrol", conf["route"])
 		orc.set("player", _player)
+		orc.set("swing_enabled", _combat_live)
 		orc.connect("battle_triggered", Callable(self, "_on_battle_triggered"))
 		orc.connect("died", Callable(self, "_on_orc_died"))
 		_orcs.append(orc)
@@ -323,8 +382,6 @@ func _build_ui() -> void:
 	_controls = (load(TOUCH_SCRIPT) as Script).new()
 	_controls.name = "TouchControls"
 	add_child(_controls)
-	_controls.connect("attack_pressed", Callable(self, "_on_attack_pressed"))
-	_controls.connect("interact_pressed", Callable(self, "_on_interact_pressed"))
 
 	_dialogue = (load(DIALOGUE_SCRIPT) as Script).new()
 	_dialogue.name = "Dialogue"
@@ -357,21 +414,6 @@ func _build_ui() -> void:
 	_toast.modulate.a = 0.0
 	root.add_child(_toast)
 
-	_hint = Label.new()
-	_hint.add_theme_font_override("font", _font(FONT_BODY))
-	_hint.add_theme_font_size_override("font_size", 17)
-	_hint.add_theme_color_override("font_color", Color(0.93, 0.87, 0.75))
-	_hint.add_theme_color_override("font_shadow_color", Color(0.05, 0.03, 0.02, 0.9))
-	_hint.add_theme_constant_override("shadow_outline_size", 4)
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hint.anchor_left = 0.0
-	_hint.anchor_right = 1.0
-	_hint.anchor_top = 1.0
-	_hint.anchor_bottom = 1.0
-	_hint.offset_top = -206.0
-	_hint.offset_bottom = -178.0
-	_hint.text = ""
-	root.add_child(_hint)
 
 
 func _wire_camera() -> void:
@@ -384,8 +426,6 @@ func _wire_camera() -> void:
 	_shake_base = _camera_rig.rotation_degrees
 	if _camera_rig.has_method("set_follow_target"):
 		_camera_rig.call("set_follow_target", _player)
-	if _controls != null and _controls.has_method("block_rects"):
-		_camera_rig.set("touch_blockers", _controls.call("block_rects"))
 
 
 # ------------------------------------------------------------------ frame ----
@@ -394,7 +434,7 @@ func _process(delta: float) -> void:
 		return
 	_update_shake(delta)
 	_update_toast(delta)
-	_update_hint()
+	_update_interaction()
 	_invuln = maxf(0.0, _invuln - delta)
 	_session += delta
 	_autosave += delta
@@ -414,6 +454,8 @@ func _process(delta: float) -> void:
 	dir = dir.limit_length(1.0)
 
 	var world_dir := _to_world(dir)
+	if world_dir.length() > 0.05:
+		_heading = world_dir.normalized()
 	_player.call("drive", world_dir, dir.length() > 0.55, delta)
 	if _player.has_method("set_block") and _controls != null:
 		_player.call("set_block", bool(_controls.get("block_held")) and not locked)
@@ -442,22 +484,162 @@ func _to_world(dir: Vector2) -> Vector2:
 	return flat.normalized() * dir.length()
 
 
-func _update_hint() -> void:
-	if _hint == null or _npc == null:
+## What is within arm's reach, in the order a player would try it: talk to
+## someone, enter a door, look at an orc. Recomputed every frame (a handful of
+## distance checks) so the button can appear and fade with the walking, instead
+## of sitting greyed out on screen.
+func _update_interaction() -> void:
+	if _down or _player == null or not is_instance_valid(_player):
+		_interaction = {}
 		return
-	var near := false
-	if _npc.has_method("can_talk_to"):
-		near = bool(_npc.call("can_talk_to", _player))
-	var locked := _down or (_dialogue != null and bool(_dialogue.get("is_open")))
-	_hint.text = "Tekan Bicara untuk bercakap dengan penjaga" if (near and not locked) else ""
-	if _controls != null:
-		_controls.set("interact_enabled", near and not locked)
+	if _dialogue != null and bool(_dialogue.get("is_open")):
+		_interaction = {}
+		return
+	var here := Vector2(_player.position.x, _player.position.z)
+
+	# 1. someone to talk to
+	if _npc != null and is_instance_valid(_npc) and _npc.has_method("can_talk_to"):
+		if bool(_npc.call("can_talk_to", _player)):
+			_interaction = {"kind": "talk", "label": "Bicara",
+				"pos": Vector2(_npc.position.x, _npc.position.z)}
+			return
+
+	# 2. a door, or anything the map marks as worth taking, inside its radius
+	var map := _world_map()
+	if map != null:
+		var best: Dictionary = {}
+		var best_d := INF
+		for raw in (map.get("pois") as Array):
+			var poi: Dictionary = raw
+			var kind := String(poi.get("kind", ""))
+			if kind != "door" and kind != "pickup":
+				continue
+			var pos: Vector2 = poi.get("pos", Vector2.ZERO)
+			var d := here.distance_to(pos)
+			if d > maxf(DOOR_RANGE, float(poi.get("radius", DOOR_RANGE))):
+				continue
+			if d < best_d:
+				best_d = d
+				best = {"kind": "door" if kind == "door" else "take",
+					"label": "Masuk" if kind == "door" else "Ambil", "pos": pos}
+		if not best.is_empty():
+			_interaction = best
+			return
+
+	# 3. an orc close enough to size up
+	var near_orc := _nearest_orc(INSPECT_RANGE)
+	if near_orc != null:
+		_interaction = {"kind": "inspect", "label": "Periksa",
+			"pos": Vector2(near_orc.position.x, near_orc.position.z)}
+		return
+	_interaction = {}
 
 
+## Public: the HUD asks this every frame and shows or hides the one button.
+func interaction() -> Dictionary:
+	return _interaction
+
+
+## Public: a thumb pressed the contextual button. Everything goes through the
+## same paths the old buttons used, so nothing is a special case.
+func act() -> void:
+	var kind := String(_interaction.get("kind", ""))
+	match kind:
+		"talk":
+			_on_interact_pressed()
+		"door":
+			_show_toast("Pintu pondok terkunci. Penghuninya belum ada di versi ini.")
+		"take":
+			_show_toast("Belum ada yang bisa diambil di sini.")
+		"inspect":
+			var orc := _nearest_orc(INSPECT_RANGE)
+			if orc != null:
+				_show_toast("Orc patroli. Pertarungan belum ada di versi ini.")
+		_:
+			pass
+
+
+func _world_map() -> RefCounted:
+	var world := get_parent()
+	if world == null or not world.has_method("map"):
+		return null
+	return world.call("map")
+
+
+func _nearest_orc(radius: float) -> Node3D:
+	if _player == null:
+		return null
+	var here := Vector2(_player.position.x, _player.position.z)
+	var best: Node3D = null
+	var best_d := radius
+	for orc in _orcs:
+		if orc == null or not is_instance_valid(orc) or bool(orc.call("is_dead")):
+			continue
+		var d := here.distance_to(Vector2(orc.position.x, orc.position.z))
+		if d < best_d:
+			best_d = d
+			best = orc
+	return best
+
+
+## Where the current objective is, in world XZ: the nearest surviving orc while
+## the road is not clear, then the guard, then the cottage door. The HUD turns
+## this into an edge arrow or an on-screen mark; it is never printed as a box.
+func quest_target() -> Dictionary:
+	var map := _world_map()
+	if _orcs.size() > 0:
+		var orc := _nearest_orc(999.0)
+		if orc != null:
+			return {"pos": Vector2(orc.position.x, orc.position.z), "kind": "orc"}
+	if _npc != null and is_instance_valid(_npc):
+		var flags: Array = _save.call("flag_list") if _save != null else []
+		if not flags.has("bram_ucap_terima_kasih"):
+			return {"pos": Vector2(_npc.position.x, _npc.position.z), "kind": "npc"}
+	if map != null:
+		var doors: Array = map.call("pois_of", "door")
+		if not doors.is_empty():
+			return {"pos": (doors[0] as Dictionary).get("pos", Vector2.ZERO), "kind": "door"}
+	return {}
+
+
+## Everything the minimap needs to draw that is not terrain: the guard, the orcs
+## still standing, the current objective, and the world's own landmarks.
+func field_markers() -> Array:
+	var out: Array = []
+	if _npc != null and is_instance_valid(_npc):
+		out.append({"kind": "npc", "pos": Vector2(_npc.position.x, _npc.position.z)})
+	for orc in _orcs:
+		if orc == null or not is_instance_valid(orc) or bool(orc.call("is_dead")):
+			continue
+		out.append({"kind": "enemy", "pos": Vector2(orc.position.x, orc.position.z)})
+	var quest := quest_target()
+	if not quest.is_empty():
+		out.append({"kind": "quest", "pos": quest.get("pos", Vector2.ZERO)})
+	var map := _world_map()
+	if map != null:
+		for raw in (map.get("pois") as Array):
+			var poi: Dictionary = raw
+			if String(poi.get("kind", "")) == "door":
+				out.append({"kind": "door", "pos": poi.get("pos", Vector2.ZERO)})
+	return out
+
+
+func heading() -> Vector2:
+	return _heading
+
+
+func touch_controls() -> Node:
+	return _controls
+
+
+## Reserved for the battle step. The field has no attack button any more (the
+## game is turn-based, and a real-time swing was only ever a way to test the
+## animation), so nothing calls this today. It is kept because `_strike_orcs`
+## below is the piece the encounter screen will reuse.
 func _on_attack_pressed() -> void:
 	if _dialogue != null and bool(_dialogue.get("is_open")):
 		return
-	if _player != null:
+	if _player != null and _combat_live:
 		_player.call("try_attack")
 
 
@@ -476,7 +658,10 @@ func _on_interact_pressed() -> void:
 		return
 	_current_choices = node.get("choices", [])
 	_dialogue.call("open", String(node.get("speaker", "Penjaga")),
-		node.get("pages", []), _current_choices)
+		node.get("pages", []), _current_choices, _portrait_for("soldier"))
+	# Step 1: the lens leans in on the two people talking, then lets go.
+	if _camera_rig != null and _camera_rig.has_method("focus_pair"):
+		_camera_rig.call("focus_pair", _player, _npc)
 	# the parchment covers the right thumb; controls come back when it closes
 	if _controls != null and _controls.has_method("show_controls"):
 		_controls.call("show_controls", false)
@@ -488,6 +673,8 @@ func _on_interact_pressed() -> void:
 func _on_dialogue_closed() -> void:
 	if _controls != null and _controls.has_method("show_controls"):
 		_controls.call("show_controls", true)
+	if _camera_rig != null and _camera_rig.has_method("clear_focus"):
+		_camera_rig.call("clear_focus")
 	# closing the parchment is a good moment to put the story on disk
 	save_progress()
 
@@ -625,6 +812,7 @@ func hud_state() -> Dictionary:
 		"orcs_defeated": defeated,
 		"orcs_total": ORCS_TOTAL,
 		"objective": _objective_text(defeated, flags),
+		"play_time": float(_save.call("play_time")) if _save != null else 0.0,
 	}
 
 
@@ -767,6 +955,18 @@ func npc() -> Node3D:
 
 func orcs() -> Array:
 	return _orcs
+
+
+## The speaker's portrait, cropped from his own strip (see CharacterAssets).
+func _portrait_for(def_key: String) -> Texture2D:
+	if not _defs.has(def_key):
+		return null
+	if not ResourceLoader.exists(PORTRAIT_SCRIPT):
+		return null
+	var assets: Script = load(PORTRAIT_SCRIPT)
+	if assets == null:
+		return null
+	return assets.call("portrait", _defs[def_key])
 
 
 func _font(path: String) -> Font:

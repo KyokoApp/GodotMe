@@ -144,6 +144,55 @@ static func empty_frames(def: Resource) -> Array:
 	return out
 
 
+## A portrait for the dialogue strip, taken from the character's OWN idle strip.
+##
+## No new art and no drawn stand-in: the first idle frame is copied, the empty
+## canvas around the body is trimmed, and the result is padded back to a tall
+## frame so the head is not cropped. If the pack later ships a hand-drawn
+## portrait (`portrait.png` next to the strips), that file wins.
+static func portrait(def: Resource) -> Texture2D:
+	if def == null:
+		return null
+	var dir := String(def.get("sprite_dir"))
+	var hand := dir.path_join("portrait.png")
+	if FileAccess.file_exists(hand):
+		return png(hand)
+	var key := "portrait:" + String(def.get("id"))
+	if _tex_cache.has(key):
+		return _tex_cache[key] as ImageTexture
+	var entry: Dictionary = def.call("anim_entry", "idle")
+	if entry.is_empty():
+		return null
+	var tex := png(dir.path_join(String(entry.get("file", "idle.png"))))
+	if tex == null:
+		return null
+	var frames_px: Vector2i = def.get("frame_size")
+	var img := tex.get_image()
+	if img == null or img.is_empty():
+		return null
+	var first := img.get_region(Rect2i(0, 0, mini(frames_px.x, img.get_width()),
+		mini(frames_px.y, img.get_height())))
+	var used := first.get_used_rect()
+	if used.size == Vector2i.ZERO:
+		return null
+	var body := first.get_region(used)
+	# keep the whole body, then sit it in a 3:4 frame so it reads as a portrait
+	var target := Vector2i(96, 128)
+	var scale := minf(float(target.x) / float(body.get_width()),
+		float(target.y) / float(body.get_height()))
+	var scaled := body.duplicate() as Image
+	scaled.resize(maxi(1, int(round(body.get_width() * scale))),
+		maxi(1, int(round(body.get_height() * scale))), Image.INTERPOLATE_NEAREST)
+	var canvas := Image.create(target.x, target.y, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color(0, 0, 0, 0))
+	var at := Vector2i((target.x - scaled.get_width()) / 2,
+		target.y - scaled.get_height())
+	canvas.blit_rect(scaled, Rect2i(Vector2i.ZERO, scaled.get_size()), at)
+	var out := ImageTexture.create_from_image(canvas)
+	_tex_cache[key] = out
+	return out
+
+
 static func clear_cache() -> void:
 	_tex_cache.clear()
 	_frames_cache.clear()

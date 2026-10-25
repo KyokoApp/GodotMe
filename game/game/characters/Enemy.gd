@@ -21,6 +21,12 @@ var _leash := 12.0
 ## the hurt and death animations to actually be used.
 var hp := 2
 
+## Field combat is off until the battle system exists (see CharacterWorld).
+## With this false the orc still patrols, notices the knight and blocks his road,
+## but it does not swing: the encounter notice is the hook the battle step will
+## fill in, and a club that took hearts with no way to answer would be unfair.
+var swing_enabled := true
+
 
 func _ready() -> void:
 	died.connect(_on_died)
@@ -54,7 +60,8 @@ func tick(delta: float) -> void:
 		drive(to.normalized(), false, delta)
 		if dist < 2.4 and _cooldown <= 0.0:
 			_cooldown = 1.8
-			_swing()
+			if swing_enabled:
+				_swing()
 		return
 
 	if dist > _leash:
@@ -65,7 +72,7 @@ func tick(delta: float) -> void:
 ## Orc: one of the two swings at random, not a 1-2-3 combo (the pack has no
 ## third attack and the animation is not faked from it).
 func _swing() -> void:
-	if state == STATE_ATTACK or state == STATE_HURT or is_dead():
+	if not swing_enabled or state == STATE_ATTACK or state == STATE_HURT or is_dead():
 		return
 	var options: Array = []
 	if def.call("has_anim", "attack_1"):

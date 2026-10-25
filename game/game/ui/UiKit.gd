@@ -28,7 +28,17 @@ const DANGER := Color(0.55, 0.16, 0.12)
 ## missing PNG is a readable error instead of a blank button.
 const ICONS := [
 	"heart_full", "heart_empty", "sun", "moon", "gear", "save", "arrow_left",
+	"talk", "door", "inspect", "take", "map", "close",
 ]
+
+## Touch floors, in DESIGN pixels of the 1280x720 canvas.
+##
+## The canvas is stretched to the phone by its height, so on a 2340x1080 screen
+## one design pixel is 1.5 device pixels, and at ~400 dpi that is 0.6 dp. The
+## brief's 48 dp therefore lands at ~80 design pixels, and its 72 dp action
+## button at ~120. Rounded up, and used everywhere a finger has to land.
+const TOUCH_MIN := 80.0
+const TOUCH_BIG := 132.0
 
 static var _tex_cache := {}
 static var _font_cache := {}
@@ -126,6 +136,25 @@ static func parchment(margin: int = 20, mx: int = 22, my: int = 12) -> StyleBoxT
 	sb.content_margin_top = my
 	sb.content_margin_bottom = my
 	return sb
+
+
+## Scale a whole HUD layer by the player's "ukuran UI" setting, around the
+## centre of the screen.
+##
+## Scaling a single knob is the only version of "UI size" that cannot drift: a
+## second set of font sizes would rot the first time somebody forgets one. The
+## layer transform leaves drawing, hit-testing and anchors untouched, and a
+## canvas-layer transform is free (it is one matrix on the CPU).
+static func apply_layer_scale(layer: CanvasLayer, factor: float,
+		viewport_size: Vector2) -> void:
+	if layer == null:
+		return
+	var f := clampf(factor, 0.75, 1.3)
+	if is_equal_approx(f, 1.0):
+		layer.transform = Transform2D.IDENTITY
+		return
+	var pivot := viewport_size * 0.5
+	layer.transform = Transform2D(0.0, Vector2(f, f), 0.0, pivot * (1.0 - f))
 
 
 static func label(text: String, size: int = 18, color: Color = INK,
