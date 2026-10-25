@@ -264,24 +264,35 @@ func _test_zones() -> void:
 ## they share, or the world shows a hairline crack that no screenshot at 1280 px
 ## would catch.
 func _test_seams() -> void:
-	var pairs := [[Vector2i(2, 2), Vector2i(3, 2)], [Vector2i(2, 2), Vector2i(2, 3)]]
+	# (chunk, chunk, axis): 0 compares along x, 1 along z. The first version of
+	# this test used the x formula for both pairs, so it compared the inside of a
+	# chunk with itself and passed while saying nothing about the z seam.
+	var pairs := [[Vector2i(2, 2), Vector2i(3, 2), 0], [Vector2i(2, 2), Vector2i(2, 3), 1]]
+	var csz := int(_region.get("chunk"))
+	var cell := float(_region.get("cell"))
+	var origin: Vector2 = _region.get("origin")
+	var corner := origin - Vector2(int(_region.get("width")),
+		int(_region.get("height"))) * cell * 0.5
 	for pair in pairs:
 		var a: Vector2i = pair[0]
 		var b: Vector2i = pair[1]
+		var axis: int = pair[2]
 		var left: Dictionary = MESH_SCRIPT.build(_region, a.x, a.y)
 		var right: Dictionary = MESH_SCRIPT.build(_region, b.x, b.y)
 		if left.is_empty() or right.is_empty():
 			_check(false, "chunk %s dan %s terbangun" % [str(a), str(b)])
 			continue
-		var cell := float(_region.get("cell"))
-		var plane := float(a.x + 1) * cell * float(_region.get("chunk"))
-		var lkeys := _boundary(_all_verts(left), plane, true)
-		var rkeys := _boundary(_all_verts(right), plane, true)
+		var vertical := axis == 0
+		var plane := corner.x + float(a.x + 1) * cell * float(csz)
+		if not vertical:
+			plane = corner.y + float(a.y + 1) * cell * float(csz)
+		var lkeys := _boundary(_all_verts(left), plane, vertical)
+		var rkeys := _boundary(_all_verts(right), plane, vertical)
 		var same := lkeys.size() > 0 and lkeys == rkeys
 		_check(same, "sambungan chunk %s|%s rapat" % [str(a), str(b)],
 			"%d vs %d titik" % [lkeys.size(), rkeys.size()])
 		# and the vertex count is believable: every tile has at least its quad
-		var tiles := int(_region.get("chunk")) * int(_region.get("chunk"))
+		var tiles := csz * csz
 		var lverts := _all_verts(left)
 		_check(lverts.size() >= tiles * 4,
 			"chunk %s punya minimal 4 verteks per ubin" % str(a), str(lverts.size()))
