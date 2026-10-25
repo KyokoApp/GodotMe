@@ -18,6 +18,8 @@ const TEX_DIR := WORLD_DIR + "textures/"
 
 const ART := preload("res://game/world/WorldArt.gd")
 const CAMERA_RIG := preload("res://game/world/DioramaCamera.gd")
+const CLOCK_SCRIPT := "res://game/world/WorldClock.gd"
+const ATMOSPHERE_SCRIPT := "res://game/world/Atmosphere.gd"
 
 const AREA_NAME := "Lembah Senja"
 const AREA_SUBTITLE := "Yaros, awal perjalanan"
@@ -102,6 +104,10 @@ const GROUND_SIZE := Vector2(26.0, 20.0)
 
 var _sun: DirectionalLight3D
 var _camera: Node3D
+var _env: Environment
+var _clock: Node
+var _atmosphere: Node
+var _lamp: OmniLight3D
 
 
 func _ready() -> void:
@@ -109,6 +115,8 @@ func _ready() -> void:
 	_build_ground()
 	_build_path()
 	_build_props()
+	_build_atmosphere()
+	_build_clock()
 	_build_camera()
 
 
@@ -137,6 +145,7 @@ func _build_environment() -> void:
 	env.adjustment_enabled = true
 	env.adjustment_contrast = 1.08
 	env.adjustment_saturation = 1.12
+	_env = env
 
 	var we := WorldEnvironment.new()
 	we.name = "WorldEnvironment"
@@ -156,6 +165,91 @@ func _build_environment() -> void:
 	_sun.shadow_normal_bias = 1.2
 	_sun.shadow_blur = 1.4
 	add_child(_sun)
+
+
+# -------------------------------------------------------------- atmosphere ----
+## The pieces that move: dust, petals, fireflies, ground mist. Built before the
+## clock so the clock's first phase can switch them on.
+func _build_atmosphere() -> void:
+	if not ResourceLoader.exists(ATMOSPHERE_SCRIPT):
+		push_warning("[WORLD] Atmosphere.gd tidak ada di paket ini")
+		return
+	var script: Script = load(ATMOSPHERE_SCRIPT)
+	if script == null:
+		return
+	_atmosphere = script.new()
+	_atmosphere.name = "Atmosphere"
+	add_child(_atmosphere)
+	_atmosphere.call("setup")
+
+
+## The day cycle and the lamp that comes on with it.
+func _build_clock() -> void:
+	_lamp = OmniLight3D.new()
+	_lamp.name = "CottageLamp"
+	# just outside the cottage door, at window height: the light pools on the
+	# doorstep instead of lighting the whole meadow
+	_lamp.position = Vector3(-2.2, 1.55, 0.25)
+	_lamp.light_color = Color(1.0, 0.78, 0.45)
+	_lamp.omni_range = 7.5
+	_lamp.light_energy = 0.0
+	_lamp.shadow_enabled = false
+	add_child(_lamp)
+
+	if not ResourceLoader.exists(CLOCK_SCRIPT):
+		push_warning("[WORLD] WorldClock.gd tidak ada, diorama tetap dengan satu waktu")
+		return
+	var script: Script = load(CLOCK_SCRIPT)
+	if script == null:
+		return
+	_clock = script.new()
+	_clock.name = "WorldClock"
+	add_child(_clock)
+	_clock.call("setup", _sun, _env, _lamp)
+	_clock.connect("phase_changed", Callable(self, "_on_phase_changed"))
+	# RT_WORLD_PHASE lets a capture or a QA run open the game at dusk without
+	# waiting eight minutes; a normal build starts in the late afternoon gold.
+	var want := OS.get_environment("RT_WORLD_PHASE")
+	if want == "":
+		want = "sore"
+	_clock.call("set_phase", want)
+	_on_phase_changed(String(want))
+
+
+func _on_phase_changed(id: String) -> void:
+	if _atmosphere != null and _atmosphere.has_method("set_phase"):
+		_atmosphere.call("set_phase", id)
+
+
+# --------------------------------------------------------------- time API ----
+## Everything below is for the HUD, VisualTest and WorldTest. No game rule reads
+## it: the clock is light and weather, not a timer the player is judged against.
+func set_phase(id: String) -> void:
+	if _clock != null:
+		_clock.call("set_phase", id)
+
+
+func phase_name() -> String:
+	if _clock == null:
+		return ""
+	return String(_clock.call("phase_name"))
+
+
+func set_time_of_day(night: bool) -> void:
+	if _clock != null:
+		_clock.call("set_time_of_day", night)
+
+
+func clock() -> Node:
+	return _clock
+
+
+func atmosphere() -> Node:
+	return _atmosphere
+
+
+func lamp() -> OmniLight3D:
+	return _lamp
 
 
 # ----------------------------------------------------------------- ground ----

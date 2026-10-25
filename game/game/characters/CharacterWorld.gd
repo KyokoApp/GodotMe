@@ -686,6 +686,12 @@ func set_time_of_day(night: bool) -> void:
 	var world := get_parent()
 	if world == null:
 		return
+	# Since phase 6 the diorama owns a real pagi/siang/sore/malam cycle; the old
+	# boolean is just a shortcut to one of its phases. Falling back to the manual
+	# sun tweak keeps an older world pack working.
+	if world.has_method("set_time_of_day"):
+		world.call("set_time_of_day", night)
+		return
 	var sun := world.get_node_or_null("Sun") as DirectionalLight3D
 	var we := world.get_node_or_null("WorldEnvironment") as WorldEnvironment
 	if sun != null:

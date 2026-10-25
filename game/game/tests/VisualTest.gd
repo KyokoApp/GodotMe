@@ -13,6 +13,9 @@ var _diorama: Node3D
 var _cast: Node3D
 var _cam_rig: Node3D
 var _night := false
+## Which phase this run opens in. "day" is noon, "dusk" the warm afternoon the
+## game normally starts in; both are real clock phases now, not a boolean.
+var _phase := "sore"
 var _elapsed := 0.0
 var _walk_seconds := 6.0
 ## "" = the walking shot, "page" = a dialogue page, "choices" = the branch fork.
@@ -23,7 +26,17 @@ var _down_reported := false
 
 
 func _ready() -> void:
-	_night = HARNESS.arg("--time=", "day") == "night"
+	var time_arg := HARNESS.arg("--time=", "day")
+	match time_arg:
+		"dawn":
+			_phase = "pagi"
+		"night":
+			_phase = "malam"
+		"dusk":
+			_phase = "sore"
+		_:
+			_phase = "siang"
+	_night = _phase == "malam"
 	_dialog_mode = HARNESS.arg("--dialog=", "")
 	_build()
 	await _run()
@@ -65,15 +78,20 @@ func _build() -> void:
 		_cast = cast_script.new()
 		_cast.name = "Characters"
 		_diorama.add_child(_cast)
-		_cast.call("set_time_of_day", _night)
+		# The diorama owns the cycle; older world packs only know the boolean.
+		if _diorama.has_method("set_phase"):
+			_diorama.call("set_phase", _phase)
+		else:
+			_cast.call("set_time_of_day", _night)
 
 	_cam_rig = _diorama.get_node_or_null("CameraRig") as Node3D
 	if _cam_rig != null:
 		_cam_rig.call("set_zoom", 16.0)
 		# keep the follow lens on the actors, not the far trees
 		_cam_rig.set("bounds", Vector2(7.5, 5.5))
-	print("[TEST] VisualTest waktu=%s cast=%s" % [
-		"malam" if _night else "siang", str(_cast != null)])
+	print("[TEST] VisualTest fase=%s cast=%s atmosfer=%s" % [
+		_phase, str(_cast != null),
+		str(_diorama.has_method("atmosphere") and _diorama.call("atmosphere") != null)])
 
 
 func _process(delta: float) -> void:

@@ -116,6 +116,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: World rules (day cycle + atmosphere)
+        # Headless: light is exactly what a screenshot cannot check. Noon must be
+        # brighter than midnight, the cottage lamp must be off at noon, and a
+        # firefly in the afternoon is a bug.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/WorldTest.tscn 2>&1 | tee /tmp/world.log
+          code=${PIPESTATUS[0]}
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### world rules (exit $code)"; echo '```'; tail -c 20000 /tmp/world.log; echo '```'; } > /tmp/world.md
+            gh pr comment "$PR" --body-file /tmp/world.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Character sprite contract (strips + SpriteFrames)
         # Fails the build, it does not guess: a strip whose width is not
         # frames x frame_width, a stale pivot or an empty animation stops here.
@@ -272,7 +290,7 @@ jobs:
             --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=09_karakter \
             2>&1 | tee -a /tmp/capture.log | tail -20
           # --- character stage: the cast inside the diorama, day and night ---
-          for variant in "day 10_visual_siang" "night 11_visual_malam"; do
+          for variant in "dawn 17_pagi" "day 10_visual_siang" "dusk 18_sore" "night 11_visual_malam"; do
             set -- $variant
             xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
               "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
