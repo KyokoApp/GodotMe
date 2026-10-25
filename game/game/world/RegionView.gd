@@ -111,8 +111,9 @@ func _build_materials() -> void:
 	})
 	_water_mat = _shader_material(WATER_SHADER, {
 		"water_tex": _tex(WATER_TEX),
-		"shallow_tint": Color(0.62, 0.80, 0.78),
-		"deep_tint": Color(0.30, 0.46, 0.52),
+		# the tile is raw sRGB bytes, so these are sRGB values too (see _tex)
+		"shallow_tint": Color(0.42, 0.56, 0.56),
+		"deep_tint": Color(0.20, 0.31, 0.38),
 		"foam_tint": Color(0.92, 0.95, 0.90),
 	})
 	# props get one material each, built in _build_props(): the atlas cell and the

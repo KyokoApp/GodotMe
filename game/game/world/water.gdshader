@@ -9,10 +9,13 @@ render_mode blend_mix, cull_disabled, depth_draw_opaque, specular_schlick_ggx;
 // The hint would make the GPU decode them as sRGB - a dark green grass tile
 // arrived almost black, and the whole valley came out muddy brown.
 uniform sampler2D water_tex : filter_nearest, repeat_enable;
-uniform vec3 shallow_tint : source_color = vec3(0.62, 0.80, 0.78);
-uniform vec3 deep_tint : source_color = vec3(0.30, 0.46, 0.52);
-uniform vec3 foam_tint : source_color = vec3(0.92, 0.95, 0.90);
-uniform float foam_width = 0.20;
+uniform vec3 shallow_tint = vec3(0.42, 0.56, 0.56);
+uniform vec3 deep_tint = vec3(0.20, 0.31, 0.38);
+uniform vec3 foam_tint = vec3(0.92, 0.95, 0.90);
+uniform float foam_width = 0.26;
+// The texture is a grey ripple pattern; this is the light that falls on it, so the
+// lake reads as water and not as a navy floor.
+uniform vec3 sky_tint = vec3(0.72, 0.80, 0.86);
 
 void fragment() {
 	// UV is world XZ in metres: the same ripple flows across tile borders
@@ -25,13 +28,19 @@ void fragment() {
 	// COLOR.rgb is the depth tint written per water tile, COLOR.a marks a tile
 	// that touches land. The foam lives on the lattice of the world UV, so it
 	// runs along the shore of every tile that touches ground.
-	vec3 base = COLOR.rgb;
+	vec3 base = COLOR.rgb * sky_tint * 1.6;
 	vec2 cell = fract(UV);
 	float edge = min(min(cell.x, 1.0 - cell.x), min(cell.y, 1.0 - cell.y));
 	float shore = (1.0 - smoothstep(0.0, foam_width, edge)) * COLOR.a;
 	float lace = smoothstep(0.35, 0.75, swell + 0.25 * sin(UV.x * 9.0 + TIME * 0.6));
 
-	ALBEDO = mix(base * (0.82 + 0.30 * swell), foam_tint, shore * lace * 0.85);
+	// The depth tint is multiplied UP, not used as-is: at dusk the lake read as a
+	// flat navy sheet with faint grey lines, which is water the colour of a
+	// shuttered window. The swell is the thing that makes it water, so it gets
+	// most of the range, and the foam rides on top.
+	vec3 lit = base * (1.45 + 0.85 * swell);
+	lit = mix(lit, foam_tint * base * 2.4, shore * lace * 0.8);
+	ALBEDO = lit;
 	ROUGHNESS = mix(0.14, 0.55, shore);
 	METALLIC = 0.10;
 	ALPHA = mix(0.93, 0.99, shore);

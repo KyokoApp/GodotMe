@@ -36,7 +36,7 @@ const KIND_SAND := 9
 const PALETTE := {
 	KIND_GRASS: Color(0.35, 0.42, 0.25),
 	KIND_DIRT: Color(0.61, 0.48, 0.31),
-	KIND_WATER: Color(0.28, 0.40, 0.43),
+	KIND_WATER: Color(0.33, 0.47, 0.50),
 	KIND_ROCK: Color(0.44, 0.40, 0.35),
 	KIND_FOREST: Color(0.19, 0.27, 0.17),
 	KIND_BUILDING: Color(0.53, 0.35, 0.25),
