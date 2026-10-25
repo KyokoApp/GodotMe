@@ -204,8 +204,9 @@ func _test_spring() -> void:
 	_check(not bool(fast["overshoot"]), "follow tidak melewati target (tanpa overshoot)",
 		"kelebihan %.3f m" % float(fast["overshoot_by"]))
 	_check(float(fast["settle_error"]) < 0.02,
-		"follow berhenti tepat di target setelah pemain diam",
-		"sisa %.4f m" % float(fast["settle_error"]))
+		"follow berhenti tepat di titik bidik (look-ahead %.1f m) setelah pemain diam"
+			% float(fast["look_ahead"]),
+		"selisih %.4f m (jarak %.2f m)" % [float(fast["settle_error"]), float(fast["gap"])])
 
 
 ## Run the rig's own `_process` by hand with a walker that steps along +x, so the
@@ -242,9 +243,14 @@ func _simulate_follow(delta: float) -> Dictionary:
 	for i in range(int(round(1.5 / delta))):
 		rig.call("_process", delta)
 	var end_pos := rig.position
-	var err := Vector2(end_pos.x - walker.position.x, end_pos.z - walker.position.z).length()
+	# The rig aims `look_ahead_m` PAST the walker on purpose (that is what puts
+	# the knight slightly below the middle of the frame), so "settled" means the
+	# distance between camera and walker equals that look-ahead, not zero.
+	var gap := Vector2(end_pos.x - walker.position.x, end_pos.z - walker.position.z)
+	var look: float = float(rig.get("look_ahead_m"))
+	var err := absf(gap.length() - look)
 	var out := {"pos": end_pos, "overshoot": overshoot, "overshoot_by": overshoot_by,
-		"settle_error": err}
+		"settle_error": err, "look_ahead": look, "gap": gap.length()}
 	walker.queue_free()
 	rig.queue_free()
 	return out
