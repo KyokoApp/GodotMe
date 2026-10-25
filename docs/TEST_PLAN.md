@@ -291,3 +291,47 @@ Jujur soal batas: **FPS tidak diukur di CI**. Renderer CI adalah llvmpipe tanpa
 GPU; angka FPS di sana tidak berarti apa-apa untuk sebuah ponsel. Yang tersedia
 untuk pemilik adalah log `[PERF] ...` tiap 5 detik di `adb logcat` dan penghitung
 di layar.
+
+### Tambahan langkah 1 (0.7.0) — lapangan, minimap, kamera
+
+Gate headless baru: `godot --headless --path game res://game/tests/FieldTest.tscn`
+
+| # | Yang diuji | Kenapa (dan apa yang gagal tanpa uji ini) |
+| --- | --- | --- |
+| F1 | peta 26×20 ubin, `bounds()` = 26×20 m di sekitar titik nol | kamera dan minimap membaca kotak yang sama |
+| F2 | `world_to_tile` dan `tile_centre` saling konsisten (< 0,75 m) | pemain bisa "berada di ubin" yang salah dan fog terbuka di tempat lain |
+| F3 | luar peta tidak bisa dijalankan, rumput bisa | peta data harus setuju dengan dunia |
+| F4 | ubin bisa dicat jadi tanah | jalur dan bangunan digambar dari `LAYOUT` |
+| F5 | peta mulai dalam gelap; `reveal` membuka fog dan menaikkan `fog_revision` | `fog_revision` adalah satu-satunya pemicu gambar ulang minimap |
+| F6 | `reveal` kedua pada titik yang sama tidak mengubah apa pun | tanpa ini minimap akan digambar ulang tiap frame |
+| F7 | `reveal_all` = 100 % | dipakai tangkapan layar dan peta penuh |
+| F8 | fog disimpan 520 bit untuk 26×20 | satu karakter per ubin, muat di JSON save |
+| F9 | fog yang sama dipulihkan utuh (jumlah ubin sama) | pemain kembali tidak kehilangan peta |
+| F10 | fog dari peta lain ditolak tanpa merusak peta sekarang | save dari peta besar tidak boleh mengotori peta kecil |
+| F11 | fog skema lebih baru ditolak dengan alasan | jangan menebak data versi masa depan |
+| F12 | save dengan fog bisa ditulis dan dibaca lagi | fog benar-benar ikut tersimpan |
+| F13–F15 | jendela minimap tetap 56×56 px pada peta 26×20, 120×90 dan 3×3 | biaya minimap tidak boleh tumbuh bersama peta |
+| F16–F18 | peta penuh bisa digambar pada ketiga ukuran itu | tab Peta tidak boleh kosong di peta besar |
+| F19–F20 | kamera 26×20 m: batas tidak terbalik, dan tetap di dalam peta setelah pemain "berjalan" ke luar tiga kali | inilah yang diminta: tepi dunia tidak boleh terlihat kosong |
+| F21–F22 | kamera 208×160 m: sama | antarmuka harus bekerja untuk ukuran peta berapa pun |
+| F23 | zoom menempel ke tangga (17,43 → nilai tangga) | sprite tidak boleh digambar pada skala pecahan |
+| F24–F25 | zoom maksimum mengikuti ukuran peta; zoom minimum 11 | zoom-out di lembah kecil tidak boleh memperlihatkan kekosongan |
+| F26–F29 | minimap 26×20 dan 160×120 menggambar jendela yang benar, membuka fog saat dipakai, dan ketuk dua kali mengubah zoom | | 
+| F30–F33 | tombol aksi tersembunyi saat jauh, muncul sebagai "Bicara" di dekat penjaga, memudar lagi setelah menjauh, dan berukuran ≥ 132 px desain | permintaan brief: muncul/hilang, bukan abu-abu menetap |
+| F34–F35 | menu 1280×720, 960×720 (4:3) dan 1440×648 (20:9) muat di layar; tab tidak melebar melewati perkamen | versi pertama menu terpotong di 4:3 — tangkapan layar menemukannya, uji ini menjaganya |
+| F36–F40 | dialog terbuka, tombol aksi disembunyikan, dialog tidak menimpa minimap / tombol menu, dialog di bawah 45 % tinggi layar, dan hilang total setelah selesai | "tidak ada elemen yang menimpa dialog" |
+
+`UiTest` naik dari 39 → 50 pemeriksaan (ukuran UI satu knop, stik tetap,
+sensitivitas dijepit, tujuh tab, Jurnal memuat tujuan, FPS butuh mode debug,
+peluncur minta konfirmasi, peta penuh buka/tutup).
+`PlayTest` 46 → 45: dua cek perisai diganti satu cek bahwa pintu perisai
+lapangan memang sudah tidak ada lagi.
+
+Tangkapan layar baru di CI: `22_lapangan`, `22b_lapangan_kosong` (tidak ada
+siapa pun dalam jangkauan: HUD paling kosong), `23_banner`, `24_dialog`,
+`25_jurnal`, `26_peta`, `27_fog`, `28_rasio_20x9`, `29_rasio_4x3`, ditambah
+`20_menu` / `21_pengaturan` yang digambar ulang.
+
+Tetap **tidak** terukur otomatis: rasa stik di ibu jari, kecepatan kamera yang
+enak dilihat, dan pinch zoom dengan dua jari sungguhan. CI hanya bisa
+membuktikan logikanya, bukan rasanya.

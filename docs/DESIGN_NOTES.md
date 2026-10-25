@@ -1001,7 +1001,7 @@ berdekatan, dan empat angka terpisah hanya menambah cara untuk salah).
 ada daftar ukuran font kedua yang bisa basi saat ada tombol baru.
 
 Ikon baru (satu keluarga, grid 24×24, palet yang sama): `talk`, `door`,
-`inspect`, `take`, `map`, `close`. Atlas ikon kini 13 sel (338×26 px).
+`inspect`, `take`, `map`, `close`, `book`. Atlas ikon kini 14 sel (364×26 px).
 
 ### 19.5 Satu menu
 
@@ -1017,7 +1017,19 @@ bug yang sama pernah terjadi pada menu fase 7).
   debug, tampilkan FPS (hanya muncul saat mode debug), tilt-shift, getar;
 * Peluncur minta **dua** ketukan.
 
-### 19.6 Dialog
+### 19.6 Papan nama penjaga
+
+Satu tambahan kecil yang muncul saat bermain sungguhan: kalau ksatria berdiri
+dalam jangkauan bicara, `DialogueBox` menampilkan **papan nama** — potret
+penjaga, namanya, dan satu kalimat ("Orc masih berkeliaran di tepi hutan…").
+Alasannya jujur: tanpa itu, satu-satunya cara memberi tahu "orang ini bisa
+diajak bicara" adalah teks bantu melayang tepat di atas kepalanya — dan teks
+melayang di atas kepala adalah hal pertama yang membuat layar terasa ramai.
+Papan nama memakai wadah yang sama dengan dialog (jadi tetap satu gaya), hilang
+sendiri saat pemain melangkah pergi, dan tidak pernah muncul bersamaan dengan
+tombol Bicara di layar yang sama saat dialog berjalan.
+
+### 19.7 Dialog
 
 Ringkas, di bawah layar, satu strip: potret berbingkai, nama, teks mengetik, dan
 "ketuk untuk lanjut" di pojok. Tombol Lanjut dihapus — seluruh layar adalah
@@ -1026,7 +1038,7 @@ pertama, dipangkas, diisi ke kanvas 3:4). Tidak ada wajah yang digambar lewat
 kode, dan tidak ada potret placeholder. Kalau nanti pemilik mengirim
 `portrait.png` di folder karakter, berkas itu yang dipakai lebih dulu.
 
-### 19.7 Uji dan tangkapan layar
+### 19.8 Uji dan tangkapan layar
 
 Gate headless baru `FieldTest` (23 pemeriksaan): data peta untuk beberapa ukuran,
 fog yang berpindah lewat save, jendela minimap yang tidak tumbuh, kamera yang
@@ -1038,7 +1050,7 @@ Tangkapan layar CI bertambah: `22_lapangan`, `23_banner`, `24_dialog`,
 `25_jurnal`, `26_peta`, `27_fog`, `28_rasio_20x9`, `29_rasio_4x3`, plus
 `20_menu`/`21_pengaturan` yang digambar ulang.
 
-### 19.8 Batas langkah ini
+### 19.9 Batas langkah ini
 
 * Peta besar bertingkat **belum ada** (itu langkah 2). Semua antarmuka yang
   dibutuhkan sudah bekerja pada ukuran peta berapa pun, tetapi isi dunia masih

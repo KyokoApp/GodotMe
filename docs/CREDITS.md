@@ -71,3 +71,18 @@ Catatan lisensi yang perlu diingat sebelum rilis publik:
 Aset pihak ketiga lain: tidak ada. Jika nanti memakai pack karakter dari
 itch.io/OpenGameArt, tambahkan barisnya di sini **sebelum** dipakai, lengkap
 dengan nama pack, penulis, lisensi, dan URL.
+
+## Ikon UI (langkah 1, 0.7.0)
+
+Tujuh ikon baru untuk antarmuka lapangan: **talk** (Bicara), **door** (Masuk),
+**inspect** (Periksa), **take** (Ambil), **map** (peta), **close** (tutup), dan
+**book** (Jurnal). Semuanya digambar sebagai bentuk oleh pemilik proyek lewat
+skrip yang ikut di repositori, bukan diambil dari sumber pihak ketiga:
+
+```
+python3 tools/gen_game_ui.py     # 14 PNG 24x24 di game/assets/ui/icons/
+python3 tools/gen_atlas.py       # atlas_ui.png + atlas_ui.json (14 sel)
+```
+
+Grid 24×24, palet hangat yang sama dengan ikon fase 7 (kayu, kuningan, krem,
+merah hati). Tidak ada ikon pihak ketiga, tidak ada aset berlisensi lain.
