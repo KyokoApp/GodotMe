@@ -383,14 +383,12 @@ func _desired_target() -> Vector3:
 	var aim := point + fwd * look_ahead_m
 	var gap := Vector2(aim.x - _target.x, aim.z - _target.z)
 	if gap.length() <= deadzone_m:
-		aim = Vector3(_target.x, 0.0, _target.z)
+		aim = Vector3(_target.x, _ground_y, _target.z)
 	else:
 		# aim at the edge of the dead zone, not at the actor: the view glides
 		# instead of pumping while the knight walks
 		var dir := gap.normalized() * (gap.length() - deadzone_m)
 		aim = Vector3(_target.x + dir.x, _ground_y, _target.z + dir.y)
-	else:
-		aim.y = _ground_y
 	if _has_map:
 		var limits := clamp_limits()
 		var low: Vector2 = limits["min"]
