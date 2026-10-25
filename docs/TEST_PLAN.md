@@ -230,3 +230,39 @@ Catatan jujur: uji ini headless (CPU) dan tidak mengukur FPS di GPU HP. Beban
 baru: 4 sistem `CPUParticles3D` (46 + 26 + 34 + 10 partikel). Kalau di HP terasa
 berat, angka `amount` di `Atmosphere.gd` adalah tombol pertama, bukan mematikan
 seluruh atmosfer.
+
+## FASE 7 — UI, pengaturan, menu (0.5.0)
+
+`UiTest` — `godot --headless --path game res://game/tests/UiTest.tscn`
+(**30 pemeriksaan**, 0 gagal):
+
+| # | Yang diuji | Kenapa |
+| --- | --- | --- |
+| U1–U3 | 7 ikon ada di paket ui, semuanya 24×24, tidak ada yang kosong | ikon hilang = tombol kosong tanpa error |
+| U4–U7 | parchment + crest termuat dari paket, font termuat, nine-patch bermargin, tombol kit memakai ukuran yang diminta | kit adalah satu sumber tampilan |
+| U8 | bawaan: tilt-shift nyala, getar nyala, kualitas sedang | pemain baru dapat tampilan penuh |
+| U9–U10 | kualitas "tinggi" diterima, "ultra" ditolak | nilai asing tidak boleh masuk |
+| U11–U12 | simpan lalu baca ulang mempertahankan nilai | pengaturan harus bertahan setelah app ditutup |
+| U13 | settings rusak → bawaan + catatan "rusak" | berkas rusak tidak boleh menggagalkan boot |
+| U14 | settings skema 99 → tidak ditimpa | build lama tidak merusak pilihan build baru |
+| U15 | preset "rendah" mematikan bayangan, blur < 2,0, atmosfer < 0,5 | preset benar-benar menghemat |
+| U16 | tilt-shift mati → blur 0 | tombol berarti |
+| U17 | `Main` boot: lembar jeda ada & tersembunyi | menu tidak muncul tanpa diminta |
+| U18 | safe area tidak negatif | notch tidak boleh menggeser HUD ke luar layar |
+| U19 | HUD punya tiga ikon hati | nyawa terbaca tanpa teks |
+| U20 | Jeda membuka lembar **dan menghentikan dunia** | tombol benar-benar menjeda |
+| U21 | lembar jeda **benar-benar tampak** (`modulate.a > 0,95`) | tween saat pause dulu tidak berjalan → menu tak terlihat |
+| U22–U23 | halaman jeda 4 tombol, halaman pengaturan 4 tombol | tidak ada tombol hantu |
+| U24 | pindah ke halaman pengaturan | navigasi dua halaman |
+| U25–U26 | tombol pengaturan mengubah nilai dan langsung menulis disk | pilihan tidak hilang saat app dimatikan |
+| U27 | kualitas yang dipilih diterapkan ke bayangan matahari | setelan benar-benar sampai ke renderer |
+| U28 | tilt-shift menerima nilai blur | shader tersambung |
+| U29 | status menu memuat "Orc" dan "Nyawa" | baris status tidak kosong |
+| U30 | Lanjutkan melepas jeda | dunia bergerak lagi |
+
+Tangkapan layar wajib: `20_menu.png` dan `21_pengaturan.png` — diperiksa manual
+untuk: teks terbaca di 720p, tombol tidak bertumpuk, lembar benar-benar tampil,
+status menunjukkan angka yang masuk akal.
+
+Yang belum teruji otomatis: posisi tombol sentuh di layar HP nyata (ukuran ibu
+jari), dan notch sungguhan — CI headless selalu memberi safe area 0.

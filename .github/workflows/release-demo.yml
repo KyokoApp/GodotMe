@@ -20,7 +20,7 @@ on:
         required: true
       pack_version:
         description: "Version written into version.json"
-        default: "0.4.0"
+        default: "0.5.0"
         required: true
   push:
     branches: ["arena/**"]
@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.4.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.5.0' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,6 +70,11 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
+              "Menu jeda baru: dua halaman (Jeda dan Pengaturan) dengan status progres, simpan manual, dan tombol peluncur.",
+              "Pengaturan tersimpan di perangkat: tilt-shift, getar kamera, dan kualitas (rendah/sedang/tinggi) yang memengaruhi bayangan dan atmosfer.",
+              "HUD baru: tiga ikon hati, ikon matahari/bulan dengan nama fase, dan jarak aman dari poni (notch) di HP.",
+              "Ikon UI 24x24 baru untuk hati, matahari, bulan, pengaturan, simpan, dan kembali.",
+              "Paket yang berubah: ui.pck (font, parchment, crest, ikon) dan core.pck (kode menu). Paket lain tidak diunduh ulang, APK tetap.",
               "Siklus hari: pagi berkabut, siang terang, sore keemasan, malam biru dengan kunang-kunang.",
               "Lampu jendela pondok menyala sendiri saat sore dan menerangi ambang pintu sepanjang malam.",
               "Atmosfer hidup: debu di cahaya pagi, daun jatuh saat sore, kabut tanah saat subuh dan malam.",

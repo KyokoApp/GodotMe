@@ -735,3 +735,93 @@ Konsekuensi yang dicatat:
 * uji `ValidateCharacters` + `CharacterTest` akan melaporkan ukuran frame
   sebenarnya, jadi kalau ada aset baru yang ukurannya beda, build gagal sebelum
   terlihat aneh di HP.
+
+---
+
+## 17. UI lengkap: kit, pengaturan, menu, jarak aman (0.5.0)
+
+### 17.1 Satu kit, bukan dua salinan
+
+`Main.gd` dan `DialogueBox.gd` masing-masing punya `_font`, `_tex`, `_nine`
+sendiri. Dua salinan pasti melenceng (margin 20 px di satu tempat, 22 px di
+tempat lain), dan parchment mulai terlihat seperti dua bahan berbeda.
+
+Sekarang `game/ui/UiKit.gd` memegang: font (dengan tracking), pembacaan PNG dari
+paket, nine-patch parchment, ikon 24×24, label, dan tombol. Aturannya: **UI baru
+wajib lewat kit**; `DialogueBox.gd` yang sudah stabil dibiarkan dan dimigrasikan
+saat ia disentuh lagi (migrasi besar tanpa alasan = risiko regresi).
+
+Warna juga dipusatkan: `INK`, `INK_SOFT`, `BRASS`, `CREAM`, `DANGER`.
+
+### 17.2 Ikon 24×24 dari skrip
+
+`tools/gen_game_ui.py` menghasilkan 7 ikon: `heart_full`, `heart_empty`, `sun`,
+`moon`, `gear`, `save`, `arrow_left`. Semua digambar sekali oleh skrip (PNG
+sungguhan, NEAREST), palet hangat yang sama, outline 1 px.
+
+Catatan desain dari percobaan pertama: matahari yang ditulis sebagai ASCII
+terbaca seperti **koin**, dan gear sebagai ASCII terbaca seperti **bintang**.
+Keduanya lalu digambar sebagai bentuk (cakram + 8 sinar, cincin + 8 gigi) dan
+barulah keduanya terbaca. Hati dan scroll tetap ASCII karena bentuknya sederhana.
+
+### 17.3 Pengaturan perangkat, terpisah dari save
+
+`game/ui/Settings.gd` → `user://settings.json`, skema 1, tiga nilai:
+
+| Kunci | Nilai | Efek |
+| --- | --- | --- |
+| `tilt_shift` | nyala/mati | `blur_pixels` 0 atau sesuai kualitas |
+| `shake` | nyala/mati | `CharacterWorld.set_shake_scale(0/1)` |
+| `quality` | rendah / sedang / tinggi | bayangan matahari, skala partikel atmosfer, blur, vignette |
+
+Aturan yang sama dengan save: kunci yang hilang diisi bawaan, berkas rusak
+kembali ke bawaan (dengan peringatan, bukan crash), dan **skema lebih baru tidak
+ditimpa** — build lama tidak boleh merusak pilihan pemain dari build baru.
+
+Kenapa terpisah dari save: menghapus progres tidak boleh mengembalikan blur, dan
+mengubah grafik tidak boleh menyentuh cerita.
+
+### 17.4 Menu dua halaman
+
+Tombol **Jeda** membuka satu lembar parchment dengan dua halaman:
+
+* **Jeda** — Lanjutkan · Simpan sekarang · Pengaturan · Peluncur, dengan satu
+  baris status ("Orc 0 / 3 · Nyawa 3 / 3 · Sore") supaya pemain tahu posisinya
+  tanpa menutup menu;
+* **Pengaturan** — Tilt-shift · Getar kamera · Kualitas · Kembali. Setiap tekan
+  langsung ditulis ke disk.
+
+Perpindahan halaman memudar 0,16 s; lembar muncul dengan fade + skala 0,96 → 1,0.
+
+**Bug yang tertangkap tangkapan layar, bukan uji:** tween yang dibuat saat tree
+di-pause tidak pernah berjalan. `_pause_root.visible` sudah `true`, UiTest lulus,
+tetapi alpha tetap 0 → menekan Jeda hanya membekukan dunia tanpa menampilkan
+apa pun. Perbaikannya `Tween.set_pause_mode(TWEEN_PAUSE_PROCESS)` untuk semua
+tween menu, dan UiTest sekarang juga memeriksa `modulate.a > 0,95`, bukan cuma
+`visible`.
+
+### 17.5 HUD: hati sebagai ikon, fase sebagai ikon
+
+"Nyawa 3 / 3" diganti tiga ikon hati (penuh/kosong) — lebih cepat dibaca di layar
+5 inci — dengan teks kecil di sampingnya, dan warna teks berubah merah kecokelatan
+saat nyawa tinggal satu. Tambahan dari fase 6: ikon matahari/bulan + nama fase
+(`Sore`) di panel tujuan.
+
+### 17.6 Jarak aman dari notch
+
+`Main._safe_insets()` membaca `DisplayServer.get_display_safe_area()` dan
+menggeser semua jangkar HUD (plakat area, panel tujuan, tombol Jeda/Peluncur,
+panel catatan, hint) sebesar inset kiri/atas, diskalakan dari piksel layar ke
+kanvas 1280×720. Di desktop inset = 0, jadi tidak ada biaya. Ini yang membuat
+plakat tidak tertutup poni (notch) atau sudut membulat di HP.
+
+### 17.7 Tata letak paket: UI pindah ke `ui.pck`
+
+Sampai fase ini `ui.pck` hampir kosong (dua font) dan `core.pck` membawa
+parchment/crest/font. Sekarang:
+
+* `core.pck` = `Main.tscn`, `Main.gd`, `UiKit.gd`, `Settings.gd` (kode saja);
+* `ui.pck` = font, parchment, crest, divider, bg, dan 7 ikon.
+
+Konsekuensinya update UI tidak lagi memaksa pemain mengunduh paket kode, dan
+sebaliknya.
