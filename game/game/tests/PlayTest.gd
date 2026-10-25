@@ -147,8 +147,21 @@ func _test_orc_swing_does_not_lock_player() -> void:
 
 
 ## Props float when they are scaled below 1.0 and the lift is not scaled with
-## them: the quad is centred, so `y = height/2` only touches the ground at
-## scale 1. This walks the real diorama and measures every prop's bottom edge.
+## them. Step 2 moved the props from one node per chunk to one MultiMesh per prop
+## KIND for the whole region, so this walks the real instances and compares each
+## one's bottom edge with RegionData's own ground height.
+func _prop_meshes(world: Node3D) -> Array:
+	var out: Array = []
+	var view: Node = world.call("view") if world.has_method("view") else null
+	if view == null:
+		return out
+	for child in view.get_children():
+		var mi := child as MultiMeshInstance3D
+		if mi != null and mi.multimesh != null:
+			out.append(mi)
+	return out
+
+
 func _test_props_stand_on_ground() -> void:
 	if not ResourceLoader.exists(DIORAMA):
 		_check(false, "Diorama.tscn ada", DIORAMA)
@@ -156,36 +169,45 @@ func _test_props_stand_on_ground() -> void:
 	var world: Node3D = load(DIORAMA).instantiate()
 	add_child(world)
 	await get_tree().process_frame
-	var props := world.get_node_or_null("Props")
-	_check(props != null, "node Props ada")
-	if props == null:
+	var mms := _prop_meshes(world)
+	_check(not mms.is_empty(), "prop dunia terbaca dari diorama", str(mms.size()))
+	if mms.is_empty():
+		world.queue_free()
 		return
+	var region: RefCounted = world.call("region")
 	var worst := 0.0
-	var worst_name := ""
+	var worst_kind := ""
 	var count := 0
-	for child in props.get_children():
-		var mi := child as MeshInstance3D
-		if mi == null or mi.mesh == null:
-			continue
-		var quad := mi.mesh as QuadMesh
-		if quad == null:
-			continue
-		count += 1
-		var height: float = quad.size.y * absf(mi.scale.y)
-		var bottom: float = mi.position.y - height * 0.5
-		if absf(bottom) > absf(worst):
-			worst = bottom
-			worst_name = mi.name
-	_check(count > 10, "prop terbaca dari diorama", str(count))
+	var outside := 0
+	for mi in mms:
+		var mm: MultiMesh = (mi as MultiMeshInstance3D).multimesh
+		for i in range(mm.instance_count):
+			var t: Transform3D = mm.get_instance_transform(i)
+			var height: float = t.basis.y.length()
+			var bottom: float = t.origin.y - height * 0.5
+			var ground: float = float(region.call("height_at",
+				Vector2(t.origin.x, t.origin.z)))
+			var diff: float = bottom - ground
+			if absf(diff) > absf(worst):
+				worst = diff
+				worst_kind = String((mi as Node).name)
+			count += 1
+			var b: Rect2 = region.call("bounds")
+			if not b.has_point(Vector2(t.origin.x, t.origin.z)):
+				outside += 1
+	_check(count > 500, "prop terbaca dari diorama", str(count))
+	_check(outside == 0, "setiap prop berdiri di dalam peta", str(outside))
 	# 2 cm is a fifth of one source pixel at the world pixel size: invisible.
 	_check(absf(worst) <= 0.02, "semua prop menapak di tanah",
-		"%s melayang %.3f m" % [worst_name, worst])
+		"%s melayang %.3f m" % [worst_kind, worst])
 	world.queue_free()
 
 
-## A camera-facing billboard is tilted back by the camera pitch, and that tilt
-## happens around the quad centre - which sits above the feet. Result on the
-## device: characters and props floated. Yaw-only billboards keep them upright.
+## The camera-facing billboard of step 1 tilted back with the camera pitch, and
+## that tilt happened around the quad centre - which sits above the feet. Since
+## step 2 the props are one MultiMesh per kind, turned towards the camera by the
+## prop shader instead of a StandardMaterial3D, so the rule to check is that every
+## prop material is that shader and the knight keeps the fixed-Y billboard.
 func _test_billboards_stay_upright() -> void:
 	var knight := _actor(KNIGHT_DEF)
 	await get_tree().process_frame
@@ -200,24 +222,20 @@ func _test_billboards_stay_upright() -> void:
 	var world: Node3D = load(DIORAMA).instantiate()
 	add_child(world)
 	await get_tree().process_frame
-	var props := world.get_node_or_null("Props")
-	if props == null:
-		_check(false, "node Props ada untuk uji billboard")
+	var mms := _prop_meshes(world)
+	if mms.is_empty():
+		_check(false, "prop dunia ada untuk uji billboard")
 		return
 	var bad := 0
-	var total := 0
-	for child in props.get_children():
-		var mi := child as MeshInstance3D
-		if mi == null:
-			continue
-		var mat := mi.material_override as StandardMaterial3D
-		if mat == null:
-			continue
-		total += 1
-		if mat.billboard_mode != BaseMaterial3D.BILLBOARD_FIXED_Y:
+	for mi in mms:
+		var mat := (mi as MultiMeshInstance3D).material_override as ShaderMaterial
+		if mat == null or mat.shader == null:
 			bad += 1
-	_check(total > 10 and bad == 0, "semua prop memakai billboard sumbu Y",
-		"%d dari %d masih miring" % [bad, total])
+			continue
+		if not String(mat.shader.resource_path).ends_with("prop.gdshader"):
+			bad += 1
+	_check(bad == 0, "semua prop memakai billboard shader sumbu Y",
+		"%d dari %d salah" % [bad, mms.size()])
 	world.queue_free()
 
 
@@ -233,17 +251,21 @@ func _test_camera_follows_player() -> void:
 	if rig == null:
 		return
 	var walker := _actor(KNIGHT_DEF)
-	walker.position = Vector3(0.0, 0.0, 0.0)
+	# the region is 192 m across and the rig is clamped inside it, so the walk has
+	# to start where the player starts, not at the origin of the world
+	var base: Vector2 = world.call("start_position")
+	walker.position = Vector3(base.x, 0.0, base.y)
 	rig.call("set_follow_target", walker)
 	await get_tree().process_frame
 	var start := rig.position
-	walker.position = Vector3(3.5, 0.0, 2.0)
+	var goal := Vector3(base.x + 3.5, 0.0, base.y + 2.0)
+	walker.position = goal
 	for _i in 90:
 		await get_tree().process_frame
 	var moved: float = Vector2(rig.position.x - start.x, rig.position.z - start.z).length()
 	_check(moved > 2.5, "kamera mengikuti karakter yang berjalan",
 		"pindah %.2f m dari %.2f" % [moved, start.length()])
-	var err: float = Vector2(rig.position.x - 3.5, rig.position.z - 2.0).length()
+	var err: float = Vector2(rig.position.x - goal.x, rig.position.z - goal.z).length()
 	_check(err < 1.2, "kamera berhenti dekat karakter (bukan jauh tertinggal)",
 		"selisih %.2f m" % err)
 	walker.queue_free()
