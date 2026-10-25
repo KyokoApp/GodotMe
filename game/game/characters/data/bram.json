@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "speaker": "Penjaga Bram",
+  "entry": ["setelah_bersih", "pertemuan", "ulangan"],
+  "nodes": {
+    "pertemuan": {
+      "when": { "no_flags": ["bram_kenal"] },
+      "set_flags": ["bram_kenal"],
+      "pages": [
+        {
+          "speaker": "Penjaga Bram",
+          "text": "Berhenti sejenak, pengembara. Jalur ini basah oleh embun, bukan darah — setidaknya sampai tadi malam."
+        },
+        {
+          "speaker": "Penjaga Bram",
+          "text": "Aku Bram, penjaga gerbang lembah. Sejak orc turun dari bukit, kami menghitung langkah sendiri."
+        },
+        {
+          "speaker": "Ksatria",
+          "text": "Tiga orc berjaga di tepi hutan. Aku bisa meringankan pekerjaanmu."
+        },
+        {
+          "speaker": "Penjaga Bram",
+          "text": "Kalau begitu dengar dulu. Pondok tua itu masih berdiri, dan api di dalamnya sudah lama mati."
+        }
+      ],
+      "choices": [
+        {
+          "label": "Aku akan membersihkan jalan itu.",
+          "reply": "Bawa pulang kayu bakar dari tepi hutan, dan aku akan mengingat namamu saat gerbang dibuka.",
+          "set_flags": ["bram_janji"]
+        },
+        {
+          "label": "Apa yang mereka cari di sini?",
+          "reply": "Besi tua. Atau batu bara yang dulu kami sembunyikan di bawah pondok. Aku belum berani memeriksanya.",
+          "set_flags": ["bram_tanya"]
+        }
+      ]
+    },
+    "setelah_bersih": {
+      "when": { "flags": ["bram_kenal"], "min_counters": { "orcs_defeated": 3 } },
+      "set_flags": ["bram_ucap_terima_kasih"],
+      "pages": [
+        {
+          "speaker": "Penjaga Bram",
+          "text": "Jalur itu sunyi lagi. Aku mendengar kabarnya dari penebang kayu, bukan dari teriakan."
+        },
+        {
+          "speaker": "Penjaga Bram",
+          "text": "Tiga orc, katamu. Berarti yang tersisa di bukit hanya cerita yang mereka bawa."
+        },
+        {
+          "speaker": "Ksatria",
+          "text": "Pondok tua itu masih terkunci. Kau punya kuncinya?"
+        },
+        {
+          "speaker": "Penjaga Bram",
+          "text": "Tidak. Tapi aku punya nama orang yang menyimpannya — dan itu urusan perjalanan berikutnya."
+        }
+      ],
+      "choices": [
+        {
+          "label": "Aku akan kembali untuk kunci itu.",
+          "reply": "Aku mencatat janji itu. Pergilah selagi matahari masih di punggungmu.",
+          "set_flags": ["bram_janji_kunci"]
+        },
+        {
+          "label": "Cukup sampai di sini dulu.",
+          "reply": "Istirahatlah. Lembah ini tidak ke mana-mana, dan aku masih di sini saat kau kembali.",
+          "set_flags": []
+        }
+      ]
+    },
+    "ulangan": {
+      "pages": [
+        {
+          "speaker": "Penjaga Bram",
+          "text": "Masih ada orc di tepi hutan. Aku bisa mendengar mereka dari sini, kalau aku mau mendengarnya."
+        },
+        {
+          "speaker": "Penjaga Bram",
+          "text": "Hati-hati dengan yang membawa kapak. Dia menunggu lebih lama dari yang lain."
+        }
+      ],
+      "choices": []
+    }
+  }
+}

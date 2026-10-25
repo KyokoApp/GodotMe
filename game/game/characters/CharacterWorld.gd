@@ -34,24 +34,15 @@ const ORC_SETUP := [
 	{"at": Vector2(1.2, -4.6), "route": [Vector2(1.2, -4.6), Vector2(4.0, -4.0)]},
 ]
 
-const DIALOGUE := {
-	"speaker": "Penjaga Bram",
-	"pages": [
-		"Berhenti sejenak, pengembara. Jalur ini basah oleh embun, bukan darah — setidaknya sampai tadi malam.",
-		"Aku Bram, penjaga gerbang lembah. Sejak orc turun dari bukit, kami menghitung langkah sendiri.",
-		"Pondok tua itu masih berdiri. Kalau kau hendak ke sana, jangan menyimpang dari jalur.",
-	],
-	"options": [
-		{
-			"label": "Ada yang bisa kubantu?",
-			"reply": "Bawa pulang kayu bakar dari tepi hutan, dan aku akan mengingat namamu saat gerbang dibuka.",
-		},
-		{
-			"label": "Apa yang mereka cari?",
-			"reply": "Besi tua. Atau mungkin batu bara yang dulu kami sembunyikan di bawah pondok. Aku belum berani memeriksanya.",
-		},
-	],
-}
+## The guard's story is data, not code: a JSON file next to his sprites. New
+## conversations are added there, and which one he tells depends on the save.
+const BRAM_DIALOGUE := "res://game/characters/data/bram.json"
+const SAVE_SCRIPT := "res://game/save/SaveGame.gd"
+const TREE_SCRIPT := "res://game/dialogue/DialogueTree.gd"
+## How many orcs the valley starts with; the save only remembers how many are
+## already dealt with, so one that is down does not come back after a restart.
+const ORCS_TOTAL := 3
+const AUTOSAVE_SEC := 12.0
 
 var _defs := {}
 var _player: Node3D
@@ -64,6 +55,12 @@ var _toast: Label
 var _hint: Label
 var _blocker_list: Array = []
 var _bounds_rect := Rect2(-12.0, -9.0, 24.0, 18.0)
+var _save: RefCounted
+var _tree: RefCounted
+var _current_choices: Array = []
+var _save_note := ""
+var _autosave := 0.0
+var _session := 0.0
 var _shake := 0.0
 var _shake_base := Vector3.ZERO
 var _toast_time := 0.0
@@ -75,14 +72,21 @@ func _ready() -> void:
 	if _defs.is_empty():
 		push_error("[CHAR] tidak ada definisi karakter yang bisa dimuat")
 		return
+	_load_progress()
+	_load_story()
 	_wire_ground()
 	_spawn_cast()
+	_restore_player()
 	_build_ui()
 	_wire_camera()
 	_ready_ok = true
 	var cast := _orcs.size() + (1 if _npc != null else 0) + (1 if _player != null else 0)
-	print("[CHAR] siap: %d aktor, %d orc, blocker %d" % [
-		cast, _orcs.size(), _blockers_count()])
+	print("[CHAR] siap: %d aktor, %d orc, blocker %d, save=%s" % [
+		cast, _orcs.size(), _blockers_count(), _save_note])
+	if _save != null:
+		print("[CHAR] progres: orc %d/%d, flag %s" % [
+			_save.call("get_counter", "orcs_defeated"), ORCS_TOTAL,
+			str(_save.call("flag_list"))])
 	_report_cast()
 
 
@@ -106,6 +110,82 @@ func _report_cast() -> void:
 
 func cast_ready() -> bool:
 	return _ready_ok
+
+
+# --------------------------------------------------------------- progress ----
+## Load the player's save *before* the cast is spawned, so an orc that was
+## already dealt with never appears again and the knight wakes up where he was.
+func _load_progress() -> void:
+	if not ResourceLoader.exists(SAVE_SCRIPT):
+		_save_note = "skrip save tidak ada"
+		return
+	_save = (load(SAVE_SCRIPT) as Script).new()
+	_save_note = String(_save.call("load_game"))
+	if bool(_save.get("read_only")):
+		_save_note += " (hanya-baca: berkas dari versi lebih baru)"
+	if bool(_save.get("recovered_from_backup")):
+		_save_note += " (dipulihkan dari cadangan)"
+	if int(_save.get("migrated_from")) >= 0:
+		_save_note += " (dimigrasi dari skema %d)" % int(_save.get("migrated_from"))
+	print("[CHAR] %s" % _save_note)
+
+
+func _load_story() -> void:
+	if not ResourceLoader.exists(TREE_SCRIPT):
+		push_error("[CHAR] skrip dialog tidak ada di paket")
+		return
+	_tree = (load(TREE_SCRIPT) as Script).new()
+	var error := String(_tree.call("parse", BRAM_DIALOGUE))
+	if error != "":
+		push_error("[CHAR] %s" % error)
+		return
+	for problem in _tree.call("problems"):
+		push_error("[CHAR] dialog: %s" % String(problem))
+
+
+func save_progress() -> String:
+	if _save == null:
+		return "tidak ada save"
+	if _player != null and is_instance_valid(_player):
+		_save.call("set_player_position",
+			Vector2(_player.position.x, _player.position.z))
+	_save.call("add_play_time", _session)
+	_session = 0.0
+	var error := String(_save.call("save_now"))
+	if error != "":
+		push_warning("[CHAR] save gagal: %s" % error)
+	return error
+
+
+func _restore_player() -> void:
+	if _player == null or _save == null:
+		return
+	if not bool(_save.call("has_position")):
+		return
+	var pos: Vector2 = _save.call("player_position")
+	# Keep him inside the valley even if the save is older than the layout.
+	_player.position = Vector3(pos.x, 0.0, pos.y)
+
+
+## Test/debug hook: pretend the player has already done this much.
+func set_progress(orcs_defeated: int, flags: Array = []) -> void:
+	if _save == null:
+		return
+	_save.call("set_counter", "orcs_defeated", orcs_defeated)
+	for flag in flags:
+		_save.call("set_flag", String(flag), true)
+
+
+func progress() -> Dictionary:
+	if _save == null:
+		return {}
+	return {
+		"orcs_defeated": int(_save.call("get_counter", "orcs_defeated")),
+		"flags": _save.call("flag_list"),
+		"schema": int(_save.get("schema")),
+		"read_only": bool(_save.get("read_only")),
+		"note": _save_note,
+	}
 
 
 # ------------------------------------------------------------------ setup ----
@@ -169,7 +249,12 @@ func _spawn_cast() -> void:
 		_npc.set("post", NPC_START)
 		_npc.set("player", _player)
 
+	var already_down := 0
+	if _save != null:
+		already_down = int(_save.call("get_counter", "orcs_defeated"))
 	for i in range(ORC_SETUP.size()):
+		if i < already_down:
+			continue   # dealt with in an earlier session; the save remembers
 		var conf: Dictionary = ORC_SETUP[i]
 		var at: Vector2 = conf["at"]
 		var orc := _spawn("orc", ENEMY_SCRIPT, at)
@@ -179,6 +264,7 @@ func _spawn_cast() -> void:
 		orc.set("patrol", conf["route"])
 		orc.set("player", _player)
 		orc.connect("battle_triggered", Callable(self, "_on_battle_triggered"))
+		orc.connect("died", Callable(self, "_on_orc_died"))
 		_orcs.append(orc)
 
 
@@ -214,6 +300,7 @@ func _build_ui() -> void:
 	_dialogue.name = "Dialogue"
 	add_child(_dialogue)
 	_dialogue.connect("closed", Callable(self, "_on_dialogue_closed"))
+	_dialogue.connect("choice_made", Callable(self, "_on_choice_made"))
 
 	var layer := CanvasLayer.new()
 	layer.name = "Notices"
@@ -278,6 +365,11 @@ func _process(delta: float) -> void:
 	_update_shake(delta)
 	_update_toast(delta)
 	_update_hint()
+	_session += delta
+	_autosave += delta
+	if _autosave >= AUTOSAVE_SEC:
+		_autosave = 0.0
+		save_progress()
 
 	var locked := _dialogue != null and bool(_dialogue.get("is_open"))
 	var dir := Vector2.ZERO
@@ -345,16 +437,57 @@ func _on_interact_pressed() -> void:
 		return
 	if not bool(_npc.call("can_talk_to", _player)):
 		return
-	_dialogue.call("open", String(DIALOGUE["speaker"]), DIALOGUE["pages"],
-		DIALOGUE["options"])
+	var node: Dictionary = {}
+	if _tree != null and (_tree.call("problems") as Array).is_empty():
+		node = _tree.call("pick", _save)
+	if node.is_empty():
+		_show_toast("Penjaga hanya diam. (data dialog belum termuat)")
+		return
+	_current_choices = node.get("choices", [])
+	_dialogue.call("open", String(node.get("speaker", "Penjaga")),
+		node.get("pages", []), _current_choices)
 	# the parchment covers the right thumb; controls come back when it closes
 	if _controls != null and _controls.has_method("show_controls"):
 		_controls.call("show_controls", false)
+	# The entry node marks itself as seen (e.g. "bram_kenal"), so the second
+	# visit gets a different conversation instead of the same four paragraphs.
+	_set_flags_then_save(node.get("set_flags", []))
 
 
 func _on_dialogue_closed() -> void:
 	if _controls != null and _controls.has_method("show_controls"):
 		_controls.call("show_controls", true)
+	# closing the parchment is a good moment to put the story on disk
+	save_progress()
+
+
+## A branch was taken: remember what the player promised, then save.
+func _on_choice_made(index: int) -> void:
+	if index < 0 or index >= _current_choices.size():
+		return
+	var choice: Dictionary = _current_choices[index]
+	_set_flags_then_save(choice.get("set_flags", []))
+
+
+func _set_flags_then_save(flags: Array) -> void:
+	if _save == null or flags.is_empty():
+		return
+	for flag in flags:
+		_save.call("set_flag", String(flag), true)
+	save_progress()
+	_show_toast("Cerita tersimpan")
+
+
+## An orc is down: count it, save, and let the guard know next time we talk.
+func _on_orc_died(_actor: Node3D) -> void:
+	if _save == null:
+		return
+	var total := int(_save.call("add_counter", "orcs_defeated", 1))
+	save_progress()
+	if total >= ORCS_TOTAL:
+		_show_toast("Jalan sudah bersih. Kembalilah ke penjaga.")
+	else:
+		_show_toast("Orc jatuh (%d dari %d)" % [total, ORCS_TOTAL])
 
 
 func _on_attacked(actor: Node3D) -> void:

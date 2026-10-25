@@ -33,6 +33,10 @@ func _run() -> void:
 	if _dialog_mode == "choices":
 		default_name = "13_pilihan"
 		delay = 3.2
+	elif _dialog_mode == "after":
+		# the same guard, after the player cleared the valley: a different story
+		default_name = "15_dialog_setelah"
+		delay = 4.6
 	elif _dialog_mode != "":
 		default_name = "12_dialog"
 		# the typewriter runs at 42 characters a second; one page needs ~2.5 s
@@ -91,6 +95,10 @@ func _process(delta: float) -> void:
 ## the same path a thumb takes - it just has no thumb.
 func _open_dialogue() -> void:
 	_cast.call("teleport_player", Vector2(3.4, 5.8))
+	if _dialog_mode == "after":
+		# pretend three orcs are down and the first meeting already happened:
+		# this is the branch a returning player must see, proved by a capture
+		_cast.call("set_progress", 3, ["bram_kenal"])
 	_cast.call("press_interact")
 	var dlg: Node = _cast.call("dialogue")
 	if dlg == null:

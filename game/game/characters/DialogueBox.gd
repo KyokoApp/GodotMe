@@ -1,6 +1,11 @@
 extends CanvasLayer
-## Parchment dialogue for the soldier NPC: speaker name, typewriter text, and
-## one real branch (two answers that end the conversation differently).
+## Parchment dialogue for townsfolk: speaker name, typewriter text, and a real
+## branch (answers that set story flags and end the conversation differently).
+##
+## A page is either a plain string (one speaker for the whole conversation) or
+## `{speaker, text}` when the knight answers inside the same paragraph flow - the
+## name line follows the page, which is what makes a two-person exchange read
+## like a conversation instead of a monologue.
 ##
 ## Sized for a phone in landscape: the panel sits low and wide, the advance tap
 ## covers a large button, and the branch choices are full-width rows.
@@ -32,6 +37,7 @@ var _typing := false
 var _tween: Tween
 var _font_body: Font
 var _font_title: Font
+var _open_speaker := "?"
 
 
 func _ready() -> void:
@@ -108,6 +114,7 @@ func open(speaker: String, pages: Array, options: Array = []) -> void:
 	is_open = true
 	visible = true
 	_name_label.text = speaker
+	_open_speaker = speaker
 	_choices.visible = false
 	_clear_choices()
 	_type_page()
@@ -134,7 +141,15 @@ func _type_page() -> void:
 	if _index >= _pages.size():
 		_close()
 		return
-	var body := String(_pages[_index])
+	var page: Variant = _pages[_index]
+	var body := ""
+	if typeof(page) == TYPE_DICTIONARY:
+		body = String((page as Dictionary).get("text", ""))
+		_name_label.text = String((page as Dictionary).get("speaker", _name_label.text))
+	else:
+		body = String(page)
+		if _open_speaker != "":
+			_name_label.text = _open_speaker
 	_text.text = body
 	_text.visible_ratio = 0.0
 	_typing = true

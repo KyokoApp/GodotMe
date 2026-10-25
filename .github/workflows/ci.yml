@@ -94,6 +94,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Story rules (save versions + dialogue branches)
+        # Headless: saving, migrating and picking the right conversation are all
+        # invisible in a screenshot, and losing a save is the worst bug this
+        # game could ship.
+        run: |
+          set -o pipefail
+          set +e
+          : > /tmp/story.log
+          godot --headless --path game res://game/tests/SaveTest.tscn 2>&1 | tee -a /tmp/story.log
+          save_code=${PIPESTATUS[0]}
+          godot --headless --path game res://game/tests/DialogueTest.tscn 2>&1 | tee -a /tmp/story.log
+          dlg_code=${PIPESTATUS[0]}
+          code=$(( save_code + dlg_code ))
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### story rules (exit $code)"; echo '```'; tail -c 20000 /tmp/story.log; echo '```'; } > /tmp/story.md
+            gh pr comment "$PR" --body-file /tmp/story.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Character sprite contract (strips + SpriteFrames)
         # Fails the build, it does not guess: a strip whose width is not
         # frames x frame_width, a stale pivot or an empty animation stops here.
@@ -259,7 +281,7 @@ jobs:
               --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
           done
           # --- character stage: the guard's parchment dialogue, and its fork --
-          for variant in "page 12_dialog" "choices 13_pilihan"; do
+          for variant in "page 12_dialog" "choices 13_pilihan" "after 15_dialog_setelah"; do
             set -- $variant
             xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
               "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \

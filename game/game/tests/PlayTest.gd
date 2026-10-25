@@ -32,6 +32,7 @@ func _ready() -> void:
 	await _test_billboards_stay_upright()
 	await _test_camera_follows_player()
 	await _test_dynamic_stick()
+	await _test_cleared_valley_stays_clear()
 
 	print("[PLAY] %d pemeriksaan, %d gagal" % [checks, failures])
 	get_tree().quit(0 if failures == 0 else 1)
@@ -297,3 +298,53 @@ func _test_dynamic_stick() -> void:
 	await get_tree().process_frame
 	_check(not base.visible, "layar kanan tidak memunculkan stik")
 	pad.queue_free()
+
+
+## Progress must survive a restart: orcs that are already down do not come back,
+## the knight wakes where he stood, and the guard tells the later story.
+func _test_cleared_valley_stays_clear() -> void:
+	for suffix in ["", ".bak", ".tmp"]:
+		var f := "user://playsave/slot1.json" + suffix
+		if FileAccess.file_exists(f):
+			DirAccess.remove_absolute(f)
+	OS.set_environment("RT_SAVE_DIR", "user://playsave")
+	var save: RefCounted = (load("res://game/save/SaveGame.gd") as Script).new("user://playsave")
+	save.call("load_game")
+	save.call("set_flag", "bram_kenal", true)
+	save.call("set_counter", "orcs_defeated", 3)
+	save.call("set_player_position", Vector2(2.0, -3.0))
+	_check(String(save.call("save_now")) == "", "progres bisa ditulis sebelum boot")
+
+	var world := Node3D.new()
+	add_child(world)
+	var cast: Node3D = (load("res://game/characters/CharacterWorld.gd") as Script).new()
+	world.add_child(cast)
+	for _i in 6:
+		await get_tree().process_frame
+	var orcs: Array = cast.call("orcs")
+	_check(orcs.is_empty(), "orc yang sudah dikalahkan tidak muncul lagi", str(orcs.size()))
+	var knight: Node3D = cast.call("player")
+	_check(absf(knight.position.x - 2.0) < 0.6 and absf(knight.position.z + 3.0) < 0.6,
+		"ksatria kembali ke posisi tersimpan", str(knight.position))
+	var progress: Dictionary = cast.call("progress")
+	_check(int(progress.get("orcs_defeated", -1)) == 3, "progres terbaca dari save",
+		str(progress.get("orcs_defeated")))
+	_check((progress.get("flags", []) as Array).has("bram_kenal"), "flag tersimpan ikut terbaca",
+		str(progress.get("flags")))
+
+	# the return visit must not repeat the first meeting
+	var tree: RefCounted = (load("res://game/dialogue/DialogueTree.gd") as Script).new()
+	tree.call("parse", "res://game/characters/data/bram.json")
+	var save2: RefCounted = (load("res://game/save/SaveGame.gd") as Script).new("user://playsave")
+	save2.call("load_game")
+	var node: Dictionary = tree.call("pick", save2)
+	_check(String(node.get("id", "")) == "setelah_bersih",
+		"penjaga memakai cerita lanjutan setelah lembah bersih", String(node.get("id", "")))
+
+	world.queue_free()
+	await get_tree().process_frame
+	for suffix in ["", ".bak", ".tmp"]:
+		var f := "user://playsave/slot1.json" + suffix
+		if FileAccess.file_exists(f):
+			DirAccess.remove_absolute(f)
+	OS.set_environment("RT_SAVE_DIR", "")

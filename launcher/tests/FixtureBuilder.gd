@@ -36,6 +36,12 @@ const PACK_FILES := {
 			"game/characters/data/knight.tres",
 			"game/characters/data/soldier.tres",
 			"game/characters/data/orc.tres",
+			# the guard's story and the player's save live with the cast: the
+			# story is data (editable without touching code) and the save is the
+			# progress of the characters that story is about.
+			"game/characters/data/bram.json",
+			"game/dialogue/DialogueTree.gd",
+			"game/save/SaveGame.gd",
 			"game/assets/characters/knight/LICENSE.txt",
 			"game/assets/characters/soldier/SOURCE.txt",
 			"game/assets/characters/orc/SOURCE.txt",
