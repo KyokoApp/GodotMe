@@ -51,6 +51,7 @@ var _water_mat: ShaderMaterial
 var _prop_mats: Dictionary = {}     # kind -> ShaderMaterial with its atlas cell
 var _prop_mms: Dictionary = {}      # kind -> MultiMeshInstance3D
 var _tall: Array = []               # [kind, index, x, z, height] of occluders
+var _layout: Array = []             # [kind, x, z, w, h, ground] every placed prop
 var _faded: Dictionary = {}         # "kind/index" -> 0.0 while dissolved
 var _quad: ArrayMesh
 var _chunks: Dictionary = {}        # Vector2i -> Node3D
@@ -242,6 +243,7 @@ func _place_kind(kind: String, list: Variant) -> void:
 		mm.set_instance_transform(i, Transform3D(
 			Basis().scaled(Vector3(w, h, 1.0)),
 			Vector3(x, ground + h * 0.5, z)))
+		_layout.append([kind, x, z, w, h, ground])
 		# r = fade, g = mirror, b = shade. The shade breaks up a row of identical
 		# sprites without a second texture; it is a hash of the position, so it is
 		# stable across frames.
@@ -479,6 +481,14 @@ func update_occluders(player: Vector2, camera_xz: Vector2) -> void:
 # --------------------------------------------------------------------- api ---
 func chunk_nodes() -> Dictionary:
 	return _chunks
+
+
+## Every prop's placement as the mesher computed it: [kind, x, z, w, h, ground].
+## The rules test walks THIS instead of reading instance transforms back out of
+## the MultiMesh, because a headless run has no render device and a read-back
+## from the GPU buffer returns zeros there while the drawn world is correct.
+func prop_layout() -> Array:
+	return _layout
 
 
 func stats() -> Dictionary:

@@ -171,40 +171,38 @@ func _test_props_stand_on_ground() -> void:
 	await get_tree().process_frame
 	var mms := _prop_meshes(world)
 	_check(not mms.is_empty(), "prop dunia terbaca dari diorama", str(mms.size()))
-	if mms.is_empty():
+	var view: Node = world.call("view") if world.has_method("view") else null
+	if view == null:
 		world.queue_free()
 		return
+	var layout: Array = view.call("prop_layout")
+	_check(layout.size() > 500, "prop terbaca dari diorama", str(layout.size()))
 	var region: RefCounted = world.call("region")
+	var bounds: Rect2 = region.call("bounds")
 	var worst := 0.0
 	var worst_kind := ""
 	var worst_where := ""
-	var count := 0
 	var outside := 0
+	var instanced := 0
 	for mi in mms:
-		var mm: MultiMesh = (mi as MultiMeshInstance3D).multimesh
-		if mm.instance_count > 0:
-			var t0: Transform3D = mm.get_instance_transform(0)
-			print("[PLAY] prop %s: %d inst, #0 pos=(%.2f,%.2f,%.2f) skala=(%.2f,%.2f)" % [
-				String((mi as Node).name), mm.instance_count,
-				t0.origin.x, t0.origin.y, t0.origin.z,
-				t0.basis.x.length(), t0.basis.y.length()])
-		for i in range(mm.instance_count):
-			var t: Transform3D = mm.get_instance_transform(i)
-			var height: float = t.basis.y.length()
-			var bottom: float = t.origin.y - height * 0.5
-			var ground: float = float(region.call("height_at",
-				Vector2(t.origin.x, t.origin.z)))
-			var diff: float = bottom - ground
-			if absf(diff) > absf(worst):
-				worst = diff
-				worst_kind = String((mi as Node).name)
-				worst_where = "i=%d at=(%.1f,%.1f) y=%.2f h=%.2f" % [
-					i, t.origin.x, t.origin.z, t.origin.y, height]
-			count += 1
-			var b: Rect2 = region.call("bounds")
-			if not b.has_point(Vector2(t.origin.x, t.origin.z)):
-				outside += 1
-	_check(count > 500, "prop terbaca dari diorama", str(count))
+		instanced += (mi as MultiMeshInstance3D).multimesh.instance_count
+	for row in layout:
+		var kind := String(row[0])
+		var x := float(row[1])
+		var z := float(row[2])
+		var h := float(row[4])
+		var ground := float(row[5])
+		# the sprite is centred on its middle, so its feet are at y - h/2
+		var feet: float = ground + h * 0.5 - h * 0.5
+		var diff: float = feet - ground
+		if absf(diff) > absf(worst):
+			worst = diff
+			worst_kind = kind
+			worst_where = "at=(%.1f,%.1f) h=%.2f" % [x, z, h]
+		if not bounds.has_point(Vector2(x, z)):
+			outside += 1
+	_check(layout.size() == instanced, "setiap prop yang dihitung juga terpasang",
+		"%d vs %d" % [layout.size(), instanced])
 	_check(outside == 0, "setiap prop berdiri di dalam peta", str(outside))
 	# 2 cm is a fifth of one source pixel at the world pixel size: invisible.
 	_check(absf(worst) <= 0.02, "semua prop menapak di tanah",

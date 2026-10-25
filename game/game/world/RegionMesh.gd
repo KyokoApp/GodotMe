@@ -202,17 +202,19 @@ static func quad4(surf: Dictionary, p: Array, uv: Array, cols_in: Array,
 	idx.append(first + 1)
 
 
-## Blend weights of the four tiles that share one corner of a tile. A path tile
-## meeting grass at a corner gives that corner a half-and-half colour, which the
-## interpolator then spreads across both tiles: the edge becomes a ragged 1 m
-## transition instead of a staircase of squares.
+## Blend weights at one corner of a tile. The four tiles that meet there vote,
+## and the corner takes the STRONGEST of each surface rather than the average:
+## averaging lets a one-tile-wide path dissolve into the grass it crosses and the
+## road disappears, which is exactly what happened the first time this was tried.
+## Taking the max keeps a path solid while still handing the neighbouring grass
+## tile a dirt corner, so the edge is a ragged metre of transition instead of a
+## staircase of squares.
 static func _corner_weights(data: RefCounted, tx: int, tz: int) -> Array:
 	var out: Array = []
 	for i in range(4):
 		var dx := 0 if i % 2 == 0 else 1
 		var dz := 0 if i < 2 else 1
 		var total := Vector4.ZERO
-		var count := 0
 		for oz in range(-1, 1):
 			for ox in range(-1, 1):
 				var qx: int = tx + dx + ox
@@ -221,10 +223,13 @@ static func _corner_weights(data: RefCounted, tx: int, tz: int) -> Array:
 					continue
 				var w: Vector4 = WEIGHTS.get(int(data.call("tile_terrain", qx, qz)),
 					Vector4.ZERO)
-				total += w
-				count += 1
-		if count > 0:
-			total /= float(count)
+				total = Vector4(maxf(total.x, w.x), maxf(total.y, w.y),
+					maxf(total.z, w.z), maxf(total.w, w.w))
+		# snow carries 0.75 snow + 0.25 rock; two such neighbours must not add up
+		# past one, or the shader's sequence of mixes overshoots
+		var sum := total.x + total.y + total.z + total.w
+		if sum > 1.0:
+			total /= sum
 		out.append(Color(total.x, total.y, total.z, total.w))
 	return out
 
