@@ -565,7 +565,7 @@ animasi, bukan hanya statusnya.
 `world_100.pck` 1.634.320 B (naik 16.492 B: `WorldClock.gd`, `Atmosphere.gd`,
 empat tekstur partikel), `characters_100.pck` 187.436 B (naik 288 B:
 `CharacterWorld.set_time_of_day` kini meneruskan ke jam dunia), `version.json`
-3.922 B (`version: 0.4.0`). `core.pck` tidak berubah, APK tidak berubah → di HP
+3.980 B (`version: 0.4.0`). `core.pck` tidak berubah, APK tidak berubah → di HP
 cukup **Periksa Lagi → MAIN**.
 
 Isi: pagi berkabut, siang terang, sore keemasan dengan daun jatuh, malam biru
@@ -573,7 +573,12 @@ dengan kunang-kunang dan lampu jendela pondok yang menyala sendiri. Satu hari
 penuh = 480 detik; fase bisa dipaksa lewat `RT_WORLD_PHASE` untuk QA/tangkapan.
 
 Uji: `WorldTest` **26 pemeriksaan, 0 gagal**. Verifikasi rilis: `release-demo`
-**40156035477** dan `ci` **40156035429**, keduanya success.
+**40156791651** (terakhir, dengan warna sore final) dan `ci` **40156433384**,
+keduanya success.
+
+Kontak-sheet empat fase (dari tangkapan CI, bukan render terpisah):
+`docs/screenshots/19_empat_fase.png` — kiri atas pagi, kanan atas siang, kiri
+bawah sore, kanan bawah malam.
 
 Catatan: versi pertama tekstur atmosfer memakai alpha ber-dither, dan tangkapan
 layarnya penuh kotak-kotak abu-abu (kuad kabut 7 m membuat pola dither membesar
