@@ -19,6 +19,7 @@ var _walk_seconds := 6.0
 var _dialog_mode := ""
 var _dialog_done := false
 var _down_done := false
+var _down_reported := false
 
 
 func _ready() -> void:
@@ -84,6 +85,9 @@ func _process(delta: float) -> void:
 		if not _down_done and _elapsed > 1.0:
 			_down_done = true
 			_fall_down()
+		if not _down_reported and _elapsed > 4.0:
+			_down_reported = true
+			_report_down()
 		return
 	if _dialog_mode != "":
 		_cast.call("set_virtual_stick", Vector2.ZERO)
@@ -112,6 +116,17 @@ func _fall_down() -> void:
 			return
 		knight.call("take_hit")
 		await get_tree().create_timer(0.95).timeout
+
+
+## One log line at the moment the camera looks at him: if a future run ever
+## captures a standing knight again, this says why instead of leaving a mystery.
+func _report_down() -> void:
+	var knight: Node3D = _cast.call("player")
+	var st: Dictionary = _cast.call("hud_state")
+	print("[TEST] terjatuh? nyawa=%d/%d henti=%s state=%s mati=%s anim=%s t=%.2f" % [
+		int(st.get("hearts", -1)), int(st.get("max_hearts", -1)), str(st.get("down")),
+		String(knight.get("state")), str(knight.call("is_dead")),
+		String(knight.call("anim_name")), _elapsed])
 
 
 ## Walk the knight up to the guard and press Bicara for him. Everything here is
