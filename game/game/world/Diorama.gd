@@ -121,8 +121,13 @@ func _build_environment() -> void:
 	env.background_color = Color(0.42, 0.35, 0.30)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.56, 0.60, 0.72)
-	env.ambient_light_energy = 0.55
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.ambient_light_energy = 0.62
+	# LINEAR, not ACES. The props are unshaded billboards that bypass the
+	# tonemapper, and they were the only thing in the frame that still looked like
+	# the approved pixel art; everything the tonemapper touched came out muddy
+	# brown. A flat curve puts the ground back in step with the sprites, which is
+	# the whole point of a diorama whose art already bakes its own light.
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.tonemap_exposure = 1.0
 	# White point 6.0 was chosen for the tiny lantern-lit glade of step 1, where
 	# everything sat in one pool of warm light. Against a 192 m region under an
@@ -130,7 +135,7 @@ func _build_environment() -> void:
 	# 1.0 to roughly 0.45 when white is 6, so half the world's brightness went
 	# away before it reached the screen. 1.5 keeps the highlight roll-off without
 	# eating the midtones.
-	env.tonemap_white = 3.0
+	env.tonemap_white = 1.0
 	# warm afternoon haze -> depth without a depth-of-field pass
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.68, 0.62)
@@ -158,7 +163,7 @@ func _build_environment() -> void:
 	_sun.rotation_degrees = Vector3(-46.0, 34.0, 0.0)
 	# late afternoon, not noon: keeps the greens green instead of hay-yellow
 	_sun.light_color = Color(1.0, 0.96, 0.90)
-	_sun.light_energy = 1.1
+	_sun.light_energy = 1.0
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	# 60 m of shadow map covers the visible chunks; further out the fog does the
