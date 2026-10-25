@@ -179,7 +179,10 @@ func _on_tap() -> void:
 # -------------------------------------------------------------------- draw ---
 func _draw() -> void:
 	var box := _box()
-	if _texture == null:
+	# The frame is laid out in apply_safe_area, so on the very first frame the
+	# control can still be 0x0. A negative rectangle is not a harmless mistake in
+	# Godot: it spams the log on every draw, and on a phone that is a real cost.
+	if _texture == null or box.size.x < 4.0 or box.size.y < 4.0:
 		return
 	var tiles := window_tiles()
 	var box_size := box.size
@@ -196,7 +199,10 @@ func _draw() -> void:
 ## The square the map occupies inside the frame (the frame is `size`).
 func _box() -> Rect2:
 	var inset := 8.0
-	return Rect2(Vector2(inset, inset), size - Vector2(inset, inset) * 2.0)
+	var inner := size - Vector2(inset, inset) * 2.0
+	inner.x = maxf(0.0, inner.x)
+	inner.y = maxf(0.0, inner.y)
+	return Rect2(Vector2(inset, inset), inner)
 
 
 ## World metres -> minimap pixels, relative to the player-centred window.

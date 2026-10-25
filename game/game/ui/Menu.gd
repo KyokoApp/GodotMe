@@ -52,32 +52,43 @@ var _launcher_armed := false
 var _launcher_btn: Button
 var _launcher_warn: Label
 var _map: RefCounted = null
+var _tabs_row: HBoxContainer
+var _frame: PanelContainer
+var _stack: Control
 
 
 func _ready() -> void:
 	visible = false
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	anchor_left = 0.0
+	anchor_top = 0.0
+	anchor_right = 1.0
+	anchor_bottom = 1.0
+	offset_left = 0.0
+	offset_top = 0.0
+	offset_right = 0.0
+	offset_bottom = 0.0
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build()
+	_layout()
+	resized.connect(_layout)
 
 
 func _build() -> void:
 	_dim = ColorRect.new()
 	_dim.color = Color(0.06, 0.04, 0.03, 0.66)
-	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_dim.anchor_right = 1.0
+	_dim.anchor_bottom = 1.0
 	add_child(_dim)
 
 	_sheet = PanelContainer.new()
 	_sheet.name = "Sheet"
 	_sheet.add_theme_stylebox_override("panel", KIT.parchment(20, 24, 18))
+	# centred in _layout(): the sheet is designed on 1280x720 and a 4:3 phone
+	# window is 960x720, where a fixed 1080-wide sheet hangs off both edges
 	_sheet.anchor_left = 0.5
 	_sheet.anchor_right = 0.5
 	_sheet.anchor_top = 0.5
 	_sheet.anchor_bottom = 0.5
-	_sheet.offset_left = -SHEET.x * 0.5
-	_sheet.offset_right = SHEET.x * 0.5
-	_sheet.offset_top = -SHEET.y * 0.5
-	_sheet.offset_bottom = SHEET.y * 0.5
 	add_child(_sheet)
 
 	var column := VBoxContainer.new()
@@ -109,6 +120,7 @@ func _build() -> void:
 	# --- tab row
 	var tabs := HBoxContainer.new()
 	tabs.name = "Tabs"
+	_tabs_row = tabs
 	tabs.add_theme_constant_override("separation", 6)
 	column.add_child(tabs)
 	for entry in TABS:
@@ -136,10 +148,12 @@ func _build() -> void:
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", _well_style())
 	frame.custom_minimum_size = CONTENT
+	_frame = frame
 	column.add_child(frame)
 	var stack := Control.new()
 	stack.custom_minimum_size = CONTENT - Vector2(32, 32)
 	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_stack = stack
 	frame.add_child(stack)
 
 	_build_page_lanjut(stack)
@@ -150,6 +164,42 @@ func _build() -> void:
 	_build_page_simpan(stack)
 	_build_page_peluncur(stack)
 	show_page("lanjut")
+
+
+## Fit the parchment to the window: never wider or taller than the screen, and
+## never wider than 1120 design px (a sheet that spans a 20:9 phone edge to edge
+## stops reading as a sheet). Re-run on every resize.
+func _layout() -> void:
+	if _sheet == null:
+		return
+	var vp := size
+	if vp.x < 2.0 or vp.y < 2.0:
+		var host := get_viewport()
+		vp = host.get_visible_rect().size if host != null else Vector2(1280, 720)
+		# the first frame can run before the control has been laid out
+		size = vp
+	var w := minf(SHEET.x, vp.x - 48.0)
+	var h := minf(SHEET.y, vp.y - 56.0)
+	_sheet.offset_left = -w * 0.5
+	_sheet.offset_right = w * 0.5
+	_sheet.offset_top = -h * 0.5
+	_sheet.offset_bottom = h * 0.5
+	_sheet.custom_minimum_size = Vector2.ZERO
+	# The seven tabs and the content well were designed on 1280x720. On a 4:3
+	# window (960x720) they would be wider than the sheet, so their minimums
+	# shrink with it instead of pushing the parchment past the screen edge.
+	var inner := w - 76.0
+	if _tabs_row != null:
+		var each := clampf((inner - 6.0 * float(_tabs_row.get_child_count() - 1))
+			/ float(maxi(1, _tabs_row.get_child_count())), 88.0, 138.0)
+		for child in _tabs_row.get_children():
+			(child as Control).custom_minimum_size = Vector2(each, KIT.TOUCH_MIN)
+	if _frame != null:
+		_frame.custom_minimum_size = Vector2(maxf(420.0, inner),
+			maxf(240.0, h - 210.0))
+	if _stack != null:
+		_stack.custom_minimum_size = Vector2(maxf(388.0, inner - 32.0),
+			maxf(208.0, h - 242.0))
 
 
 func _tab_style(active: bool) -> StyleBoxFlat:
@@ -381,6 +431,7 @@ func _on_launcher_pressed() -> void:
 
 # ------------------------------------------------------------------ public ---
 func open(page: String = "lanjut") -> void:
+	_layout()
 	visible = true
 	modulate.a = 0.0
 	show_page(page)

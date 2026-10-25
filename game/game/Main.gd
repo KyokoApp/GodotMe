@@ -141,7 +141,9 @@ func _build_hud() -> void:
 		push_error("[GAME] FieldHud.gd tidak ada di paket ui")
 		return
 	_hud_layer = CanvasLayer.new()
-	_hud_layer.name = "HudLayer"
+	# The launcher's boot test looks for `HUD` by name to prove the interface came
+	# out of core.pck; keep the contract, not just the behaviour.
+	_hud_layer.name = "HUD"
 	_hud_layer.layer = 2
 	add_child(_hud_layer)
 	_hud = (load(FIELD_HUD) as Script).new()
@@ -365,7 +367,7 @@ func _refresh_field() -> void:
 	var quest: Dictionary = _cast.call("quest_target") if _cast.has_method("quest_target") else {}
 	_hud.call("set_quest_target", quest.get("pos", Vector2.ZERO), not quest.is_empty())
 	var action: Dictionary = _cast.call("interaction") if _cast.has_method("interaction") else {}
-	if action.is_empty() or get_tree().paused:
+	if action.is_empty() or get_tree().paused or bool(_hud.call("full_map_open")):
 		_hud.call("hide_action")
 	else:
 		_hud.call("set_action", String(action.get("kind", "")), String(action.get("label", "")))
@@ -501,6 +503,9 @@ func _maybe_capture_or_quit() -> void:
 			_hud.call("show_banner", _area_constant("AREA_NAME", "Lembah Senja"),
 				_area_constant("AREA_SUBTITLE", ""))
 		await get_tree().create_timer(0.7).timeout
+	if scenario != "banner" and scenario != "dialogue" and _hud != null:
+		# a shot of the field must show the empty field, not the 3 s title card
+		_hud.call("dismiss_banner")
 	if menu_page != "":
 		if menu_page == "jeda":
 			menu_page = "lanjut"

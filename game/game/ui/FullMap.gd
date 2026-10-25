@@ -39,12 +39,22 @@ var _map: RefCounted = null
 
 func _ready() -> void:
 	visible = false
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# explicit anchors: inside a CanvasLayer a `preset` call alone keeps the old
+	# 1280x720 rect, which pushed the sheet off the left of a 4:3 screen
+	anchor_left = 0.0
+	anchor_top = 0.0
+	anchor_right = 1.0
+	anchor_bottom = 1.0
+	offset_left = 0.0
+	offset_top = 0.0
+	offset_right = 0.0
+	offset_bottom = 0.0
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	_dim = ColorRect.new()
 	_dim.color = Color(0.06, 0.04, 0.03, 0.72)
-	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_dim.anchor_right = 1.0
+	_dim.anchor_bottom = 1.0
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_dim)
 

@@ -63,7 +63,20 @@ var _marker_dirty := true
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Anchors are written out instead of `set_anchors_preset`: this control lives
+	# directly inside a CanvasLayer, with no Control parent, and `preset` alone
+	# left it as a fixed 1280x720 rect at (0,0). On a 4:3 window (or with "ukuran
+	# UI" above 1,0, which scales the whole layer around the screen centre) the
+	# Menu button and the map then slid off the right edge. Four numbers cost
+	# nothing and cannot drift.
+	anchor_left = 0.0
+	anchor_top = 0.0
+	anchor_right = 1.0
+	anchor_bottom = 1.0
+	offset_left = 0.0
+	offset_top = 0.0
+	offset_right = 0.0
+	offset_bottom = 0.0
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build_minimap()
 	_build_menu_button()
@@ -354,6 +367,17 @@ func show_banner(title: String, subtitle: String) -> void:
 	_banner_tween.tween_callback(func() -> void: _banner.visible = false)
 
 
+## Take the place banner away at once. Used by the capture harness (a shot of
+## "walking" should show the empty field, not three seconds of title card).
+func dismiss_banner() -> void:
+	if _banner == null:
+		return
+	if _banner_tween != null and _banner_tween.is_valid():
+		_banner_tween.kill()
+	_banner.visible = false
+	_banner.modulate.a = 0.0
+
+
 func _centre_banner() -> void:
 	if _banner == null:
 		return
@@ -395,7 +419,7 @@ func _camera() -> Camera3D:
 
 
 func _draw() -> void:
-	if not _has_quest:
+	if not _has_quest or size.x < 200.0 or size.y < 200.0:
 		return
 	var cam := _camera()
 	if cam == null:

@@ -903,3 +903,151 @@ Keduanya perlu diukur di HP sungguhan sebelum dipilih, jadi keputusannya saya
 tinggalkan untuk pemilik; angka VRAM sekarang masih kecil (±0,7 MB total paket,
 karakter 100×100 dan 112×96). Ini satu-satunya butir brief FASE 8 yang belum
 selesai, dan saya tidak mau mengklaimnya sudah.
+
+## 19. Lapangan, minimap dan kamera (langkah 1)
+
+Tujuan langkah ini satu kalimat: **layar lapangan harus hampir kosong**. Dunia
+yang jadi bintang; UI hanya muncul saat perlu. Semua yang dulu menetap di layar
+— kotak tujuan, tiga hati, paragraf narasi, angka FPS, tombol Jeda dan Peluncur —
+pindah ke dalam satu menu, atau hilang sama sekali.
+
+### 19.1 Apa yang tersisa di lapangan
+
+| Posisi | Isi | Catatan |
+| --- | --- | --- |
+| kiri atas | minimap 20 % tinggi layar | bingkai kulit + tepi kuningan, bukan kotak perkamen besar |
+| bawah minimap | ikon matahari/bulan + satu kata | tanpa panel: ikonnya menempel di dunia |
+| kanan atas | **satu** tombol Menu (ikon roda gigi + label) | Jeda dan Peluncur ada di dalamnya |
+| kanan bawah | **satu** tombol aksi kontekstual | Bicara / Masuk / Periksa / Ambil; memudar bila tak ada target |
+| kiri bawah | stik jalan | mengambang (bawaan) atau tetap, sesuai Pengaturan |
+| tengah atas | banner nama lokasi | 3 detik, geser masuk lalu pudar |
+| tepi layar | panah tujuan + jarak meter | hanya bila tujuan di luar pandangan |
+
+Yang **tidak** ada lagi: kotak "Tujuan", hati "Nyawa", paragraf narasi kiri
+bawah, teks FPS permanen, tombol Jeda/Peluncur terpisah, dan tombol Serang/Tahan.
+
+### 19.2 Minimap dari data, bukan kamera kedua
+
+`game/world/WorldMap.gd` menyimpan tanah sebagai grid: 26×20 ubin, 1 m per ubin,
+enam jenis (rumput, tanah, air, batu, hutan, bangunan) dengan palet hangat yang
+sama dengan perkamen dan rumput diorama. `Diorama.gd` mengecat grid itu dari
+`LAYOUT` dan `PATH` yang **sudah** dipakai untuk menaruh prop, jadi peta tidak
+mungkin melenceng dari dunia yang digambarnya.
+
+Kenapa data: kamera kedua berarti satu render pass penuh tambahan di HP, untuk
+gambar yang isinya kotak warna. Grid beberapa ratus bit jauh lebih murah.
+
+Biaya dijaga di tiga tempat:
+
+* jendela minimap **tetap** 14 ubin (dekat) atau 34 ubin (jauh) — peta 10× lebih
+  besar tidak menambah satu piksel pun tekstur minimap (diuji F19–F21);
+* tekstur dibangun ulang hanya saat pemain **pindah ubin** atau ada ubin fog yang
+  baru terbuka (`fog_revision`), bukan tiap frame;
+* peta penuh (tab Peta / ketuk minimap) adalah satu-satunya tempat yang
+  membangun gambar seluruh peta, dan itu tindakan pemain, bukan tiap frame.
+
+Interaksi: satu ketukan = peta penuh, dua ketukan = dua tingkat zoom minimap.
+
+**Fog of war** disimpan sebagai string bit 520 karakter (satu karakter per ubin)
+di dalam `fog` pada save, lengkap dengan `schema`, ukuran peta dan ukuran ubin.
+Save skema 1 mendapat `fog: {}` lewat rantai migrasi — artinya "belum pernah ke
+mana-mana", bukan "peta rusak". Fog dari peta berukuran lain atau dari skema yang
+lebih baru **ditolak utuh** (peta tetap seperti sebelumnya), alasannya dicatat.
+
+### 19.3 Kamera: mengikuti, berhenti di tepi, zoom menempel
+
+| Parameter | Nilai | Kenapa |
+| --- | --- | --- |
+| pitch / yaw | −38° / −22° | sudut diorama; tidak pernah berubah |
+| FOV | 30° | sempit, seperti kamera mainan |
+| zoom | 11 … 32 m, **diturunkan otomatis** oleh ukuran peta | di lembah 26×20 batas nyatanya ±21 |
+| tangga zoom | 11 · 12 · 12,5 · 14 · 16 · 18 · 20 · 22,5 · 25 · 28 · 32 | pinch berhenti di anak tangga, bukan 17,43 |
+| dead zone | 0,55 m | gambar tenang saat pemain berhenti |
+| laju ikut | 4,5 per detik | menyusul tanpa menyentak |
+| jarak fokus dialog | ×0,86 | lensa mendekat saat bicara |
+
+Pan satu jari **dihapus**: satu jari milik stik. Dua jari masih boleh menggeser
+pandangan (dan mencubit untuk zoom), lalu kamera mengambil alih lagi setelah 1,2
+detik. `recentre()` (tombol di menu / nanti ketuk ganda) mengembalikan lensa ke
+pemain.
+
+Batas gerak dihitung dari apa yang **benar-benar terlihat** lensa pada zoom saat
+itu: separuh lebar dan separuh kedalaman frame, dikali 0,9, dibatasi 45 % dari
+separuh peta. Konsekuensinya, di peta kecil pemain boleh bergeser dari tengah
+layar saat mendekati tepi — memang itu yang diminta — dan di peta besar batas itu
+tidak pernah terasa.
+
+**Yang belum sempurna, dan saya tidak menyembunyikannya:** pada lembah 26×20 m,
+zoom 19° menampilkan tanah lebih luas daripada petanya, jadi di pojok selatan
+kadang masih terlihat "rok" tanah gelap di luar batas. Itu bukan void (tidak ada
+lubang hitam), tetapi juga bukan jawaban final. Jawaban finalnya peta yang lebih
+besar — langkah 2. Batas zoom otomatis di atas sudah dibuat supaya begitu peta
+membesar, masalah ini hilang tanpa mengubah satu angka pun.
+
+### 19.4 Ukuran sentuh, notch, dan satu tombol "ukuran UI"
+
+Kanvas desain 1280×720 di-*stretch* mengikuti tinggi layar. Di HP 2340×1080
+(±400 dpi) satu piksel desain = 1,5 piksel perangkat ≈ 0,6 dp, jadi:
+
+* 48 dp ≈ **80 piksel desain** → `UiKit.TOUCH_MIN = 80`
+* 72 dp ≈ **120 piksel desain** → tombol aksi `TOUCH_BIG = 132`
+
+Safe area diambil dari `DisplayServer.get_display_safe_area()`; inset kiri/atas
+dipakai juga untuk kanan/bawah (di landscape, notch dan sudut membulat saling
+berdekatan, dan empat angka terpisah hanya menambah cara untuk salah).
+
+**Ukuran UI** satu knop: `Settings.ui_scale()` mengembalikan 0,86 / 1,0 / 1,14 dan
+`UiKit.apply_layer_scale()` mengalikan transform CanvasLayer HUD dan menu. Tidak
+ada daftar ukuran font kedua yang bisa basi saat ada tombol baru.
+
+Ikon baru (satu keluarga, grid 24×24, palet yang sama): `talk`, `door`,
+`inspect`, `take`, `map`, `close`. Atlas ikon kini 13 sel (338×26 px).
+
+### 19.5 Satu menu
+
+Tombol Menu membuka **satu** lembar perkamen dengan tujuh tab: **Lanjut, Jurnal,
+Peta, Inventori, Pengaturan, Simpan, Peluncur**. Dunia berhenti selama panel
+terbuka (tween panel memakai `TWEEN_PAUSE_PROCESS`, jadi panelnya tetap hidup —
+bug yang sama pernah terjadi pada menu fase 7).
+
+* Jurnal memuat tujuan aktif, progres orc, nyawa, waktu bermain, dan paragraf
+  narasi area yang dulu menetap di layar;
+* Inventori: 16 kotak tertata dengan teks "Belum ada isi." — bukan kotak rusak;
+* Pengaturan: grafis, ukuran UI, sensitivitas stik, stik mengambang/tetap, mode
+  debug, tampilkan FPS (hanya muncul saat mode debug), tilt-shift, getar;
+* Peluncur minta **dua** ketukan.
+
+### 19.6 Dialog
+
+Ringkas, di bawah layar, satu strip: potret berbingkai, nama, teks mengetik, dan
+"ketuk untuk lanjut" di pojok. Tombol Lanjut dihapus — seluruh layar adalah
+tombolnya. **Potret diambil dari strip idle karakter itu sendiri** (bingkai
+pertama, dipangkas, diisi ke kanvas 3:4). Tidak ada wajah yang digambar lewat
+kode, dan tidak ada potret placeholder. Kalau nanti pemilik mengirim
+`portrait.png` di folder karakter, berkas itu yang dipakai lebih dulu.
+
+### 19.7 Uji dan tangkapan layar
+
+Gate headless baru `FieldTest` (23 pemeriksaan): data peta untuk beberapa ukuran,
+fog yang berpindah lewat save, jendela minimap yang tidak tumbuh, kamera yang
+tidak bisa keluar peta di tiga arah pada dua ukuran peta, tangga zoom, minimap
+pada peta 26×20 dan 160×120, tombol aksi yang muncul/memudar menurut jarak, dan
+dialog yang tidak menimpa minimap/tombol menu.
+
+Tangkapan layar CI bertambah: `22_lapangan`, `23_banner`, `24_dialog`,
+`25_jurnal`, `26_peta`, `27_fog`, `28_rasio_20x9`, `29_rasio_4x3`, plus
+`20_menu`/`21_pengaturan` yang digambar ulang.
+
+### 19.8 Batas langkah ini
+
+* Peta besar bertingkat **belum ada** (itu langkah 2). Semua antarmuka yang
+  dibutuhkan sudah bekerja pada ukuran peta berapa pun, tetapi isi dunia masih
+  satu lembah.
+* Pertarungan **belum ada**. Karena tombol Serang/Tahan dihapus, orc tidak lagi
+  memukul: mereka berpatroli, menghadang, dan memicu pemberitahuan. Kerusakan
+  real-time dimatikan lewat `CharacterWorld._combat_live` (bawaan mati) —
+  bukan karena lupa, tetapi karena damage tanpa cara menjawab itu tidak adil.
+  `_strike_orcs()` disimpan untuk layar pertarungan nanti.
+* `KIND_WATER` sudah ada di data dan palet, tetapi diorama belum punya kolam.
+  Saya tidak menambahkan air yang tidak ada di dunia hanya agar legendanya genap.
+* FPS di HP tetap belum diukur dari sandbox ini.

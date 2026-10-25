@@ -36,6 +36,7 @@ func _ready() -> void:
 	await _test_camera_limits()
 	await _test_zoom_ladder()
 	await _test_minimap_sizes()
+	await _test_menu_fits()
 	await _test_action_button()
 	await _test_dialogue_clear_of_hud()
 	print("[FIELD] %d pemeriksaan, %d gagal" % [checks, failures])
@@ -306,6 +307,35 @@ func _test_action_button() -> void:
 	var action_rect: Rect2 = hud.call("action_rect")
 	_check(action_rect.size.x >= 132.0,
 		"tombol aksi minimal 132 px desain (≈72 dp)", str(action_rect.size))
+
+
+## The menu was designed on 1280x720. A 4:3 window is 960x720 and a 20:9 one is
+## 1440x648; on both, the parchment must stay inside the screen (that is exactly
+## what a fixed-size sheet got wrong on the first capture).
+func _test_menu_fits() -> void:
+	var menu_script: Script = load("res://game/ui/Menu.gd")
+	for pair in [Vector2(1280, 720), Vector2(960, 720), Vector2(1440, 648)]:
+		var host := Control.new()
+		host.size = pair
+		add_child(host)
+		var menu: Control = menu_script.new()
+		host.add_child(menu)
+		await get_tree().process_frame
+		menu.size = pair
+		menu.call("_layout")
+		await get_tree().process_frame
+		var sheet: Control = menu.get("_sheet")
+		var rect := sheet.get_global_rect()
+		var inside := rect.position.x >= -1.0 and rect.position.y >= -1.0 \
+			and rect.end.x <= pair.x + 1.0 and rect.end.y <= pair.y + 1.0
+		_check(inside, "menu %dx%d muat di layar" % [int(pair.x), int(pair.y)], str(rect))
+		var tabs: Control = menu.get("_tabs_row")
+		var tabs_rect := tabs.get_global_rect()
+		_check(tabs_rect.size.x <= rect.size.x + 1.0,
+			"tab menu tidak melebar melewati perkamen %dx%d" % [int(pair.x), int(pair.y)],
+			"%.0f vs %.0f" % [tabs_rect.size.x, rect.size.x])
+		host.queue_free()
+		await get_tree().process_frame
 
 
 func _test_dialogue_clear_of_hud() -> void:
