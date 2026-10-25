@@ -19,7 +19,11 @@
 shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_opaque, cull_disabled;
 
-uniform sampler2D albedo_tex : source_color, filter_nearest, repeat_disable;
+// No `source_color` on the atlas: the world loads its PNGs as raw bytes
+// (see RegionView._tex), so the shader must sample them as they are stored.
+// The hint would make the GPU decode them as sRGB - a dark green grass tile
+// arrived almost black, and the whole valley came out muddy brown.
+uniform sampler2D albedo_tex : filter_nearest, repeat_disable;
 // alpha below this is thrown away; the sprites are hard-edged pixel art, so a
 // low threshold keeps pine needles from thinning out
 uniform float scissor : hint_range(0.0, 1.0) = 0.42;

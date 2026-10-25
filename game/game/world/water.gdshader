@@ -4,7 +4,11 @@
 shader_type spatial;
 render_mode blend_mix, cull_disabled, depth_draw_opaque, specular_schlick_ggx;
 
-uniform sampler2D water_tex : source_color, filter_nearest, repeat_enable;
+// No `source_color` on the atlas: the world loads its PNGs as raw bytes
+// (see RegionView._tex), so the shader must sample them as they are stored.
+// The hint would make the GPU decode them as sRGB - a dark green grass tile
+// arrived almost black, and the whole valley came out muddy brown.
+uniform sampler2D water_tex : filter_nearest, repeat_enable;
 uniform vec3 shallow_tint : source_color = vec3(0.62, 0.80, 0.78);
 uniform vec3 deep_tint : source_color = vec3(0.30, 0.46, 0.52);
 uniform vec3 foam_tint : source_color = vec3(0.92, 0.95, 0.90);

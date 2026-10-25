@@ -12,7 +12,11 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_lambert, specular_disabled;
 
-uniform sampler2D atlas : source_color, filter_nearest, repeat_enable;
+// No `source_color` on the atlas: the world loads its PNGs as raw bytes
+// (see RegionView._tex), so the shader must sample them as they are stored.
+// The hint would make the GPU decode them as sRGB - a dark green grass tile
+// arrived almost black, and the whole valley came out muddy brown.
+uniform sampler2D atlas : filter_nearest, repeat_enable;
 uniform vec2 cell_cliff = vec2(0.75, 0.0);
 uniform float tile_scale = 2.0;
 // world XZ of the player, set every frame by the world
