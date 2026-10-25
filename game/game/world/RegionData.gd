@@ -544,9 +544,9 @@ func find_path(from: Vector2, to: Vector2) -> Array:
 			if cost.has(nxt) and tentative >= float(cost[nxt]):
 				continue
 			cost[nxt] = tentative
-			came[next] = current
-			if not open.has(next):
-				open.append(next)
+			came[nxt] = current
+			if not open.has(nxt):
+				open.append(nxt)
 	return []
 
 
