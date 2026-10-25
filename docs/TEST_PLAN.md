@@ -185,7 +185,7 @@ Tambahan `PlayTest` (25 Okt 2026, fase taruhan):
 | P23 | pukulan beruntun dalam satu detik tetap satu hati | dua orc dulu menguras semua hati |
 | P24 | perisai menahan pukulan tanpa kehilangan hati, state tetap `block` | tombol Tahan harus berarti |
 | P25 | hati 0 → `down` (animasi mati dimainkan, kontrol hilang) | taruhan nyata |
-| P26 | bangun setelah 2,2 s: tiga hati, di awal jalan, tidak `is_dead` | tidak boleh macet mati |
+| P26 | bangun setelah 2,6 s: tiga hati, di awal jalan, tidak `is_dead` | tidak boleh macet mati |
 | P27 | terjatuh tidak menghapus progres orc | hukuman bukan penghapusan |
 | P28 | tujuan berganti ke "Kembali ke Penjaga Bram" lalu "Jalur aman" | HUD dibaca dari save |
 | P29 | "Simpan sekarang" menulis berkas dan count `deaths` ikut tersimpan | jalur simpan manual = autosave |

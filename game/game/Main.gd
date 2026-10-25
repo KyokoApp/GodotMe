@@ -160,7 +160,7 @@ func _build_hud() -> void:
 	quest.anchor_top = 0.0
 	quest.offset_left = 26.0
 	quest.offset_top = 124.0
-	quest.offset_right = 366.0
+	quest.offset_right = 426.0
 	quest.offset_bottom = 124.0
 	quest.grow_vertical = Control.GROW_DIRECTION_END
 	root.add_child(quest)
@@ -182,7 +182,7 @@ func _build_hud() -> void:
 	_objective_label.add_theme_font_size_override("font_size", 19)
 	_objective_label.add_theme_color_override("font_color", INK)
 	_objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_objective_label.custom_minimum_size = Vector2(292, 0)
+	_objective_label.custom_minimum_size = Vector2(352, 0)
 	quest_box.add_child(_objective_label)
 
 	_hearts_label = Label.new()

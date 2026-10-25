@@ -612,7 +612,7 @@ memang pilihan, bukan hiasan.
 ### 14.3 Terjatuh, lalu bangun — tanpa kehilangan apa pun
 
 Hati habis → animasi `death` ksatria dimainkan, kontrol disembunyikan, pesan
-"Kau terjatuh" muncul, lalu setelah 2,2 s ia bangun di awal jalan dengan tiga
+"Kau terjatuh" muncul, lalu setelah 2,6 s ia bangun di awal jalan dengan tiga
 hati. Counter `deaths` disimpan, tetapi **tidak ada** yang dihapus: orc yang sudah
 dikalahkan tetap mati, flag cerita tetap ada, dan save ditulis ulang saat bangun.
 Alasannya sederhana: hukuman yang menghapus progres membuat pemain berhenti

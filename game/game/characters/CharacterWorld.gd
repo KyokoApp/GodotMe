@@ -49,8 +49,10 @@ const AUTOSAVE_SEC := 12.0
 ## 0.2 s flinch guard, so two orcs swinging together cost one heart, not three.
 const MAX_HEARTS := 3
 const INVULN_SEC := 0.9
-## How long the knight stays down before he is helped back to his feet.
-const DOWN_SEC := 2.2
+## How long the knight stays down before he is helped back to his feet. Long
+## enough that the message is readable, short enough that it never feels like a
+## punishment screen.
+const DOWN_SEC := 2.6
 
 var _defs := {}
 var _player: Node3D
@@ -582,6 +584,7 @@ func _begin_down() -> void:
 	if _controls != null and _controls.has_method("show_controls"):
 		_controls.call("show_controls", false)
 	_player.call("die")
+	print("[CHAR] ksatria terjatuh (nyawa habis), bangun dalam %.1f s" % DOWN_SEC)
 	_show_toast("Kau terjatuh — bangun sebentar lagi…")
 	await get_tree().create_timer(DOWN_SEC).timeout
 	if not is_instance_valid(self) or not _ready_ok:

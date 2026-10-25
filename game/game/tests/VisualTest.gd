@@ -38,7 +38,7 @@ func _run() -> void:
 		# hearts empty: the knight on the ground, HUD at 0/3 and the toast telling
 		# the player he will get up - the stakes, captured instead of described
 		default_name = "16_terjatuh"
-		delay = 4.4
+		delay = 4.2
 	elif _dialog_mode == "after":
 		# the same guard, after the player cleared the valley: a different story
 		default_name = "15_dialog_setelah"
@@ -111,7 +111,7 @@ func _fall_down() -> void:
 		if knight == null or not is_instance_valid(knight):
 			return
 		knight.call("take_hit")
-		await get_tree().create_timer(1.05).timeout
+		await get_tree().create_timer(0.95).timeout
 
 
 ## Walk the knight up to the guard and press Bicara for him. Everything here is
