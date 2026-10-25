@@ -28,6 +28,7 @@ membuat kata "TRAVELLER" terbaca "TKAVELLEK", jadi tidak layak untuk UI.
 | `launcher/ui/textures/logo_wordmark.png` | Dirender dari font Pixelify Sans SemiBold dengan tracking lebar oleh `tools/gen_backdrop.py` | Bukan hasil ketik runtime, jadi bentuknya selalu sama. |
 | `launcher/ui/textures/splash_boot.png` | Komposisi crest + wash hangat oleh `tools/gen_backdrop.py` | Dipakai sebagai boot splash. |
 | `launcher/icon/icon.png`, `icon_bg.png` | Turunan crest untuk Android adaptive icon (foreground + background plate) | Safe zone ikon adaptif dijaga di 75% area tengah. |
+| `atlas_ui.png` + `atlas_ui.json` | Digabung `tools/gen_atlas.py` dari ikon 24×24 (grid + padding 1 px, JSON berisi region) | Satu tekstur untuk seluruh HUD; PNG tunggal tetap sumbernya |
 | Ikon UI game 24×24 (`heart_full`, `heart_empty`, `sun`, `moon`, `gear`, `save`, `arrow_left`) | Digambar per piksel oleh `tools/gen_game_ui.py` (grid 24×24, outline 1px, palet hangat, NEAREST) | Satu keluarga dengan ikon launcher; hati, matahari, bulan, gear, scroll, panah |
 | Panel, tombol, progress bar, ikon 24×24, divider, sudut ornamen, partikel | Digambar per piksel oleh `tools/gen_ui_kit.py` (palet tetap, outline 1px, hard edge, tanpa anti-alias) | Skrip = sumber kebenaran; PNG di-commit supaya build tidak butuh Python. |
 | Latar vignette, scrim, glow, mote | `tools/gen_ui_kit.py` / `tools/gen_backdrop.py` | Semua bitmap PNG, filter Nearest saat runtime. |

@@ -825,3 +825,81 @@ parchment/crest/font. Sekarang:
 
 Konsekuensinya update UI tidak lagi memaksa pemain mengunduh paket kode, dan
 sebaliknya.
+
+---
+
+## 18. Optimasi Android (0.6.0)
+
+Target brief: 30–60 FPS, paket sekecil mungkin, preset grafis. Isi fase ini:
+
+### 18.1 Atlas ikon
+
+Tujuh ikon 24×24 menjadi satu `atlas_ui.png` (182×26) + `atlas_ui.json` yang
+dibuat `tools/gen_atlas.py`. `UiKit.icon()` membaca region lewat `AtlasTexture`.
+Alasannya draw call: satu tekstur untuk seluruh HUD berarti satu bind, bukan
+tujuh, dan di GPU HP itulah yang lebih terasa daripada ukuran berkasnya.
+
+Yang dikirim di `ui.pck` hanya atlas; PNG tunggal tetap di repositori sebagai
+sumber (dan fallback saat dijalankan dari editor). Supaya ikon yang lupa
+dimasukkan ke atlas tidak menjadi tombol tak terlihat, `UiTest` memeriksa bahwa
+**setiap** nama di `UiKit.ICONS` punya entri atlas, dan bahwa `icon()` benar-benar
+mengembalikan `AtlasTexture`.
+
+### 18.2 Preset grafis yang benar-benar menghemat
+
+| Preset | Bayangan | Partikel | Blur | Skala 3D | Batas FPS |
+| --- | --- | --- | --- | --- | --- |
+| rendah | mati | ×0,35 | 1,2 | 0,78 | 30 |
+| sedang | nyala | ×1,0 | 2,0 | 0,92 | 60 |
+| tinggi | nyala | ×1,35 | 2,8 | 1,00 | 60 |
+
+`Engine.max_fps` dipasang dari preset — ponsel yang merender 60 fps untuk game
+yang animasinya 8–14 fps hanya menghangatkan kantong. `Viewport.scaling_3d_scale`
+menurunkan resolusi 3D saja: sprite adalah kuad 2D, jadi yang mengendur lebih
+dulu adalah detail tanah, bukan karakternya.
+
+### 18.3 Alat ukur di perangkat, bukan di desktop
+
+Menambahkan toggle **Tampilkan FPS** (bawaan mati) dan satu baris log tiap 5
+detik:
+
+```
+[PERF] fps=52 kualitas=sedang skala3d=0.92 partikel=116 bayangan=true
+```
+
+Dengan begitu pemilik bisa membaca angka dari `adb logcat` di HP, bukan menebak
+dari tangkapan layar CI yang memakai renderer software.
+
+### 18.4 Audit paket: 1,7 MB sampah ditemukan
+
+`tools/pack_audit.py` membaca daftar paket dari `FixtureBuilder.gd`, lalu:
+
+* memastikan setiap path benar-benar ada (galat);
+* memastikan setiap aset **disebut** di kode/resource — aset yang hanya muncul di
+  daftar paket berarti tidak ada yang memuatnya (galat);
+* melaporkan path yang dipakai dua paket dan total byte per paket.
+
+Hasil pertama: `bg.png` 1,17 MB terpaket di **dua** paket tanpa satu baris kode
+memuatnya (dibuang di 0.5.0), dan `arrow_100.png`/`arrow_32.png` terpaket untuk
+pemanah yang belum ada (dikeluarkan; tetap di `assets_src` sampai job pemanah
+dibuat). Sekarang audit bersih: **6 paket, 0 galat**, dan langkah ini menjadi
+gerbang CI supaya kebiasaan itu tidak kembali.
+
+### 18.5 Yang belum dikerjakan di fase ini
+
+**Kompresi tekstur ETC2/ASTC belum diterapkan.** Alasannya teknis, bukan lupa:
+paket kita adalah arsip `PCKPacker` berisi PNG mentah tanpa `.import`, dan game
+memuatnya sebagai byte (`Image.load_png_from_buffer`) — justru itu yang membuat
+update paket bisa mengganti aset tanpa membangun ulang proyek. Mengompres ke
+ETC2/ASTC berarti salah satu dari dua hal:
+
+1. membangun `.ctex`/`.res` terkompresi di CI (menambah langkah impor Godot dan
+   mengubah cara pack dibuat), atau
+2. memanggil `Image.compress(COMPRESS_ETC2)` saat memuat di perangkat — hemat
+   VRAM, tetapi menambah waktu muad dan berisiko membuat pixel art bertepi keras
+   tampak kabur pada alpha.
+
+Keduanya perlu diukur di HP sungguhan sebelum dipilih, jadi keputusannya saya
+tinggalkan untuk pemilik; angka VRAM sekarang masih kecil (±0,7 MB total paket,
+karakter 100×100 dan 112×96). Ini satu-satunya butir brief FASE 8 yang belum
+selesai, dan saya tidak mau mengklaimnya sudah.

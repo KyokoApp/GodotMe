@@ -20,7 +20,7 @@ on:
         required: true
       pack_version:
         description: "Version written into version.json"
-        default: "0.5.0"
+        default: "0.6.0"
         required: true
   push:
     branches: ["arena/**"]
@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.5.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.6.0' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,6 +70,10 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
+              "Preset grafis kini juga mengatur batas FPS (30/60) dan resolusi 3D: preset rendah jauh lebih ringan di HP.",
+              "Ikon HUD digabung jadi satu atlas, dan semua aset yang tidak dipakai dibuang dari paket (paket total ±707 KB).",
+              "Pengaturan baru: Tampilkan FPS, plus log [PERF] tiap 5 detik untuk mengukur di perangkat lewat adb logcat.",
+              "Paket yang berubah: ui.pck, characters.pck, core.pck. Paket lain tidak diunduh ulang, APK tetap.",
               "Menu jeda baru: dua halaman (Jeda dan Pengaturan) dengan status progres, simpan manual, dan tombol peluncur.",
               "Pengaturan tersimpan di perangkat: tilt-shift, getar kamera, dan kualitas (rendah/sedang/tinggi) yang memengaruhi bayangan dan atmosfer.",
               "HUD baru: tiga ikon hati, ikon matahari/bulan dengan nama fase, dan jarak aman dari poni (notch) di HP.",

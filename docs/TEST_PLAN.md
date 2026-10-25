@@ -266,3 +266,28 @@ status menunjukkan angka yang masuk akal.
 
 Yang belum teruji otomatis: posisi tombol sentuh di layar HP nyata (ukuran ibu
 jari), dan notch sungguhan — CI headless selalu memberi safe area 0.
+
+### Tambahan FASE 8 (0.6.0)
+
+| # | Yang diuji | Kenapa |
+| --- | --- | --- |
+| U31 | atlas memuat ketujuh ikon | ikon lupa dimasukkan = tombol tak terlihat di HP |
+| U32 | tidak ada nama ikon di `UiKit.ICONS` yang hilang dari atlas | daftar dan atlas tidak boleh melenceng |
+| U33 | `icon()` mengembalikan `AtlasTexture` 24×24 | membuktikan jalur atlas dipakai, bukan PNG tunggal |
+| U34 | preset rendah → batas FPS ≤ 30, tinggi ≥ 60 | preset harus menghemat daya |
+| U35 | preset rendah menurunkan skala resolusi 3D | detail tanah yang dikorbankan, bukan karakter |
+| U36 | `Engine.max_fps` benar-benar disetel | setelan sampai ke engine |
+| U37 | `Viewport.scaling_3d_scale` benar-benar disetel | idem |
+| U38 | penghitung FPS muncul saat diaktifkan | alat ukur di perangkat |
+| U39 | penghitung FPS hilang saat dimatikan | tidak ada label hantu di HUD |
+
+`pack_audit` di CI (bukan bagian `UiTest`):
+
+```
+python3 tools/pack_audit.py     # exit 1 bila ada aset hilang / tidak dipakai
+```
+
+Jujur soal batas: **FPS tidak diukur di CI**. Renderer CI adalah llvmpipe tanpa
+GPU; angka FPS di sana tidak berarti apa-apa untuk sebuah ponsel. Yang tersedia
+untuk pemilik adalah log `[PERF] ...` tiap 5 detik di `adb logcat` dan penghitung
+di layar.
