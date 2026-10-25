@@ -125,7 +125,29 @@ func _area_constant(key: String, fallback: String) -> String:
 
 
 # -------------------------------------------------------------------- hud ----
+## Notch and rounded-corner guard. On a phone the display's safe area can be a
+## few dozen pixels smaller than the screen; without this the area plaque and the
+## Jeda button sit under the notch or the rounded corner. On desktop the insets
+## are zero, so this costs nothing there. Values are scaled from screen pixels to
+## the 1280x720 design canvas.
+func _safe_insets() -> Vector2:
+	var screen := DisplayServer.screen_get_size()
+	var safe := DisplayServer.get_display_safe_area()
+	if screen.x <= 0 or screen.y <= 0 or safe.size.x <= 0:
+		return Vector2.ZERO
+	var vp := get_viewport()
+	var width := float(vp.get_visible_rect().size.x) if vp != null else 1280.0
+	if width <= 0.0:
+		width = 1280.0
+	var k := width / float(screen.x)
+	var left := maxf(0.0, float(safe.position.x)) * k
+	var top := maxf(0.0, float(safe.position.y)) * k
+	return Vector2(left, top)
+
+
+
 func _build_hud() -> void:
+	var safe := _safe_insets()
 	_hud = CanvasLayer.new()
 	_hud.name = "HUD"
 	_hud.layer = 2
@@ -142,10 +164,10 @@ func _build_hud() -> void:
 	plaque.add_theme_stylebox_override("panel", _nine(PARCH, 20, 26, 18))
 	plaque.anchor_left = 0.0
 	plaque.anchor_top = 0.0
-	plaque.offset_left = 26.0
-	plaque.offset_top = 24.0
-	plaque.offset_right = 366.0
-	plaque.offset_bottom = 24.0
+	plaque.offset_left = 26.0 + safe.x
+	plaque.offset_top = 24.0 + safe.y
+	plaque.offset_right = 366.0 + safe.x
+	plaque.offset_bottom = 24.0 + safe.y
 	plaque.grow_vertical = Control.GROW_DIRECTION_END
 	root.add_child(plaque)
 
@@ -175,10 +197,10 @@ func _build_hud() -> void:
 	quest.add_theme_stylebox_override("panel", _nine(PARCH, 20, 24, 16))
 	quest.anchor_left = 0.0
 	quest.anchor_top = 0.0
-	quest.offset_left = 26.0
-	quest.offset_top = 124.0
-	quest.offset_right = 426.0
-	quest.offset_bottom = 124.0
+	quest.offset_left = 26.0 + safe.x
+	quest.offset_top = 124.0 + safe.y
+	quest.offset_right = 426.0 + safe.x
+	quest.offset_bottom = 124.0 + safe.y
 	quest.grow_vertical = Control.GROW_DIRECTION_END
 	root.add_child(quest)
 
@@ -233,10 +255,10 @@ func _build_hud() -> void:
 	note.anchor_right = 0.0
 	note.anchor_top = 1.0
 	note.anchor_bottom = 1.0
-	note.offset_left = 26.0
-	note.offset_right = 452.0
-	note.offset_top = -26.0
-	note.offset_bottom = -26.0
+	note.offset_left = 26.0 + safe.x
+	note.offset_right = 452.0 + safe.x
+	note.offset_top = -26.0 - safe.y
+	note.offset_bottom = -26.0 - safe.y
 	note.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	root.add_child(note)
 
@@ -276,10 +298,10 @@ func _build_hud() -> void:
 	back.anchor_right = 1.0
 	back.anchor_top = 0.0
 	back.anchor_bottom = 0.0
-	back.offset_left = -176.0
-	back.offset_right = -26.0
-	back.offset_top = 24.0
-	back.offset_bottom = 70.0
+	back.offset_left = -176.0 - safe.x
+	back.offset_right = -26.0 - safe.x
+	back.offset_top = 24.0 + safe.y
+	back.offset_bottom = 70.0 + safe.y
 	back.pressed.connect(_on_back_pressed)
 	root.add_child(back)
 
@@ -296,10 +318,10 @@ func _build_hud() -> void:
 	pause_btn.custom_minimum_size = Vector2(130, 46)
 	pause_btn.anchor_left = 1.0
 	pause_btn.anchor_right = 1.0
-	pause_btn.offset_left = -326.0
-	pause_btn.offset_right = -196.0
-	pause_btn.offset_top = 24.0
-	pause_btn.offset_bottom = 70.0
+	pause_btn.offset_left = -326.0 - safe.x
+	pause_btn.offset_right = -196.0 - safe.x
+	pause_btn.offset_top = 24.0 + safe.y
+	pause_btn.offset_bottom = 70.0 + safe.y
 	pause_btn.pressed.connect(_on_pause_pressed)
 	root.add_child(pause_btn)
 
@@ -319,10 +341,10 @@ func _build_hud() -> void:
 	_hint.anchor_right = 1.0
 	_hint.anchor_top = 1.0
 	_hint.anchor_bottom = 1.0
-	_hint.offset_left = 470.0
-	_hint.offset_right = -26.0
-	_hint.offset_top = -44.0
-	_hint.offset_bottom = -16.0
+	_hint.offset_left = 470.0 + safe.x
+	_hint.offset_right = -26.0 - safe.x
+	_hint.offset_top = -44.0 - safe.y
+	_hint.offset_bottom = -16.0 - safe.y
 	root.add_child(_hint)
 	var tw := create_tween()
 	tw.tween_interval(5.0)
@@ -440,7 +462,7 @@ func _show_pause() -> void:
 func _show_settings() -> void:
 	_refresh_toggles()
 	_show_page(_page_set, "Pengaturan")
-	_save_note.text = "Tersimpan di perangkat ini."
+	_save_note.text = "Perubahan langsung tersimpan."
 
 
 func _refresh_toggles() -> void:

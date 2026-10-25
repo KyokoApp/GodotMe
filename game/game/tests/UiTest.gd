@@ -157,6 +157,8 @@ func _test_menu() -> void:
 
 	var sheet: Control = _main.get("_pause_root")
 	_check(sheet != null and not sheet.visible, "lembar jeda ada dan tersembunyi")
+	var inset: Vector2 = _main.call("_safe_insets")
+	_check(inset.x >= 0.0 and inset.y >= 0.0, "safe area tidak pernah negatif", str(inset))
 	var icons: Array = _main.get("_hearts_icons")
 	_check(icons.size() == 3, "HUD punya tiga ikon hati", str(icons.size()))
 
