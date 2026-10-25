@@ -381,6 +381,11 @@ func take_hit() -> void:
 	_squash = 0.18
 	_squash_kind = -1.0
 	hurt.emit(self)
+	# The world may have ended the fight from this very hit (it was the last
+	# heart). Without this, the flinch below overwrote the death strip and the
+	# knight lay "dead" on his feet, still standing.
+	if _dead:
+		return
 	if def.call("has_anim", "hurt"):
 		_enter_state(STATE_HURT)
 		# `restart` matters: the second flinch arrives while `hurt` is still the

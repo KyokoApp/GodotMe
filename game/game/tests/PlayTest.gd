@@ -409,6 +409,8 @@ func _test_hearts_and_knockout() -> void:
 	st = cast.call("hud_state")
 	_check(int(st.get("hearts", 0)) == 0 and bool(st.get("down", false)),
 		"habis hati = ksatria terjatuh", str(st.get("hearts")))
+	_check(String(knight.call("anim_name")) == "death",
+		"animasi mati dimainkan, bukan animasi flinch", String(knight.call("anim_name")))
 	await _wait(2.6)
 	st = cast.call("hud_state")
 	_check(int(st.get("hearts", 0)) == 3 and not bool(st.get("down", true)),
