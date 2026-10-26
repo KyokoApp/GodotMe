@@ -57,7 +57,8 @@ var _pending_action: Dictionary = {}
 
 ## `party_progress` is the save's battle blob (or {} for a new game): level, exp,
 ## leaf, hp, sp, items and the weaknesses already learned.
-func start(region: RefCounted, at: Vector2, encounter: String, party_progress: Dictionary) -> void:
+func start(region: RefCounted, at: Vector2, encounter: String, party_progress: Dictionary,
+		world_rig: Node3D = null) -> void:
 	centre = at
 	encounter_id = encounter
 	progress = _default_progress().merged(party_progress.duplicate(true), true)
@@ -86,7 +87,7 @@ func start(region: RefCounted, at: Vector2, encounter: String, party_progress: D
 		if int(progress.get("sp", 0)) > 0:
 			unit["sp"] = mini(int(unit["sp_max"]), int(progress.get("sp", unit["sp"])))
 	logic.call("drain")
-	_build_body(region)
+	_build_body(region, world_rig)
 	_build_ui()
 	_play_wipe_in()
 
@@ -100,13 +101,15 @@ func _default_progress() -> Dictionary:
 	}
 
 
-func _build_body(region: RefCounted) -> void:
+func _build_body(region: RefCounted, world_rig: Node3D) -> void:
 	var view_script: Script = load(VIEW_SCRIPT)
 	view = view_script.new()
 	view.name = "Arena"
 	add_child(view)
 	view.set("region", region)
 	view.set("centre", centre)
+	# the field's own camera, when the caller has one - see BattleView.rig
+	view.set("rig", world_rig)
 	view.call("build", logic)
 
 

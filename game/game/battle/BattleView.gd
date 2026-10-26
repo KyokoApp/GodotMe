@@ -26,6 +26,15 @@ const FOE_SLOTS := [
 var region: RefCounted = null
 var centre := Vector2.ZERO
 var camera: Camera3D = null
+## The world's own camera rig, when the caller has one. The battle does NOT build
+## a second Camera3D any more: the rig is the camera the field already proved it
+## can render through, and it already knows how to ride the terrain. A private
+## battle camera was the source of a long, expensive bug - a lens at 27 degrees
+## that drew the sky and nothing else, at every position and every rotation mode
+## (look_at and Euler alike), while the world's rig at the same height drew the
+## same ground fine.
+var rig: Node3D = null
+var _rig_lens: Dictionary = {}
 
 var _sprites: Dictionary = {}      ## uid -> AnimatedSprite3D
 var _roots: Dictionary = {}        ## uid -> Node3D (the thing that moves)
@@ -123,6 +132,9 @@ func _spawn(uid: int, def: Resource, at: Vector2, unit: Dictionary, assets: Scri
 
 
 func _frame_camera() -> void:
+	if rig != null and rig.has_method("camera"):
+		_frame_with_rig()
+		return
 	camera = Camera3D.new()
 	camera.name = "BattleCamera"
 	camera.fov = 33.0
@@ -137,6 +149,39 @@ func _frame_camera() -> void:
 	add_child(camera)
 	_aim()
 	camera.make_current()
+
+
+## Borrow the field's rig: aim it at the arena, close in for the fight, and let
+## it keep running (it is already the thing that renders).
+##
+## The lens itself is not the player's: `World/camera.json` still owns the field's
+## angle, and this is the scripted exception the rig documents - a battle, like a
+## cutscene, goes through `set_lens()`. The field's numbers are remembered in
+## `_rig_lens` and put back in `clear()`.
+func _frame_with_rig() -> void:
+	var ground := 0.0
+	if region != null:
+		ground = float(region.call("height_at", centre))
+	_rig_lens = rig.call("lens") if rig.has_method("lens") else {}
+	# the fight frames itself: the party on the near side, the orcs beyond
+	var aim := centre + Vector2(0.0, 1.6)
+	rig.call("set_follow_target", null)
+	rig.call("set_ground_height", ground)
+	rig.call("place_at", aim)
+	rig.call("set_lens", 27.0, 33.0, 13.5)
+	rig.call("snap_to_target")
+	camera = rig.call("camera") as Camera3D
+	if camera != null:
+		camera.current = true
+	print("[BATTLE] kamera memakai rig dunia: pitch 27 fov 33 jarak 13.5 di %s" % str(aim))
+
+
+func _restore_rig() -> void:
+	if rig == null or _rig_lens.is_empty():
+		return
+	rig.call("set_lens", float(_rig_lens.get("pitch_deg", 30.0)),
+		float(_rig_lens.get("fov_deg", 32.0)), float(_rig_lens.get("distance_m", 18.0)))
+	_rig_lens = {}
 
 
 ## Point the battle lens at `_camera_look` - with Euler angles, NOT `look_at()`.
@@ -284,6 +329,10 @@ func cheer(uid: int) -> void:
 
 ## Called every frame by the controller.
 func tick(delta: float) -> void:
+	if rig != null:
+		# the rig drives itself; only the flash and the shake bookkeeping is ours
+		_flash_tick(delta)
+		return
 	for uid in _flash.keys():
 		var left := float(_flash[uid]) - delta
 		var sprite: AnimatedSprite3D = _sprites.get(uid, null)
@@ -311,7 +360,22 @@ func tick(delta: float) -> void:
 	# `_frame_camera` - see the note there
 
 
+func _flash_tick(delta: float) -> void:
+	for uid in _flash.keys():
+		var left := float(_flash[uid]) - delta
+		var sprite: AnimatedSprite3D = _sprites.get(uid, null)
+		if left <= 0.0:
+			_flash.erase(uid)
+			if sprite != null:
+				sprite.self_modulate = Color.WHITE
+		else:
+			_flash[uid] = left
+			if sprite != null:
+				sprite.self_modulate = Color(2.4, 2.2, 2.0)
+
+
 func clear() -> void:
+	_restore_rig()
 	for uid in _sprites.keys():
 		var sprite: AnimatedSprite3D = _sprites[uid]
 		if is_instance_valid(sprite):
@@ -319,6 +383,7 @@ func clear() -> void:
 	_sprites.clear()
 	_roots.clear()
 	_defs.clear()
-	if camera != null and is_instance_valid(camera):
+	# a camera that belongs to the world's rig is not ours to free
+	if camera != null and is_instance_valid(camera) and rig == null:
 		camera.queue_free()
 	camera = null

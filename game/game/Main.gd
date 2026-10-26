@@ -149,7 +149,10 @@ func _on_battle_requested(actor: Node3D) -> void:
 	_battle.name = "Battle"
 	add_child(_battle)
 	_battle.connect("battle_finished", Callable(self, "_on_battle_finished"))
-	_battle.call("start", region, spot, "pos_gunung", progress)
+	# the battle borrows the field's camera rig: one camera in the game, and the
+	# one the field has already proved it renders through
+	var rig: Node3D = _diorama.call("camera_rig") if _diorama != null and _diorama.has_method("camera_rig") else null
+	_battle.call("start", region, spot, "pos_gunung", progress, rig)
 
 
 func _on_battle_finished(summary: Dictionary) -> void:

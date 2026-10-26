@@ -62,10 +62,11 @@ func _ready() -> void:
 	battle = script.new()
 	battle.name = "Battle"
 	add_child(battle)
+	var rig: Node3D = world.call("camera_rig")
 	battle.call("start", region, spot, "ujian_orc", {
 		"level": 3, "exp": 320, "leaf": 240, "seed": 7,
 		"observed": {"orc_prajurit": ["tombak"], "orc_pemimpin": ["tombak", "es"]},
-	})
+	}, rig)
 	await _reach(state)
 	_describe(state)
 	_diagnostics(state)
@@ -245,6 +246,84 @@ func _ready_battle() -> void:
 
 func _reach(state: String) -> void:
 	match state:
+		"transisi":
+			# mid-shatter. The wipe tween is running, so the honest way to catch it
+			# is to stand still and let it pass: 0.25 s into a 0.55 s shatter is a
+			# real frame of the real transition, not a hand-set uniform fighting
+			# the tween back on the next frame.
+			await _wait(0.25)
+			return
+		"awal":
+			await _ready_battle()
+			return
+		"menu":
+			await _ready_battle()
+			_ui().call("select_target", int(_foe(1)["uid"]))
+			_ui().call("refresh")
+			return
+		"kelemahan":
+			await _ready_battle()
+			# two known weaknesses on the leader and one on a soldier: the "?" row
+			var observed: Dictionary = _logic().get("observed")
+			observed["orc_pemimpin"] = ["tombak", "es"]
+			observed["orc_prajurit"] = ["tombak", "api"]
+			_ui().call("select_target", int(_foe(3)["uid"]))
+			_ui().call("refresh")
+			return
+		"boost":
+			await _ready_battle()
+			_logic().set("awaiting", (_logic().get("allies") as Array)[0])
+			_ui().call("_cycle_boost")
+			_ui().call("_cycle_boost")
+			_ui().call("refresh")
+			return
+		"break":
+			await _ready_battle()
+			var foe := _foe(0)
+			foe["shield"] = 1
+			_trigger_attack(int(foe["uid"]))
+			await _wait(0.75)
+			return
+		"damage":
+			await _ready_battle()
+			_trigger_attack(int(_foe(1)["uid"]))
+			await _wait(0.42)
+			return
+		"fase2":
+			await _ready_battle()
+			var boss := _foe(3)
+			boss["hp"] = int(float(boss["hp_max"]) * 0.5) + 4
+			_trigger_attack(int(boss["uid"]))
+			await _wait(1.5)
+			return
+		"hasil":
+			await _ready_battle()
+			for raw in (_logic().get("foes") as Array):
+				var foe: Dictionary = raw
+				foe["hp"] = 0
+				foe["alive"] = false
+			_logic().set("finished", true)
+			_logic().set("result", "win")
+			battle.call("_finish")
+			await _wait(0.7)
+			return
+		"kamera":
+			# Is ANY 3D drawn under the battle camera? A bright box three metres
+			# over the arena answers that in one frame: if the box shows and the
+			# world does not, the fault is the world's materials; if nothing
+			# shows, the fault is the camera or the 3D pass itself.
+			await _ready_battle()
+			_probe_box()
+			await _wait(0.3)
+			return
+		"banding":
+			# Two frames of the same battle from the two cameras the game can
+			# offer: the field rig (what the battle now borrows) and the old
+			# private battle camera. Kept as a permanent check - if the two ever
+			# disagree again, the bug is back.
+			await _ready_battle()
+			await _count("<rig dunia>")
+			return
 		"transisi":
 			# mid-shatter. The wipe tween is running, so the honest way to catch it
 			# is to stand still and let it pass: 0.25 s into a 0.55 s shatter is a
