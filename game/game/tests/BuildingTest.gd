@@ -535,15 +535,29 @@ func _build_stage(night: bool) -> void:
 	# linear values, not screen values: the renderer encodes them to sRGB on the
 	# way out, so a "sky blue" typed as 0.44 arrives almost white in the PNG (the
 	# first run of this stage captured exactly that)
-	env.background_color = Color(0.012, 0.018, 0.036) if night else Color(0.10, 0.16, 0.28)
+	env.background_color = Color(0.012, 0.018, 0.036) if night else Color(0.13, 0.21, 0.36)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.36, 0.42, 0.58) if night else Color(1.0, 0.97, 0.92)
 	env.ambient_light_energy = 0.30 if night else 0.62
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	# the windows and the torch flame are emission, so the night shot needs glow
 	# to bloom them the way the game's Environment does
+	# the four numbers below are copied from Diorama._build_environment on
+	# purpose: a stage with its own lighting is a stage that lies about how the
+	# village will look, and the first capture of this step proved it (a 1.25 sun
+	# against the game's 1.0 blew the plaster out to white)
 	env.glow_enabled = true
-	env.glow_intensity = 0.75 if night else 0.12
+	env.glow_intensity = 0.75 if night else 0.30
+	env.glow_bloom = 0.04
+	env.glow_hdr_threshold = 1.0
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.74, 0.68, 0.62)
+	env.fog_light_energy = 0.55
+	env.fog_density = 0.006
+	env.fog_sky_affect = 0.35
+	env.adjustment_enabled = true
+	env.adjustment_contrast = 1.08
+	env.adjustment_saturation = 1.12
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -551,8 +565,8 @@ func _build_stage(night: bool) -> void:
 	var sun := DirectionalLight3D.new()
 	sun.name = "Sun"
 	sun.light_color = Color(0.62, 0.72, 1.0) if night else Color(1.0, 0.94, 0.84)
-	sun.light_energy = 0.22 if night else 1.25
-	sun.rotation_degrees = Vector3(-52.0, -34.0, 0.0)
+	sun.light_energy = 0.22 if night else 1.0
+	sun.rotation_degrees = Vector3(-46.0, 34.0, 0.0)
 	sun.shadow_enabled = true
 	add_child(sun)
 	if night:

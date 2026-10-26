@@ -450,28 +450,41 @@ def banner_cell() -> np.ndarray:
 
 
 def flame_cell() -> np.ndarray:
-    """Four frames of fire side by side (4 x 32px wide). The glow shader picks a
-    frame from TIME, so a torch on a post flickers without an animation player."""
+    """Four frames of fire side by side (4 x 32 px wide). The glow shader picks a
+    frame from TIME, so a torch on a post flickers without an animation player.
+
+    The first version scattered ninety random pixels per frame and the capture
+    of the village read as confetti rather than fire: at 2-6 screen pixels per
+    texture pixel, a flame has to be a SOLID shape. So: one teardrop body, a hot
+    core inside it, a thin tongue above, and six embers. Each frame is a little
+    taller, thinner and further left than the last, which is the flicker.
+    """
     img = canvas()
     r = rng(SEED + 16)
     for frame in range(4):
         x0 = frame * 32
-        for _ in range(90):
-            fx = int(r.integers(2, 30))
-            fy = int(r.integers(10, CELL - 4))
-            # flames narrow towards the top
-            width = max(1, int((fy - 8) / 22) + 1)
-            colour = [FLAME, FLAME_HOT, EMBER][int(r.integers(0, 3))]
-            if fy < 40:
-                colour = FLAME_HOT
-            rect(img, x0 + fx, fy, x0 + fx + width, fy + 2, colour)
-        for _ in range(30):
-            fx = int(r.integers(6, 26))
-            fy = int(r.integers(30, CELL - 20))
-            rect(img, x0 + fx, fy, x0 + fx + 2, fy + 6, EMBER)
-        # the hot core
-        rect(img, x0 + 12, CELL - 46, x0 + 20, CELL - 16, FLAME_HOT)
-        rect(img, x0 + 13, CELL - 40, x0 + 19, CELL - 18, FLAME)
+        mid = x0 + 16 + [0, -1, 1, 0][frame]
+        lift = [0, 4, -3, 2][frame]
+        # body: a teardrop, widest just above the wick
+        for y in range(34 + lift, 112):
+            grow = min(7.0, (y - (34 + lift)) / 9.0)
+            half = max(1, int(1 + grow))
+            colour = FLAME if y > 52 + lift else EMBER
+            rect(img, mid - half, y, mid + half, y + 1, colour)
+        # hot core: narrow, low in the body, so the flame reads orange with a
+        # white middle rather than as a white candle
+        for y in range(74 + lift, 104):
+            half = max(1, int((104 - y) / 13.0) + 1)
+            rect(img, mid - half, y, mid + half, y + 1, FLAME_HOT)
+        # the tongue above the body
+        for y in range(20 + lift, 34 + lift):
+            half = 1 if y > 26 + lift else 0
+            rect(img, mid - half, y, mid + half + 1, y + 1, EMBER)
+        # embers, deterministic, and only ever two pixels each
+        for _ in range(6):
+            ex = mid + int(r.integers(-9, 10))
+            ey = int(r.integers(14 + lift, 40 + lift))
+            rect(img, ex, ey, ex + 2, ey + 2, EMBER if r.random() < 0.6 else FLAME)
     return img
 
 
