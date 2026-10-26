@@ -257,6 +257,14 @@ jobs:
           set +e
           godot --headless --path game res://game/tests/BattleTest.tscn 2>&1 | tee /tmp/battle.log
           code=${PIPESTATUS[0]}
+          # The full job log lives on blob storage, which is not always reachable
+          # from a phone (or from the sandbox that wrote this). Annotations are:
+          # the engine's own errors and the failing checks go up as `::error::`.
+          {
+            grep -E "SCRIPT ERROR|ERROR:|WARNING:" /tmp/battle.log | head -14
+            grep -E "\[BATTLE\] (FAIL|simulasi|data:)" /tmp/battle.log | head -14
+            tail -5 /tmp/battle.log
+          } | sed 's/^/::error::/' || true
           # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
           # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
           PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
