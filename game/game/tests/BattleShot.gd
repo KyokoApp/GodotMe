@@ -43,6 +43,15 @@ func _ready() -> void:
 	# showed the interface over flat fog.
 	world.call("stream_now", spot)
 	await get_tree().process_frame
+	if state == "dunia":
+		# A reference shot of the world alone, from the world's own camera: if
+		# this one comes out grey too, the fault is in this stage, not in the
+		# battle. It is also the only frame that can be compared with the field
+		# captures from step 1/3A, which are known good.
+		await get_tree().create_timer(1.2).timeout
+		_diagnostics(state)
+		await HARNESS.capture(self, "51_pertarungan_dunia", 0.2)
+		return
 	var script: Script = load(BATTLE)
 	battle = script.new()
 	battle.name = "Battle"
@@ -53,6 +62,7 @@ func _ready() -> void:
 	})
 	await _reach(state)
 	_describe(state)
+	_diagnostics(state)
 	var shot := HARNESS.arg("--capture-name=", "51_pertarungan_%s" % state)
 	# the transition shot must not wait: its whole point is a frame mid-flight
 	await HARNESS.capture(self, shot, 0.0 if state == "transisi" else 0.35)
@@ -84,6 +94,92 @@ func _describe(state: String) -> void:
 		state, "ada" if world.call("region") != null else "TIDAK",
 		chunks, sprite_count, cam_current, str(cam_pos.round()),
 		str(ui_size())])
+
+
+## Everything that decides whether a 3D frame is drawn. Added after the first
+## capture run came back with the interface over flat brown: a screenshot can say
+## "wrong", it cannot say WHICH of camera, world, environment or materials is
+## missing - and a wrong guess costs a twelve-minute CI round trip.
+func _diagnostics(state: String) -> void:
+	var vp := get_viewport()
+	var cam := vp.get_camera_3d()
+	print("[DIAG] viewport %s renderer=%s" % [str(vp.get_visible_rect().size),
+		RenderingServer.get_video_adapter_name()])
+	print("[DIAG] kamera aktif=%s pos=%s fov=%.1f near=%.2f far=%.1f" % [
+		cam.get_path() if cam != null else "TIDAK ADA",
+		str(cam.global_position.round()) if cam != null else "-",
+		cam.fov if cam != null else 0.0, cam.near if cam != null else 0.0,
+		cam.far if cam != null else 0.0])
+	for node in _cameras(self, []):
+		var c: Camera3D = node
+		print("[DIAG]   kamera %s current=%s pos=%s" % [c.get_path(), str(c.current),
+			str(c.global_position.round())])
+	var env := _world_env(self)
+	if env == null:
+		print("[DIAG] WorldEnvironment TIDAK ADA")
+	else:
+		print("[DIAG] env bg_mode=%d warna_bg=%s sky=%s sky_mat=%s fog=%.3f" % [
+			env.background_mode, str(env.background_color), str(env.sky),
+			env.sky.sky_material.get_class() if env.sky != null and env.sky.sky_material != null else "-",
+			env.fog_density])
+	var view: Node3D = world.call("view") if world != null else null
+	var chunks := 0
+	var mesh_ok := 0
+	var sample := ""
+	if view != null and view.has_method("chunk_nodes"):
+		var nodes: Dictionary = view.call("chunk_nodes")
+		chunks = nodes.size()
+		for key in nodes.keys():
+			var chunk: Node3D = nodes[key]
+			var mi := chunk.get_node_or_null("Ground") as MeshInstance3D
+			if mi == null:
+				continue
+			mesh_ok += 1
+			if sample == "":
+				var mat := mi.mesh.surface_get_material(0) if mi.mesh != null and mi.mesh.get_surface_count() > 0 else null
+				var tex: Variant = null
+				if mat is ShaderMaterial:
+					tex = (mat as ShaderMaterial).get_shader_parameter("atlas")
+				sample = "aabb=%s visible=%s atlas=%s" % [str(mi.mesh.get_aabb()),
+					str(mi.visible), "ADA" if tex != null else "NULL"]
+	print("[DIAG] chunk=%d mesh_tanah=%d %s" % [chunks, mesh_ok, sample])
+	if battle != null:
+		var v: Node3D = battle.get("view")
+		if v != null:
+			var sprites: Variant = v.get("_sprites")
+			if typeof(sprites) == TYPE_DICTIONARY and not (sprites as Dictionary).is_empty():
+				var first_uid: int = (sprites as Dictionary).keys()[0]
+				var sp: AnimatedSprite3D = (sprites as Dictionary)[first_uid]
+				print("[DIAG] sprite uid=%d visible=%s pos=%s frames=%s teks=%s" % [
+					first_uid, str(sp.is_visible_in_tree()), str(sp.global_position.round()),
+					str(sp.sprite_frames != null),
+					str(sp.sprite_frames != null and sp.sprite_frames.get_frame_count("idle") > 0
+						and sp.sprite_frames.get_frame_texture("idle", 0) != null)])
+	var vp_img := vp.get_texture().get_image()
+	if vp_img != null and vp_img.get_width() > 8:
+		var w := vp_img.get_width()
+		var h := vp_img.get_height()
+		print("[DIAG] piksel tengah=%s kiri-atas=%s bawah=%s" % [
+			str(vp_img.get_pixel(w / 2, h / 2)), str(vp_img.get_pixel(8, 8)),
+			str(vp_img.get_pixel(w / 2, h - 8))])
+
+
+func _cameras(node: Node, out: Array) -> Array:
+	for child in node.get_children():
+		if child is Camera3D:
+			out.append(child)
+		_cameras(child, out)
+	return out
+
+
+func _world_env(node: Node) -> Environment:
+	for child in node.get_children():
+		if child is WorldEnvironment:
+			return (child as WorldEnvironment).environment
+		var found := _world_env(child)
+		if found != null:
+			return found
+	return null
 
 
 func ui_size() -> Vector2:
