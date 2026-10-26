@@ -122,3 +122,24 @@ Alasannya tekstur ini dibuat prosedural, bukan dari model gambar AI seperti aset
 dunia Fase 2: sebuah atlas harus **bisa diulang (tileable)** dan ukurannya harus
 tepat dalam meter (satu sel dinding = 2 m), dan dua hal itu tidak bisa dijamin
 dari gambar hasil model. Skrip juga membuat perubahan bisa ditinjau di PR.
+
+## Aset pertarungan langkah 3C (0.11.0)
+
+Tidak ada aset pihak ketiga di langkah ini. Pertarungan memakai sprite karakter
+yang sudah ada (Knight dan Orc dari paket `characters`), dan seluruh seni baru
+dibuat oleh skrip di repo:
+
+| aset | sumber | lisensi |
+| --- | --- | --- |
+| 13 ikon tempur: `w_pedang`, `w_tombak`, `w_kapak`, `w_busur`, `w_tongkat`, `w_belati`, `e_api`, `e_es`, `e_petir`, `e_angin`, `e_cahaya`, `e_kegelapan`, `perisai` | `tools/gen_game_ui.py` — digambar per piksel (24×24) oleh skrip, seed tetap | **CC0** — karya pemilik proyek |
+| `game/assets/ui/atlas_ui.png` (27 sel, 702×26) + `atlas_ui.json` | `tools/gen_atlas.py`, menggabungkan ikon lama + 13 ikon baru | CC0 |
+| `game/battle/battle_data.json` (statistik, skill, item, encounter) | ditulis tangan di repo | CC0 |
+| `game/battle/battle_wipe.gdshader` (transisi pecah/pusar) | karya sendiri | CC0 |
+
+Ikon digambar lewat skrip, bukan model gambar, karena harus **tepat 24×24 piksel**
+dengan palet yang sama seperti ikon HUD langkah 1: ikon 24×24 yang dihasilkan
+model gambar selalu perlu diturunkan resolusinya dan kehilangan bentuknya.
+
+Tidak ada sprite karakter baru dan tidak ada karakter yang digambar lewat kode:
+animasi yang dipakai pertarungan (`idle`, `attack_1..3`, `block`, `hurt`,
+`death`) adalah animasi yang sudah ada di paket karakter.

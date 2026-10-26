@@ -44,6 +44,7 @@ var _phase_timer := 0.0
 var _perf_timer := 0.0
 var _refresh_timer := 0.0
 var _area_note := ""
+var _battle: Node3D = null
 
 
 func _ready() -> void:
@@ -110,7 +111,58 @@ func _add_cast() -> void:
 	cast.name = "Characters"
 	_diorama.add_child(cast)
 	_cast = cast
+	# the cast asks for a battle; the shell is what loads the battle pack, so a
+	# missing enemies pack degrades to the field instead of a broken game
+	if cast.has_signal("battle_requested"):
+		cast.connect("battle_requested", Callable(self, "_on_battle_requested"))
 	print("[GAME] penghuni dimuat dari paket karakter")
+
+
+# ----------------------------------------------------------------- battle ----
+## Step 3C. The battle scene is loaded by PATH, not preloaded: it lives in its own
+## package, and a core.pck that preloaded it would fail to load at all if that
+## package were missing.
+func _on_battle_requested(actor: Node3D) -> void:
+	if _battle != null:
+		return
+	var path := "res://game/battle/BattleScene.gd"
+	if not ResourceLoader.exists(path):
+		print("[GAME] paket pertarungan tidak ada, orc hanya menghadang")
+		return
+	var script: Script = load(path)
+	if script == null:
+		return
+	var region: Variant = _cast.call("battle_region") if _cast != null else null
+	var progress: Dictionary = _cast.call("battle_progress") if _cast != null else {}
+	var spot: Vector2 = _cast.call("battle_spot") if _cast != null else Vector2.ZERO
+	if _cast != null:
+		_cast.call("set_battle_mode", true)
+	if _hud != null:
+		_hud.visible = false
+	if _menu != null:
+		_menu.visible = false
+	if _tilt_mat != null:
+		# the tilt-shift band belongs to the field's lens; over a closer battle
+		# camera it would blur the very sprites the player has to read
+		_tilt_mat.set_shader_parameter("blur_pixels", 0.0)
+	_battle = script.new()
+	_battle.name = "Battle"
+	add_child(_battle)
+	_battle.connect("battle_finished", Callable(self, "_on_battle_finished"))
+	_battle.call("start", region, spot, "pos_gunung", progress)
+
+
+func _on_battle_finished(summary: Dictionary) -> void:
+	if _cast != null:
+		_cast.call("apply_battle_result", summary)
+		_cast.call("set_battle_mode", false)
+	if _hud != null:
+		_hud.visible = true
+	if _battle != null and is_instance_valid(_battle):
+		_battle.queue_free()
+	_battle = null
+	_apply_settings()
+	_refresh_field()
 
 
 ## Read a constant off the diorama's own script, at runtime (`Diorama.AREA_NAME`

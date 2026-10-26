@@ -82,7 +82,23 @@ const PACK_FILES := {
 	},
 	"enemies": {
 		"order": 30,
-		"files": ["game/assets/divider.png"],
+		# Step 3C filled this package for real: the battle engine, its data file,
+		# the arena, the interface and the shatter transition. It is separate from
+		# `characters` on purpose - a balance change must never force a sprite
+		# download, and the battle pack is the one that grows when encounters do.
+		"files": [
+			"game/battle/battle_data.json",
+			"game/battle/BattleData.gd",
+			"game/battle/BattleLogic.gd",
+			"game/battle/BattleView.gd",
+			"game/battle/BattleUI.gd",
+			"game/battle/BattleScene.gd",
+			"game/battle/battle_wipe.gdshader",
+			# divider.png used to be listed here one-line; the audit's list reader
+			# only sees multi-line lists, so it silently packed nothing. It lives
+			# in `ui` with the rest of the interface art, and this pack needs no
+			# art of its own: the fighters are the characters pack's sprites.
+		],
 	},
 	"world": {
 		"order": 40,

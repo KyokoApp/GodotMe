@@ -1537,3 +1537,195 @@ Dua hal lain yang ikut diperbaiki dari tangkapan pertama: warna latar Environmen
 adalah **nilai linear** (0,44,0,55,0,68 yang diketik sebagai "langit biru" keluar
 hampir putih), dan sel decal dipetakan ke 0..0,992 — UV tepat 1,0 jatuh ke
 `fract(1,0) = 0` dan menarik satu baris piksel sel berikutnya.
+
+## 23. Pertarungan turn-based (langkah 3C, 0.11.0)
+
+Pertarungan di langkah ini bukan minigame di atas lapangan: ia **menggantikan**
+lapangan sebentar. Pemain berhenti di tempat orc menghadang, layar pecah seperti
+kaca, arena berdiri di tanah yang sama, dan setelah selesai layar pecah lagi ke
+tempat yang sama. Tidak ada zoom, tidak ada panggung terpisah, tidak ada tombol
+Serang di lapangan (tombol itu sudah dihapus di langkah 1 dan tidak kembali).
+
+### 23.1 Kenapa tabelnya JSON, bukan Resource
+
+`game/battle/battle_data.json` (satu berkas, ±14 KB) memuat senjata, elemen,
+item, skill, stat party, stat musuh, encounter dan angka `balance`. Alasannya
+tiga:
+
+1. **Bisa dibaca mesin tanpa Godot.** `tools/` bisa memeriksa tabel, dan PR bisa
+   meninjau perubahan angka sebagai diff teks, bukan sebagai `.tres` biner.
+2. **Satu paket, satu unduhan.** Menyeimbangkan ulang angka hanya mengganti
+   `enemies.pck`; sprite dan APK tidak ikut.
+3. **Bisa berversi.** `schema: 1` di berkas, dan `BattleData._validate()` menolak
+   tabel yang tidak masuk akal (musuh tanpa kelemahan, skill dengan senjata yang
+   tidak dikenal, item dengan elemen asing, Shield di luar 2–8). Kegagalan itu
+   terjadi di CI, bukan di tangan pemain sebagai monster yang tidak bisa
+   dipatahkan.
+
+Berkasnya dibaca dengan `FileAccess.get_file_as_string` + `JSON.parse_string`,
+**bukan** `load()`: game berjalan dari berkas `.pck` buatan `PCKPacker` tanpa
+berkas `.import`, dan `.json` yang tidak diimpor tidak ada sebagai Resource.
+
+### 23.2 Rumus damage, dan mengapa bentuknya begitu
+
+```
+damage = round(ATK x (power/100) x (100/(100+DEF)) x Boost x Break x crit x jitter)
+```
+
+- `ATK`/`DEF` memakai pasangan **fisik** (`atk`/`def`) untuk senjata dan **sihir**
+  (`matk`/`mdef`) untuk elemen. Itu satu-satunya pembeda, jadi tidak ada skill
+  yang perlu menyebut dirinya fisik atau sihir.
+- `100/(100+DEF)` memberi hasil yang menurun tapi tidak pernah nol: DEF 100
+  memotong damage separuh, bukan menolaknya. Ini juga sebabnya memotong DEF
+  separuh saat BREAK terasa, tanpa membuat angka meledak.
+- `Boost = 1 + 0,25 x BP` **di atas** tambahan pukulan. Memakai 3 BP berarti empat
+  pukulan dengan 1,75x per pukulan — mahal, dan itu memang tujuannya.
+- `Break = 1,5x` hanya selama target patah, di atas DEF-nya yang sudah separuh.
+- `jitter` 0,95–1,05 dari RNG ber-seed, sehingga pertarungan bisa diulang persis
+  di tes.
+
+Rumus yang sama juga ditulis di dalam berkas JSON (`formula`), dan `BattleTest`
+menuntut teks itu ada: angka dan dokumentasi tidak boleh berpisah.
+
+### 23.3 Shield, BREAK, BP dan Boost
+
+| Hal | Aturan | Angka |
+| --- | --- | --- |
+| Shield | 2–8 lapis; **hanya pukulan ke tipe kelemahan** yang memotongnya (skill dapat memotong 2) | Orc Prajurit/Pengintai 3, Orc Pemimpin 6 |
+| BREAK | Shield 0 → kehilangan **satu giliran**, DEF x0,5, damage masuk x1,5; setelah pulih Shield penuh lagi | `break_turns` 1 |
+| BP | mulai 1, **+1 tiap giliran sendiri**, maksimum 5, sekali pakai maksimum 3 | `bp_start/bp_per_turn/bp_max/bp_spend_max` |
+| Boost | tiap BP = satu pukulan tambahan +25% per pukulan | 1→2→3→4 pukulan |
+| Kejutan | party menyerang lebih dulu: +1 BP dan −1 Shield musuh pertama | encounter `pos_gunung` |
+| Bertahan | damage masuk x0,5, animasi `block`, hilang di giliran berikutnya | `guard_multiplier` |
+
+Enemy yang sedang "mengumpulkan tenaga" **kehilangan tenaganya** kalau di-BREAK
+saat itu (`charge.cancel_by_break`): satu-satunya cara menjawab serangan besar
+adalah mematahkannya lebih dulu. Itu sebabnya AI party di `suggest_action()`
+memilih target yang sedang charging sebelum yang lain.
+
+### 23.4 "?" adalah progres, bukan hiasan
+
+Tipe kelemahan tidak pernah dicetak. `BattleLogic.observed` menyimpan daftar tipe
+yang **benar-benar** mengenai kelemahan, per `id` musuh. UI hanya menggambar ikon
+untuk yang sudah diketahui dan "?" untuk sisanya; papan 6×6 (enam senjata × enam
+elemen) untuk target terpilih menunjukkan "?" (belum dicoba), "·" (sudah dicoba,
+bukan kelemahan) dan ikon (kelemahan). Jadi tebakan yang salah pun menghasilkan
+informasi — dan itu satu-satunya alasan item `Botol Es`/`Granat Api` ada: alat
+untuk menebak elemen tanpa membuang giliran Knight.
+
+Tabel `observed` ikut tersimpan (`SaveGame` skema 3), jadi pengetahuan pemain
+tidak hilang saat aplikasi ditutup.
+
+### 23.5 Bos dua fase
+
+`orc_pemimpin` punya `phases: [{at_hp: 0,5, add_weak: [petir], atk: 38, spd: 20}]`.
+Saat HP melewati 50%, fase naik, kelemahan **baru** terbuka, dan Shield kembali
+penuh — masalah baru, bukan bos yang sama dengan angka lebih besar. Fase dicek
+di dalam `_strike()`, bukan di UI, supaya urutannya tidak bergantung pada
+kecepatan animasi.
+
+### 23.6 Waktu: engine instan, kontroler yang memperlambat
+
+`BattleLogic` tidak punya node, timer atau animasi. Ia mengembalikan daftar
+**event** (`hit`, `miss`, `resist`, `shield`, `break`, `recover`, `down`, `heal`,
+`buff`, `charge`, `phase`, `flee`, `guard`, `message`, `round`, `turn`, `end`).
+`BattleScene` yang memutuskan berapa lama satu event terlihat: 0,22 s untuk
+ayunan, hit-stop 2–3 frame, angka melayang 0,2 s, BREAK 0,55 s. Tombol 1x/2x/3x
+**membagi waktu tunggu itu**, tidak pernah mengubah angka engine — pada 3x,
+pertarungannya sama persis, hanya dibaca lebih cepat.
+
+Karena itu `submit()` mengembalikan event aksi itu saja (bukan seluruh buffer):
+kontroler bisa menganimasikan tepat satu aksi. `submit()` juga pemaaf: tap yang
+mendarat satu frame sebelum giliran diumumkan akan menyelesaikan antrean dulu,
+dan giliran musuh ditolak (bukan dijalankan) supaya urutan tidak bisa dibajak
+tap yang salah waktu.
+
+Satu bug nyata di sini: versi pertama memanggil `_apply()` dari **signal handler**
+tombol, sehingga `_run()` langsung lanjut ke aktor berikutnya sementara aksi
+pertama masih berayun — dua animasi bertumpuk dan giliran bisa lompat. Sekarang
+handler hanya menyimpan pilihan (`_pending_action`), dan animasinya dimainkan di
+korutin giliran itu sendiri.
+
+### 23.7 Transisi: pecah dan pusar, bukan zoom
+
+`battle_wipe.gdshader` memotong layar menjadi 16×10 pecahan yang bergeser ke luar
+masing-masing, sambil seluruh bingkai berputar dan menyusut. `t = 0` adalah
+"salinan layar apa adanya" (tidak terlihat), `t = 1` adalah "pecahan sudah
+terbang" (layar tembus ke arena). Kontroler memainkan 0→1 untuk membuka dan
+1→0 untuk menutup. Tidak ada zoom sama sekali: kamera medan tidak digerakkan,
+kamera arena hanya di-`make_current` setelah transisi selesai.
+
+### 23.8 Antarmuka
+
+- **Bar giliran** 8 entri dari `logic.turn_preview()`, urutan Speed, dipadatkan
+  dari ronde berikutnya kalau ronde ini lebih pendek.
+- **Plate di atas tiap musuh**: nama, pip Shield, baris kelemahan "?"; posisinya
+  mengikuti `BattleView.unit_screen()` setiap frame (`tick_display()`), jadi tetap
+  menempel saat kamera bergetar. Ally **tidak** diberi plate — party punya strip
+  sendiri di bawah; plate dengan tiga "?" di atas ksatria akan berbohong.
+- **Tombol BOOST** 190×76, teks `BOOST xN` (N = jumlah pukulan), paling besar di
+  layar. Siklus 0→1→2→…→maks→0, dibatasi BP yang dimiliki **dan** 3.
+- **Menu** Serang/Skill/Item/Bertahan/Kabur, submenu skill (SP) dan item (jumlah
+  sisa dari inventaris party-wide, bukan dari dictionary unit).
+- **1x/2x/3x + Auto** di kanan atas.
+- Angka damage melayang (putih, jingga untuk kelemahan, emas untuk crit, biru
+  untuk damage yang masuk saat Bertahan).
+
+### 23.9 Hasil, kekalahan, dan simpanan
+
+Menang: EXP, Leaf, drop (peluang per musuh), dan level-up (`level_curve`) yang
+menaikkan HP maksimum dan menyembuhkan penuh. Kalah: **kembali ke simpanan
+terakhir** dan penalti Leaf ringan `min(40, 15%)` — bukan kehilangan jam terbang.
+Yang selalu disimpan: `observed`, `inventory`, `hp`, `sp`, `level`, `exp`, `leaf`,
+`battles_won/lost`. Semua masuk `SaveGame` **skema 3**; simpanan skema 2 tetap
+terbaca dengan `battle: {}` (level 1, tanpa pengetahuan) — migrasinya satu blok di
+`_migrate()`, dan `BattleTest` memuat simpanan lama untuk membuktikannya.
+
+### 23.10 Angka hasil kalibrasi
+
+Simulator headless (policy Auto yang sama dengan tombol Auto) untuk encounter
+`ujian_orc` (3 Orc Prajurit + 1 Orc Pemimpin):
+
+| Ukuran | Hasil |
+| --- | --- |
+| 1000 pertarungan, policy Auto | menang **1000/1000** |
+| giliran-unit rata-rata | 18,14 (≈ **7,08 ronde**; median 7, minimum 5, maksimum 13) |
+| 200 pertarungan tanpa Break/Boost | menang **104** (rata-rata 46,8 giliran-unit) |
+
+Artinya: memakai Break + Boost menyelesaikan pertarungan dalam 5–8 ronde seperti
+yang diminta, dan mengabaikannya membuat kalah jauh lebih sering. Angka ini
+diukur ulang setiap push oleh `BattleTest` (target: menang ≥95%, rata-rata
+4,5–9 ronde, median 5–8, terburuk ≤30).
+
+Stat final: Knight HP 370 / SP 44 / ATK 48 / DEF 32 / MATK 16 / MDEF 22 / SPD 26 /
+CRIT 8 / EVA 5; Orc Prajurit 88/22/14/SPD 14/Shield 3; Orc Pengintai 80/19/12/
+SPD 21/Shield 3; Orc Pemimpin 300/30/22/SPD 17/Shield 6 (fase 2: ATK 38, SPD 20).
+
+### 23.11 Yang belum bisa diverifikasi di sini
+
+- Rasa 30 FPS di HP dengan lima musuh. Yang diukur di CI hanya waktu simulasi
+  logika (1000 pertarungan dalam beberapa detik) dan anggaran node UI.
+- Apakah komposisi arena enak dilihat: hanya bisa dinilai dari sepuluh tangkapan
+  `docs/screenshots/pertarungan/`.
+- Sound: paket `audio` masih kosong; tidak ada SFX pertarungan di langkah ini.
+
+### 23.12 Jebakan langkah ini (dicatat supaya tidak diulang)
+
+1. **`submit()` dan `play_enemy_turn()` sempat tidak ada.** Seluruh berkas lain
+   memanggilnya lewat `.call()`, sehingga tidak ada yang gagal saat parse; yang
+   akan gagal hanya saat pertarungan pertama dijalankan. Pelajarannya: `call()`
+   memindahkan kesalahan dari waktu parse ke waktu main, jadi setiap nama yang
+   dipanggil lewat string harus dicocokkan dengan daftar `func` sungguhan.
+2. **`BattleView.build()` menimpa region yang diberikan** dengan hasil pencarian
+   ke atas pohon scene. Di lapangan tidak ada leluhur yang punya `region()`, jadi
+   semua petarung berdiri di `y = 0` dan kamera memakai tanah 0. Sekarang region
+   dari kontroler dipakai lebih dulu; pencarian hanya cadangan untuk scene uji.
+3. **`static func` dipanggil lewat instance.** `UiKit` seluruhnya statis; memanggil
+   `_kit().button()` pada variabel bertipe `Script` membuat compiler mencari
+   `button()` di kelas dasar `Script`. Solusinya: variabel tanpa tipe (panggilan
+   dinamis pada objek skrip), sama seperti `const KIT = preload(...)`.
+4. **Item diambil dari dictionary unit.** `_unit_from()` tidak menyimpan daftar
+   item (inventaris itu milik party), jadi submenu Item hanya berisi tombol
+   Tutup. Sekarang submenu membaca inventaris engine.
+5. **Hasil pertarungan tidak pernah tampil.** `show_result()` hanya mengisi teks,
+   tidak menampilkan panelnya. Sekarang ia juga menyembunyikan menu dan plate.

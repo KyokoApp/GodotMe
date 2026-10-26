@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.10.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.11.0' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]

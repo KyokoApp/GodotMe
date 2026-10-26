@@ -23,12 +23,17 @@ extends RefCounted
 ##   2  + `fog`: the ground the player has already explored, as the map's own
 ##      versioned blob (see WorldMap.fog_payload). A schema-1 save simply starts
 ##      with an empty fog, which is exactly what "never been anywhere" means.
+##   3  + `battle`: what step 3C's battles produced - level, EXP, Leaf, HP/SP,
+##      the items left, and the weaknesses the party has LEARNED per enemy id
+##      (the "?" wall is progress, so it has to survive a reload). A schema-2
+##      save loads with an empty battle blob, i.e. a level 1 party with no
+##      knowledge, which is exactly what a save from before battles means.
 
 const SAVE_DIR := "user://save"
 const SLOT_FILE := "slot1.json"
 const BAK_SUFFIX := ".bak"
 const TMP_SUFFIX := ".tmp"
-const SCHEMA := 2
+const SCHEMA := 3
 const GAME_ID := "re-traveller"
 
 var path := ""
@@ -48,6 +53,9 @@ var _play_time_s := 0.0
 ## Explored map ground, kept as an opaque dictionary: the save does not need to
 ## know what a tile is, only how to carry it safely between runs.
 var _fog: Dictionary = {}
+## Battle progress (step 3C), also opaque: level, EXP, Leaf, HP/SP, inventory and
+## the weakness table the party has learned.
+var _battle: Dictionary = {}
 
 
 func _init(dir: String = "") -> void:
@@ -126,6 +134,11 @@ func _migrate(data: Dictionary, from_version: int) -> Dictionary:
 		if not out.has("fog"):
 			out["fog"] = {}
 		v = 2
+	if v < 3:
+		# schema 3 added the battle blob: no battles fought, nothing learned.
+		if not out.has("battle"):
+			out["battle"] = {}
+		v = 3
 	out["schema"] = v
 	return out
 
@@ -152,6 +165,8 @@ func _absorb(data: Dictionary) -> void:
 	_play_time_s = float(data.get("play_time_s", 0.0))
 	var fog: Variant = data.get("fog", {})
 	_fog = fog if typeof(fog) == TYPE_DICTIONARY else {}
+	var battle: Variant = data.get("battle", {})
+	_battle = battle if typeof(battle) == TYPE_DICTIONARY else {}
 
 
 # ------------------------------------------------------------------ queries --
@@ -199,6 +214,19 @@ func has_fog() -> bool:
 	return not _fog.is_empty()
 
 
+## Battle progress as last written. Empty for a save from before step 3C.
+func battle() -> Dictionary:
+	return _battle.duplicate(true)
+
+
+func set_battle(payload: Dictionary) -> void:
+	_battle = payload.duplicate(true)
+
+
+func has_battle() -> bool:
+	return not _battle.is_empty()
+
+
 # ------------------------------------------------------------------ changes --
 func set_flag(flag: String, on: bool = true) -> void:
 	if on:
@@ -241,6 +269,7 @@ func to_dictionary() -> Dictionary:
 		"position": pos,
 		"play_time_s": _play_time_s,
 		"fog": _fog.duplicate(true),
+		"battle": _battle.duplicate(true),
 	}
 	payload["sha256"] = _hash_of(payload)
 	return payload

@@ -221,6 +221,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Battle rules (3C - tables, engine, 1000 battles)
+        # Headless, and it has to be: a screenshot of a menu proves the words are
+        # spelled right, not that a shield really runs out, that a broken enemy
+        # loses its turn, that BP is spent exactly once, that a boss's second
+        # phase opens a new weakness, or that a battle using Break + Boost ends in
+        # 5-8 turns while one that ignores them does not.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/BattleTest.tscn 2>&1 | tee /tmp/battle.log
+          code=${PIPESTATUS[0]}
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### battle rules (exit $code)"; echo '```'; tail -c 30000 /tmp/battle.log; echo '```'; } > /tmp/battle.md
+            gh pr comment "$PR" --body-file /tmp/battle.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Region rules (Yaros - reachability, seams, streaming, travel)
         # Headless: a screenshot proves the region looks finished, not that the
         # mountain gate is reachable, that no terrace is a trap, that two chunks
@@ -513,6 +533,19 @@ jobs:
             --dir "$GITHUB_WORKSPACE/docs/screenshots/bangunan" \
             --out "$GITHUB_WORKSPACE/docs/screenshots/bangunan/kit_bangunan.png" \
             2>&1 | tee -a /tmp/capture.log | tail -3
+
+          # --- step 3C: the battle itself. Ten states, each one a run of the real
+          # --- BattleScene standing on the real region. 1280x720 so the interface
+          # --- is readable in the PR; the arena is the field the fight started on.
+          mkdir -p "$GITHUB_WORKSPACE/docs/screenshots/pertarungan"
+          for state in transisi awal menu kelemahan boost break damage fase2 hasil kalah; do
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              res://game/tests/BattleShot.tscn -- --state="$state" \
+              --capture="$GITHUB_WORKSPACE/docs/screenshots/pertarungan" \
+              --capture-name="51_pertarungan_${state}" \
+              2>&1 | tee -a /tmp/capture.log | tail -4
+          done
 
           # --- step 3A: pitch x FOV, the grid the owner picks the angle from.
           # --- 560x315 keeps eighteen shots small enough to live in the repo;

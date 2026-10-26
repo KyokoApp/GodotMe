@@ -758,3 +758,65 @@ sebagai 90 bintik acak sehingga tampak seperti konfeti. Pelajaran yang
 ditulis di `DESIGN_NOTES.md` §22.8: **tangkapan layar adalah tes**, dan sebuah
 jebakan tipe GDScript (`Packed*` adalah tipe nilai) bisa lolos dari semua
 pemeriksaan aritmetika.
+
+## Langkah 3C — pertarungan turn-based (0.11.0)
+
+### Menjalankan gerbangnya
+
+```
+python3 tools/gen_game_ui.py          # 13 ikon tempur + atlas (hanya bila ikon berubah)
+python3 tools/gen_atlas.py            # atlas_ui.png + atlas_ui.json
+python3 tools/pack_audit.py           # tidak ada aset mati di enam paket
+godot --headless --path game res://game/tests/BattleTest.tscn
+```
+
+`BattleTest` adalah gerbang sebenarnya: 60-an pemeriksaan aturan ditambah 1000
+pertarungan simulasi (lihat `TEST_PLAN.md` C1–C15). Tidak ada langkah produksi
+untuk arena atau UI — keduanya dibangun saat dimuat, dari skrip dan `UiKit`.
+
+### Isi `enemies.pck` setelah langkah 3C
+
+Paket ini dulu praktis kosong. Sekarang isinya seluruh mesin pertarungan, dan
+dipisahkan dari `characters` supaya menyeimbangkan angka tidak pernah memaksa
+unduhan sprite baru:
+
+| berkas | isi |
+| --- | --- |
+| `game/battle/BattleData.gd` | membaca + memvalidasi `battle_data.json`, memiliki rumus damage |
+| `game/battle/battle_data.json` | senjata, elemen, item, skill, party, musuh, encounter, `balance` |
+| `game/battle/BattleLogic.gd` | giliran, BP/Boost, Shield/BREAK, fase bos, AI, `submit()` |
+| `game/battle/BattleView.gd` | arena 3D di tanah yang sama, sprite, kamera, getar, hit-stop |
+| `game/battle/BattleUI.gd` | bar giliran, plate Shield/"?", menu, BOOST, 1x/2x/3x, Auto, hasil |
+| `game/battle/BattleScene.gd` | kontroler: waktu, event, transisi pecah, EXP/Leaf/level |
+| `game/battle/battle_wipe.gdshader` | transisi pecah + pusar |
+
+`pack_audit` setelah perubahan ini: `enemies` **7 berkas, 95.118 B**; total enam
+paket **1.375.180 B (1.342 KB)**, 0 galat, 0 peringatan. (Paket `ui` tetap 7
+berkas karena ikon baru masuk ke `atlas_ui.png` yang sudah ada; ikon per-sel
+`game/assets/ui/icons/*.png` tetap disimpan sebagai jatuhan editor dan tidak
+dipaket.)
+
+Perubahan lain yang ikut di paket lama:
+
+- `core` — `Main.gd` memuat `BattleScene` **lewat path** (`ResourceLoader.exists`
+  + `load`) dan menyembunyikan HUD saat bertarung. Tidak ada `preload` lintas
+  paket, jadi `core.pck` tetap bisa hidup tanpa `enemies.pck` (orc hanya
+  menghadang, tidak ada layar hitam).
+- `characters` — `CharacterWorld.gd` mengirim sinyal `battle_requested` dan
+  menyimpan hasil pertarungan (`apply_battle_result`), plus `SaveGame.gd` skema 3.
+
+### Rilis 0.11.0
+
+1. `tools/pack_audit.py` mencetak 6 paket, 0 galat, 0 peringatan.
+2. CI **Battle rules** hijau (C1–C15) dan job `screenshots` menghasilkan sepuluh
+   berkas `docs/screenshots/pertarungan/51_pertarungan_*.png`.
+3. `RELEASE_DEMO` diubah untuk memicu `release-demo` versi **0.11.0**.
+4. Di peluncur HP: **Periksa Lagi** → yang berubah hanya `core.pck`,
+   `characters.pck`, `enemies.pck` dan `ui.pck`; APK tidak perlu diganti.
+5. Di HP: masuk ke Pos Gunung, biarkan orc menghadang, lalu periksa bar giliran,
+   tombol BOOST, dan bahwa setelah kalah Knight kembali ke simpanan terakhir.
+
+### Status rilis 0.11.0
+
+Diisi setelah `release-demo` selesai (lihat komentar di `RELEASE_DEMO` dan
+`version.json` pada tag `demo-v0.1.0`).

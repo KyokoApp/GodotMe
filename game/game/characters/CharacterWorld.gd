@@ -64,6 +64,11 @@ const DOOR_RANGE := 2.8
 const INSPECT_RANGE := 3.4
 const PORTRAIT_SCRIPT := "res://game/characters/CharacterAssets.gd"
 
+## Emitted when a fight actually starts. Main (which is allowed to preload the
+## battle pack) turns this into the battle scene; the cast itself never loads it,
+## so the characters pack keeps working if the battle pack is missing.
+signal battle_requested(actor: Node3D)
+
 var _defs := {}
 var _player: Node3D
 var _npc: Node3D
@@ -107,6 +112,10 @@ var _interaction := {}
 ## longer take hearts in real time: step 1 removed the attack and shield buttons,
 ## so damage without a way to answer would just be unfair.
 var _combat_live := false
+## True while the battle scene is up: the field freezes, and the orcs stop
+## swinging at a knight who is no longer standing there.
+var _battle_mode := false
+var _battle_actor: Node3D = null
 
 
 func _ready() -> void:
@@ -524,7 +533,7 @@ func _process(delta: float) -> void:
 		_autosave = 0.0
 		save_progress()
 
-	var locked := _down or (_dialogue != null and bool(_dialogue.get("is_open")))
+	var locked := _down or _battle_mode or (_dialogue != null and bool(_dialogue.get("is_open")))
 	var dir := Vector2.ZERO
 	if not locked and _controls != null:
 		var stick: Vector2 = _controls.get("stick_vector")
@@ -572,6 +581,8 @@ func _to_world(dir: Vector2) -> Vector2:
 ## distance checks) so the button can appear and fade with the walking, instead
 ## of sitting greyed out on screen.
 func _update_interaction() -> void:
+	if _battle_mode:
+		return
 	if _down or _player == null or not is_instance_valid(_player):
 		_interaction = {}
 		_hide_name_plate()
@@ -951,9 +962,90 @@ func save_now() -> String:
 	return save_progress()
 
 
-func _on_battle_triggered(_actor: Node3D) -> void:
+func _on_battle_triggered(actor: Node3D) -> void:
+	if _battle_mode:
+		return
 	_shake = maxf(_shake, 0.9)
 	_show_toast("Orc menghadang!")
+	_battle_actor = actor
+	# the field stops here: a step towards the enemy and the battle takes over
+	battle_requested.emit(actor)
+
+
+## Frozen while a battle runs. The player cannot walk out of the arena, and the
+## orcs stop chasing somebody who is not there.
+func set_battle_mode(on: bool) -> void:
+	_battle_mode = on
+	if on:
+		if _player != null:
+			_player.call("stop_locomotion")
+		for orc in _orcs:
+			if orc != null and is_instance_valid(orc):
+				orc.call("stop_locomotion")
+	if not on:
+		_battle_actor = null
+
+
+func in_battle() -> bool:
+	return _battle_mode
+
+
+## The battle blob from the save, with the defaults a first fight needs. The
+## battle scene merges this into its own progress and hands it back on the way
+## out, so the save owns the truth and the battle only edits a copy.
+func battle_progress() -> Dictionary:
+	var base := {
+		"level": 1, "exp": 0, "leaf": 60, "hp": 0, "sp": 0,
+		"battles_won": 0, "battles_lost": 0, "observed": {},
+		"items": {"ramuan": 2, "elixir": 1, "granat_api": 1, "botol_es": 1},
+	}
+	if _save == null:
+		return base
+	var stored: Dictionary = _save.call("battle")
+	return base.merged(stored, true)
+
+
+## Where the battle happens and which encounter it is. Kept here so Main does not
+## have to know how the field is laid out.
+func battle_spot() -> Vector2:
+	if _battle_actor != null and is_instance_valid(_battle_actor):
+		return Vector2(_battle_actor.position.x, _battle_actor.position.z)
+	if _player != null:
+		return Vector2(_player.position.x, _player.position.z)
+	return Vector2.ZERO
+
+
+func battle_region() -> RefCounted:
+	var world := get_parent()
+	if world != null and world.has_method("region"):
+		return world.call("region")
+	return null
+
+
+## What to do with the result. A win takes the orc off the map and counts it; a
+## loss sends the knight back to the last save (the file already has that
+## position) with a light Leaf penalty. Either way the learning and the items the
+## battle produced are kept.
+func apply_battle_result(summary: Dictionary) -> void:
+	if _save == null:
+		return
+	var progress: Dictionary = summary.get("progress", {})
+	if not progress.is_empty():
+		_save.call("set_battle", progress)
+	if bool(summary.get("win", false)):
+		var beaten := int(_save.call("get_counter", "orcs_defeated")) + 1
+		_save.call("set_counter", "orcs_defeated", beaten)
+		if _battle_actor != null and is_instance_valid(_battle_actor):
+			_orcs.erase(_battle_actor)
+			_battle_actor.call("die")
+			_battle_actor.queue_free()
+		_show_toast("Orc dikalahkan!")
+	elif bool(summary.get("lost", false)) or int(summary.get("penalty", 0)) > 0:
+		# the last save is where he was before the fight started
+		_restore_player()
+		_show_toast("Kalah — kembali ke simpanan terakhir.")
+	save_progress()
+	_report_cast()
 
 
 func _show_toast(text: String) -> void:

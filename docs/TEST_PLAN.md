@@ -429,3 +429,54 @@ yang kedua lewat tangkapan di atas — ditambah pemeriksaan mata pada delapan
 tangkapan itu sendiri, yang sudah menangkap empat cacat (panggung tanpa kit,
 atap terbuka di ujung, jendela menyala di siang hari, dan nyala obor mirip
 konfeti) sebelum langkah ini dinyatakan selesai.
+
+## Langkah 3C — pertarungan turn-based (0.11.0)
+
+Uji baru: `game/tests/BattleTest.tscn` (aturan + simulator, headless) dan
+`game/tests/BattleShot.tscn` (tangkapan layar). Job CI baru: **Battle rules**;
+tangkapan masuk job `screenshots`. Perintah lokal:
+
+```
+godot --headless --path game res://game/tests/BattleTest.tscn
+xvfb-run -a godot --path game --resolution 1280x720 \
+    res://game/tests/BattleShot.tscn -- --state=break \
+    --capture=/abs/docs/screenshots/pertarungan --capture-name=51_pertarungan_break
+```
+
+| # | Yang diuji | Cara | Lulus bila |
+| --- | --- | --- | --- |
+| C1 | Tabel masuk akal | `BattleData._validate()` | enam senjata, enam elemen, tiap skill menunjuk senjata yang ada, tiap item berelemen yang dikenal, Shield tiap musuh 2–8, tiap musuh punya ≥1 kelemahan dan EXP > 0, encounter 1–5 musuh |
+| C2 | Ikon kelemahan benar-benar ada | baca `atlas_ui.json` | ≥27 entri; setiap `w_<senjata>` dan `e_<elemen>` ada (kalau tidak, baris "?" kosong) |
+| C3 | Rumus | `resolve_hit` dengan DEF 10 vs 80, Break on/off, guard, power 130, Boost 3, senjata vs elemen, ATK 1 vs DEF 999 | DEF tinggi memotong damage; Break ≈1,5x (1,3–1,75); guard <0,6x; senjata memakai ATK dan elemen MATK; damage **tidak pernah** < 1; sebaran 200 pukulan di dalam 0,85–1,15 dari basis |
+| C4 | Shield & BREAK | 3 pukulan tombak ke Orc Prajurit (Shield 3) | Shield habis ≤3 pukulan lemah, `broken` benar, Shield 0 saat break |
+| C5 | Musuh yang BREAK kehilangan giliran | log `kehilangan giliran` + giliran orc berikutnya | pesan muncul **dan** saat orc kembali, Shield-nya penuh lagi |
+| C6 | DEF terpotong saat break | `resolve_hit` DEF 100, break on/off | rasio > 1,8 |
+| C7 | BP & Boost | Knight dengan 3 BP, `boost: 3` | tepat 4 event `hit`; BP terpakai ≤ `bp_spend_max`; BP tidak pernah > `bp_max` |
+| C8 | Kelemahan dipelajari, bukan dicetak | skill tombak ke Pemimpin; Granat Api ke Prajurit; Botol Es ke Prajurit | `tombak` dan `api` terbuka, `es` **tidak** (bukan kelemahannya); `observed` kosong di awal |
+| C9 | Fase bos | HP Pemimpin 50%+1 lalu satu skill | event `phase` muncul, `phase == 2`, kelemahan `petir` terbuka, Shield penuh; Pemimpin mulai Shield 6 |
+| C10 | Kejutan | `apply_ambush()` | +1 BP untuk party, −1 Shield musuh pertama, encounter `pos_gunung` bertanda `ambush` |
+| C11 | Kabur | bos: satu percobaan; orc biasa: sampai 30 percobaan | bos **tidak bisa** kabur dan pertarungan tidak berakhir; orc biasa berakhir dengan `result == "flee"` |
+| C12 | Skill, item, buff | Tebas Naik (SP 6), Ramuan, Sumpah Penjaga | SP berkurang tepat 6, HP naik, item berkurang satu, `def_up` > 0 dan bertahan 3 giliran |
+| C13 | 1000 pertarungan, policy Auto | `suggest_action()` + `submit()` | menang ≥95%; rata-rata 4,5–9 ronde; median 5–8; terburuk ≤30; BREAK >1000 kali; Boost dipakai >1000 BP |
+| C14 | Tanpa Break/Boost lebih buruk | 200 pertarungan `attack` boost 0 | menang < 120 dari 200 |
+| C15 | Simpanan hasil pertarungan | `SaveGame` skema 3: tulis, muat ulang, dan simpanan skema 2 | `battles_won`, `leaf`, `observed` kembali utuh; simpanan lama tetap terbaca dengan `battle` kosong dan progres lama tidak hilang |
+
+Tangkapan layar baru (job `screenshots`, 1280×720), semuanya dari `BattleScene`
+sungguhan yang berdiri di region sungguhan (`Diorama.tscn`):
+
+| Berkas | Isi |
+| --- | --- |
+| `51_pertarungan_transisi.png` | layar pecah di tengah transisi (0,25 s ke dalam 0,55 s) |
+| `51_pertarungan_awal.png` | arena, bar giliran, strip party, menu perintah |
+| `51_pertarungan_menu.png` | target terpilih + papan kelemahan 6×6 terbuka |
+| `51_pertarungan_kelemahan.png` | dua kelemahan Pemimpin dan dua Prajurit sudah terbuka, sisanya "?" |
+| `51_pertarungan_boost.png` | tombol BOOST setelah dua kali ditekan |
+| `51_pertarungan_break.png` | BREAK: Shield habis, angka melayang, plate berubah |
+| `51_pertarungan_damage.png` | angka damage melayang di atas target |
+| `51_pertarungan_fase2.png` | Pemimpin di fase 2 (kelemahan baru + Shield penuh) |
+| `51_pertarungan_hasil.png` | layar hasil menang (EXP/Leaf/drop) |
+| `51_pertarungan_kalah.png` | layar kalah (kembali ke simpanan, penalti Leaf) |
+
+Yang **tidak** dibuktikan di sini: 30 FPS dengan lima musuh di GPU HP (diukur
+lewat jurnal `[PERF]` di perangkat), dan apakah tampilan arena enak dilihat —
+yang kedua hanya bisa dinilai dari sepuluh tangkapan di atas.
