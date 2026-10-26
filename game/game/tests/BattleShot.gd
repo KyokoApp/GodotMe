@@ -414,6 +414,55 @@ func _camera_trials() -> void:
 		arena.visible = true
 		battle_cam.visible = true
 	await _coverage("E battle visible dipaksa", battle_cam)
+	# F: a fresh camera at the WORLD camera's transform: the control. If this one
+	# draws and C did not, the transform is the difference, not the object.
+	if world_cam != null:
+		var copy := Camera3D.new()
+		copy.name = "CopyCam"
+		copy.fov = world_cam.fov
+		copy.near = world_cam.near
+		copy.far = world_cam.far
+		add_child(copy)
+		copy.global_transform = world_cam.global_transform
+		await _coverage("F kamera baru, transform dunia", copy)
+		copy.queue_free()
+		await get_tree().process_frame
+	# G: the battle camera's POSITION, but rotated straight down by hand. If the
+	# ground appears, the position is fine and the rotation is the whole problem.
+	var down := Camera3D.new()
+	down.name = "DownCam"
+	down.fov = battle_cam.fov
+	down.near = battle_cam.near
+	down.far = battle_cam.far
+	add_child(down)
+	down.global_position = battle_cam.global_position
+	down.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
+	await _coverage("G posisi battle, menghadap bawah", down)
+	# H: the battle camera's position, aimed at the arena centre by hand
+	var aim := Camera3D.new()
+	aim.name = "AimCam"
+	aim.fov = battle_cam.fov
+	aim.near = battle_cam.near
+	aim.far = battle_cam.far
+	add_child(aim)
+	aim.global_position = battle_cam.global_position
+	aim.look_at(Vector3(centre().x, 0.0, centre().y), Vector3.UP)
+	await _coverage("H posisi battle, dibidik manual", aim)
+	down.queue_free()
+	aim.queue_free()
+	# the numbers behind all of it
+	var fwd := -battle_cam.global_transform.basis.z
+	print("[PROBE] battle maju=%s pitch=%.1f derajat pos=%s" % [
+		str(fwd), rad_to_deg(asin(clampf(fwd.y, -1.0, 1.0))),
+		str(battle_cam.global_position.round())])
+	var at := Vector3(centre().x, 0.0, centre().y)
+	print("[PROBE] pusat arena %s -> layar %s belakang=%s jarak=%.1f" % [
+		str(at.round()), str(battle_cam.unproject_position(at).round()),
+		str(battle_cam.is_position_behind(at)), battle_cam.global_position.distance_to(at)])
+
+
+func centre() -> Vector2:
+	return battle.get("centre")
 
 
 func _coverage(label: String, cam: Camera3D) -> void:
