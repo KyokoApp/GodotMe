@@ -65,7 +65,9 @@ jobs:
             echo "LINT FAILED: duplicate function definition"
             LINT_FAILED=1
           fi
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### parse check"; echo '```'; tail -c 60000 /tmp/lint.log; echo '```'; } > /tmp/lint.md
             gh pr comment "$PR" --body-file /tmp/lint.md --repo "$GITHUB_REPOSITORY" || true
@@ -85,7 +87,9 @@ jobs:
           set +e
           godot --headless --path game res://game/tests/PlayTest.tscn 2>&1 | tee /tmp/play.log
           code=${PIPESTATUS[0]}
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### play rules (exit $code)"; echo '```'; tail -c 20000 /tmp/play.log; echo '```'; } > /tmp/play.md
             gh pr comment "$PR" --body-file /tmp/play.md --repo "$GITHUB_REPOSITORY" || true
@@ -107,7 +111,9 @@ jobs:
           godot --headless --path game res://game/tests/DialogueTest.tscn 2>&1 | tee -a /tmp/story.log
           dlg_code=${PIPESTATUS[0]}
           code=$(( save_code + dlg_code ))
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### story rules (exit $code)"; echo '```'; tail -c 20000 /tmp/story.log; echo '```'; } > /tmp/story.md
             gh pr comment "$PR" --body-file /tmp/story.md --repo "$GITHUB_REPOSITORY" || true
@@ -131,7 +137,9 @@ jobs:
           set +e
           godot --headless --path game res://game/tests/WorldTest.tscn 2>&1 | tee /tmp/world.log
           code=${PIPESTATUS[0]}
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### world rules (exit $code)"; echo '```'; tail -c 20000 /tmp/world.log; echo '```'; } > /tmp/world.md
             gh pr comment "$PR" --body-file /tmp/world.md --repo "$GITHUB_REPOSITORY" || true
@@ -148,7 +156,9 @@ jobs:
           set +e
           godot --headless --path game res://game/tests/UiTest.tscn 2>&1 | tee /tmp/ui.log
           code=${PIPESTATUS[0]}
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### ui rules (exit $code)"; echo '```'; tail -c 20000 /tmp/ui.log; echo '```'; } > /tmp/ui.md
             gh pr comment "$PR" --body-file /tmp/ui.md --repo "$GITHUB_REPOSITORY" || true
@@ -166,7 +176,9 @@ jobs:
           set +e
           godot --headless --path game res://game/tests/FieldTest.tscn 2>&1 | tee /tmp/field.log
           code=${PIPESTATUS[0]}
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### field rules (exit $code)"; echo '```'; tail -c 20000 /tmp/field.log; echo '```'; } > /tmp/field.md
             gh pr comment "$PR" --body-file /tmp/field.md --repo "$GITHUB_REPOSITORY" || true
@@ -184,7 +196,9 @@ jobs:
           set +e
           godot --headless --path game res://game/tests/CameraTest.tscn 2>&1 | tee /tmp/camera.log
           code=${PIPESTATUS[0]}
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### camera rules (exit $code)"; echo '```'; tail -c 20000 /tmp/camera.log; echo '```'; } > /tmp/camera.md
             gh pr comment "$PR" --body-file /tmp/camera.md --repo "$GITHUB_REPOSITORY" || true
@@ -212,7 +226,9 @@ jobs:
           godot --headless --path game res://game/tests/BuildingTest.tscn 2>&1 | tee -a /tmp/building.log
           build_code=${PIPESTATUS[0]}
           code=$(( kit_code + build_code ))
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### building rules (exit $code)"; echo '```'; tail -c 30000 /tmp/building.log; echo '```'; } > /tmp/building.md
             gh pr comment "$PR" --body-file /tmp/building.md --repo "$GITHUB_REPOSITORY" || true
@@ -232,7 +248,9 @@ jobs:
           set +e
           godot --headless --path game res://game/tests/BattleTest.tscn 2>&1 | tee /tmp/battle.log
           code=${PIPESTATUS[0]}
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### battle rules (exit $code)"; echo '```'; tail -c 30000 /tmp/battle.log; echo '```'; } > /tmp/battle.md
             gh pr comment "$PR" --body-file /tmp/battle.md --repo "$GITHUB_REPOSITORY" || true
@@ -251,7 +269,9 @@ jobs:
           set +e
           godot --headless --path game res://game/tests/RegionTest.tscn 2>&1 | tee /tmp/region.log
           code=${PIPESTATUS[0]}
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### region rules (exit $code)"; echo '```'; tail -c 20000 /tmp/region.log; echo '```'; } > /tmp/region.md
             gh pr comment "$PR" --body-file /tmp/region.md --repo "$GITHUB_REPOSITORY" || true
@@ -269,7 +289,9 @@ jobs:
           /tmp/venv/bin/pip install --quiet pillow
           /tmp/venv/bin/python tools/import_character_sprites.py --check 2>&1 | tee /tmp/chars_py.log
           godot --headless --path game res://game/tests/ValidateCharacters.tscn 2>&1 | tee /tmp/chars_gd.log
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### character contract"; echo '```'; tail -c 20000 /tmp/chars_py.log; echo; tail -c 20000 /tmp/chars_gd.log; echo '```'; } > /tmp/chars.md
             gh pr comment "$PR" --body-file /tmp/chars.md --repo "$GITHUB_REPOSITORY" || true
@@ -334,7 +356,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ ! -f /tmp/case.log ]; then echo "no log produced"; exit 0; fi
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -z "$PR" ]; then echo "no PR for $GITHUB_REF_NAME"; exit 0; fi
           {
             echo "### CI log — case \`${{ matrix.case }}\`"
@@ -578,7 +602,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           [ -z "$PR" ] && exit 0
           { echo "### capture log"; echo '```'; tail -c 20000 /tmp/capture.log 2>/dev/null || echo "(empty)"; echo '```'; } > /tmp/cap.md
           gh pr comment "$PR" --body-file /tmp/cap.md --repo "$GITHUB_REPOSITORY" || true
@@ -749,7 +775,9 @@ jobs:
           PYEOF
           [ ${PIPESTATUS[0]} -ne 0 ] && code=1
 
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### APK export log (exit $code)"; echo '```'; tail -c 60000 /tmp/apk.log; echo '```'; } > /tmp/apk.md
             gh pr comment "$PR" --body-file /tmp/apk.md --repo "$GITHUB_REPOSITORY" || true
@@ -761,7 +789,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           [ -z "$PR" ] && exit 0
           { echo "### APK job log"; echo '```'; tail -c 40000 /tmp/apk.log 2>/dev/null || echo "(no export log)"; echo '```'; } > /tmp/apk2.md
           gh pr comment "$PR" --body-file /tmp/apk2.md --repo "$GITHUB_REPOSITORY" || true
