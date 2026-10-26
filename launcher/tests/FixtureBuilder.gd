@@ -114,6 +114,13 @@ const PACK_FILES := {
 			"game/world/water.gdshader",
 			"game/world/regions/yaros.json",
 			"game/world/prop_atlas.json",
+			# step 3B: the building kit - the code that assembles a house, the
+			# manifest that names its cells, the atlas it paints from and the
+			# shader that draws all of it in one pass per building
+			"game/world/BuildingKit.gd",
+			"game/world/building_kit.json",
+			"game/world/building.gdshader",
+			"game/world/textures/building_atlas.png",
 			"game/world/textures/terrain_atlas.png",
 			"game/world/textures/prop_atlas.png",
 			"game/world/textures/water_tile.png",

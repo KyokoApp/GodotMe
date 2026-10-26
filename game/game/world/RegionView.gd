@@ -27,12 +27,21 @@ const WATER_TEX := TEX_DIR + "water_tile.png"
 const PROP_ATLAS := TEX_DIR + "prop_atlas.png"
 const PROP_META := "res://game/world/prop_atlas.json"
 const PROP_SHADER := "res://game/world/prop.gdshader"
+const BUILD_SCRIPT := "res://game/world/BuildingKit.gd"
+const BUILD_SHADER := "res://game/world/building.gdshader"
+const BUILD_ATLAS := TEX_DIR + "building_atlas.png"
 const WATER_SHADER := "res://game/world/water.gdshader"
 const TERRAIN_SHADER := "res://game/world/terrain.gdshader"
 const CLIFF_SHADER := "res://game/world/cliff.gdshader"
 const WOOD_SHADER := "res://game/world/wood.gdshader"
 ## Surfaces inside one chunk mesh, in the order they are built.
 const SURFACES := ["terrain", "cliff", "wood", "water"]
+
+## Decor kinds that step 3B draws as low-poly MESHES assembled from the building
+## kit, instead of as a camera-facing sprite. Everything else in decor (pine,
+## oak, bush, rock, reeds, flowers, stump) stays a billboard on purpose: the
+## forest was painted as sprites and a mesh pine would lose that look.
+const BUILDING_KINDS := ["cottage", "tower", "gate", "well", "dock", "sign", "torch"]
 
 ## How many chunks around the player's own chunk stay visible. 1 => 3x3 chunks
 ## = 96x96 m, which is wider than the camera can see at any zoom on the ladder.
@@ -63,6 +72,13 @@ var _faded: Dictionary = {}         # "kind/index" -> 0.0 while dissolved
 var _quad: ArrayMesh
 var _chunks: Dictionary = {}        # Vector2i -> Node3D
 var _prop_size: Dictionary = {}     # kind -> Vector2 metres
+var _kit: RefCounted                # BuildingKit instance, loaded at runtime
+var _kit_meta: Dictionary = {}      # building_kit.json
+var _build_mat: ShaderMaterial
+var _build_mms: Dictionary = {}     # "kind|variant" -> MultiMeshInstance3D
+var _build_layout: Array = []       # [kind, variant, x, z, y, yaw, top, block]
+var _build_tall: Array = []         # [mmkey, index, x, z, height] occluders
+var _build_faded: Dictionary = {}   # "b:mmkey/index" -> fade
 var _centres: Array = []            # centre chunk as Vector2i
 var _pending: Dictionary = {}       # Vector2i -> task id
 var _task_chunk: Dictionary = {}    # task id -> Vector2i
@@ -86,6 +102,7 @@ func setup(region: RefCounted, radius: int = 1) -> void:
 	_build_materials()
 	_build_quad()
 	_build_props()
+	_build_buildings()
 	set_process(true)
 
 
@@ -206,6 +223,10 @@ func _build_props() -> void:
 		var sz: Array = cell.get("size_m", [1.0, 1.0])
 		if kind == "" or uv.size() < 4 or sz.size() < 2:
 			continue
+		# a house is a mesh now (step 3B): its atlas cell is still in the prop
+		# sheet so the old captures keep working, but nothing draws it
+		if BUILDING_KINDS.has(kind):
+			continue
 		_prop_size[kind] = Vector2(float(sz[0]), float(sz[1]))
 		var mat := ShaderMaterial.new()
 		if ResourceLoader.exists(PROP_SHADER):
@@ -291,6 +312,246 @@ func _place_kind(kind: String, list: Variant) -> void:
 	add_child(mmi)
 	_prop_mms[kind] = mmi
 	_stats["props"] = int(_stats.get("props", 0)) + mm.instance_count
+
+
+# --------------------------------------------------------------- buildings ---
+## Step 3B: the village is no longer a row of cardboard cut-outs. Every house,
+## tower, gate, well, jetty, sign and torch is a low-poly MESH assembled from
+## `BuildingKit.gd` out of one 512 px atlas, so it turns with the camera, casts a
+## real shadow and stands ON the hill instead of being pasted over it.
+##
+## Why the meshes are built here and not shipped as .glb: the kit code is the one
+## source of truth. A file can be forgotten by the next person who changes a
+## roof, a function cannot - and the whole village is ten small meshes, built
+## once in a few milliseconds and then shared by every instance of that kind.
+##
+## Batching: one MultiMesh per (kind, variant) for the WHOLE region, exactly like
+## the props. The five cottages are three shapes, so the village is 10 draw
+## calls; the per-house tint rides in the instance colour and the per-house fade
+## in the instance custom data, so one pass draws houses that dissolve
+## independently when the camera passes in front of them.
+func _build_buildings() -> void:
+	if data == null or not ResourceLoader.exists(BUILD_SCRIPT):
+		push_warning("[REGION] BuildingKit.gd tidak ada, bangunan 3D dilewati")
+		return
+	var decor: Variant = data.get("decor")
+	if typeof(decor) != TYPE_DICTIONARY:
+		return
+	var kit_script: Script = load(BUILD_SCRIPT)
+	if kit_script == null:
+		return
+	_kit = kit_script.new()
+	if _kit == null:
+		return
+	_kit_meta = _kit.call("kit_meta")
+	if _kit_meta.is_empty():
+		push_warning("[REGION] building_kit.json tidak ada, bangunan 3D dilewati")
+		return
+	var atlas := _tex(BUILD_ATLAS)
+	if atlas == null:
+		push_warning("[REGION] building_atlas.png tidak ada")
+		return
+	_build_mat = ShaderMaterial.new()
+	if ResourceLoader.exists(BUILD_SHADER):
+		_build_mat.shader = load(BUILD_SHADER)
+	_build_mat.set_shader_parameter("atlas", atlas)
+	# 128 px cells in a 512 px sheet: a constant, because every cell is the same
+	# size and the shader therefore needs no table
+	_build_mat.set_shader_parameter("cell_size", 128.0 / 512.0)
+	# the fade of a building comes from its instance custom data, not a uniform:
+	# one MultiMesh holds the whole village
+	_build_mat.set_shader_parameter("instance_fade", 1.0)
+	# the flame cell is the one that animates; the kit's manifest is the only
+	# place that knows where it sits in the atlas
+	var cell_map: Dictionary = _kit.call("cells_of", _kit_meta)
+	if cell_map.has("flame"):
+		_build_mat.set_shader_parameter("flame_cell", cell_map["flame"])
+	var dict: Dictionary = decor
+	for kind in BUILDING_KINDS:
+		var rows: Variant = dict.get(kind, [])
+		if typeof(rows) != TYPE_ARRAY:
+			continue
+		_place_buildings(kind, rows)
+
+
+## Place every decor row of one kind. Variants come from the row's own flip flag
+## and a hash of its position, so the village keeps three different houses
+## without the region JSON having to say which is which - and the choice is
+## stable between runs.
+func _place_buildings(kind: String, rows: Array) -> void:
+	if _kit == null or _build_mat == null:
+		return
+	var kind_meta: Dictionary = (_kit_meta.get("kinds", {}) as Dictionary).get(kind, {})
+	if kind_meta.is_empty():
+		return
+	var variants := maxi(1, int(kind_meta.get("variants", 1)))
+	# pass one: read the rows and work out where each one goes, so the MultiMesh
+	# is only sized once per variant
+	var buckets: Dictionary = {}
+	for raw in rows:
+		if typeof(raw) != TYPE_ARRAY:
+			continue
+		var row: Array = raw
+		if row.size() < 2:
+			continue
+		# decor is stored in tenths of a metre, in world XZ
+		var x := float(row[0]) * 0.1
+		var z := float(row[1]) * 0.1
+		var scale := 1.0
+		if row.size() > 2 and float(row[2]) > 0.0:
+			scale = clampf(float(row[2]) * 0.01, 0.75, 1.35)
+		var salt := 0
+		if row.size() > 3:
+			salt = int(row[3])
+		var variant := absi(hash("%d/%d/%d" % [int(round(x * 7.0)), int(round(z * 7.0)), salt])) % variants
+		var yaw := _building_yaw(kind, x, z)
+		var entry := {"x": x, "z": z, "scale": scale, "variant": variant, "yaw": yaw}
+		if not buckets.has(variant):
+			buckets[variant] = []
+		(buckets[variant] as Array).append(entry)
+	for v in buckets.keys():
+		var variant := int(v)
+		var made: Dictionary = _kit.call("make", kind, variant, _kit_meta)
+		if made.is_empty():
+			push_warning("[REGION] kit tidak bisa membangun %s#%d" % [kind, variant])
+			continue
+		var group: Array = buckets[variant]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.use_custom_data = true
+		mm.mesh = made["mesh"]
+		mm.instance_count = group.size()
+		# the meshes are placed all over the region, so the AABB has to be the
+		# whole region: a MultiMesh never moves its instances afterwards
+		mm.custom_aabb = AABB(Vector3(-8.0, -8.0, -8.0), Vector3(
+			float(data.get("width")) * float(data.get("cell")) + 16.0,
+			64.0,
+			float(data.get("height")) * float(data.get("cell")) + 16.0))
+		var mmkey := "%s|%d" % [kind, variant]
+		var top := float(made.get("top", 2.0))
+		for i in range(group.size()):
+			var e: Dictionary = group[i]
+			var ex := float(e["x"])
+			var ez := float(e["z"])
+			var sc := float(e["scale"])
+			var yaw := float(e["yaw"])
+			var basis := Basis(Vector3.UP, yaw)
+			if not is_equal_approx(sc, 1.0):
+				basis = basis.scaled(Vector3(sc, sc, sc))
+			# the FOOT of the house sits on the LOWEST corner of its footprint,
+			# not on the tile centre: the guard tower stands on a 1,8 m step and
+			# a house placed at the tile's average height shows daylight under
+			# one corner while burying the other
+			var foot := _building_foot(kind, ex, ez, yaw, sc)
+			mm.set_instance_transform(i, Transform3D(basis, Vector3(ex, foot, ez)))
+			# the tint is per instance so all five cottages share one mesh;
+			# alpha stays 1.0 because the shader reads COLOR.a as a detail class
+			var tint := _building_tint(kind, ex, ez)
+			mm.set_instance_color(i, Color(tint.r, tint.g, tint.b, 1.0))
+			# r = fade (see the shader): solid until the camera passes in front
+			mm.set_instance_custom_data(i, Color(1.0, 0.0, 0.0, 1.0))
+			_build_layout.append([kind, variant, ex, ez, foot, yaw, top * sc,
+				float(made.get("block", 0.0)) * sc])
+			# only the tall ones can hide the knight; a sign post cannot
+			if top * sc > 2.4:
+				_build_tall.append([mmkey, i, ex, ez, top * sc])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "Buildings_%s_%d" % [kind, variant]
+		mmi.multimesh = mm
+		mmi.material_override = _build_mat
+		# houses DO cast: they are the first real geometry in the valley, and a
+		# village with no shadows under the eaves looks like it is floating
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		add_child(mmi)
+		_build_mms[mmkey] = mmi
+		_stats["buildings"] = int(_stats.get("buildings", 0)) + mm.instance_count
+
+
+## The lowest of the four ground heights under a building's footprint, so a house
+## on a slope never floats on its downhill corner. `scale` is the instance scale
+## and `yaw` its rotation, so the sampled corners are the ones that are drawn.
+func _building_foot(kind: String, x: float, z: float, yaw: float, scale: float) -> float:
+	var size: Vector2 = _footprint(kind) * scale
+	var half := size * 0.5
+	var lowest := INF
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			var local := Vector2(half.x * sx, half.y * sz).rotated(-yaw)
+			var p := Vector2(x, z) + local
+			lowest = minf(lowest, float(data.call("height_at", p)))
+	if lowest == INF:
+		return float(data.call("height_at", Vector2(x, z)))
+	return lowest
+
+
+## Footprint in metres: the kit's real bounds, from the same JSON the mesher
+## reads, so the foundation and the sampled ground agree with the drawn walls.
+func _footprint(kind: String) -> Vector2:
+	var kk: Dictionary = (_kit_meta.get("kinds", {}) as Dictionary).get(kind, {})
+	if kk.is_empty():
+		return Vector2(2.0, 2.0)
+	return Vector2(float(kk.get("w", 2.0)), float(kk.get("d", 2.0)))
+
+
+## Which way a building faces. Houses turn their front (the door) towards the
+## middle of the zone they stand in - the village well, the tower yard, the pass -
+## which is where a person walking up to it comes from. A torch or a sign post is
+## symmetric, so it keeps the world's default facing.
+func _building_yaw(kind: String, x: float, z: float) -> float:
+	if kind != "cottage" and kind != "tower" and kind != "gate":
+		return 0.0
+	var centre := _zone_centre(x, z)
+	var to := centre - Vector2(x, z)
+	if to.length() < 0.6:
+		return 0.0
+	# +z is the front of every mesh, so turn +z onto the direction of the centre
+	return atan2(to.x, to.y)
+
+
+## Centre of the smallest zone that contains this point; the region's own point
+## if no zone does.
+func _zone_centre(x: float, z: float) -> Vector2:
+	var p := Vector2(x, z)
+	var best := Rect2()
+	var best_area := INF
+	for raw in data.get("zones"):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var zone: Dictionary = raw
+		var rect: Array = zone.get("rect", [])
+		if rect.size() < 4:
+			continue
+		var r := Rect2(float(rect[0]), float(rect[1]), float(rect[2]), float(rect[3]))
+		if not r.has_point(p):
+			continue
+		var area := r.get_area()
+		if area < best_area:
+			best_area = area
+			best = r
+	if best_area == INF:
+		return p
+	return best.get_center()
+
+
+## Per-house shade: cream plaster, warm ochre, cool grey. Deterministic from the
+## position, so the same cottage is the same colour on every run and in every
+## screenshot; three tones is enough to stop a row reading as clones.
+func _building_tint(kind: String, x: float, z: float) -> Color:
+	var palette: Array = [
+		Color(1.0, 1.0, 1.0),
+		Color(0.99, 0.94, 0.86),
+		Color(0.92, 0.88, 0.84),
+		Color(0.96, 0.90, 0.80),
+	]
+	if kind == "tower" or kind == "gate":
+		# stone reads colder and lighter than plaster, so it keeps the world's
+		# own grey instead of the village's cream
+		palette = [Color(1.0, 1.0, 1.0), Color(0.96, 0.97, 0.98), Color(1.0, 0.99, 0.95)]
+	if kind == "torch" or kind == "sign":
+		return palette[0]
+	var h := absi(int(hash(str(int(round(x * 10.0)), ":", int(round(z * 10.0))))))
+	return palette[h % palette.size()]
 
 
 # ---------------------------------------------------------------- streaming ---
@@ -502,7 +763,7 @@ func _upload(cc: Vector2i, arrays: Dictionary) -> void:
 ## it, instead of vanishing and leaving a hole in the forest.
 func update_occluders(player: Vector2, camera_xz: Vector2,
 		radius: float = 1.05, reach: float = 2.5) -> void:
-	if _tall.is_empty():
+	if _tall.is_empty() and _build_tall.is_empty():
 		return
 	var plan := occluders_for(player, camera_xz, radius, reach)
 	# anything that was fading and is not in the plan goes back to solid
@@ -520,38 +781,57 @@ func update_occluders(player: Vector2, camera_xz: Vector2,
 		_faded[key] = fade
 
 
-## Which props must fade, and how much: {"kind/idx": fade 0..1}. Pure function of
-## the prop layout, the knight and the camera; no node access at all.
+## Which props and buildings must fade, and how much: {"kind/idx": fade 0..1} for
+## sprites and "b:kind|variant/idx" for meshes. Pure function of the layout, the
+## knight and the camera; no node access at all.
 func occluders_for(player: Vector2, camera_xz: Vector2,
 		radius: float = 1.05, reach: float = 2.5) -> Dictionary:
 	var out := {}
-	if _tall.is_empty():
-		return out
 	var dir := player - camera_xz
 	var dist := dir.length()
 	if dist < 0.5:
 		return out
 	var dirn := dir / dist
 	for item in _tall:
-		var kind: String = item[0]
-		var idx: int = item[1]
-		var x: float = item[2]
-		var z: float = item[3]
-		var to_prop := Vector2(x, z) - camera_xz
-		var along := to_prop.dot(dirn)
-		if along < 0.5 or along > dist + reach:
+		var fade := _corridor_fade(item, camera_xz, dirn, dist, radius, reach)
+		if fade < 0.0:
 			continue
-		var lateral := absf(to_prop.cross(dirn))
-		if lateral > radius:
+		out["%s/%d" % [item[0], int(item[1])]] = fade
+	# step 3B: a house is as capable of hiding the knight as a tree is. Its fade
+	# goes through the instance custom data instead of the instance colour, since
+	# the colour holds the house's tint now.
+	for item in _build_tall:
+		var fade := _corridor_fade(item, camera_xz, dirn, dist, radius, reach)
+		if fade < 0.0:
 			continue
-		# straight on the line = fully dithered down to a quarter, at the edge of
-		# the corridor = barely touched
-		var strength := 1.0 - lateral / maxf(radius, 0.001)
-		out["%s/%d" % [kind, idx]] = clampf(1.0 - 0.75 * strength, 0.25, 1.0)
+		out["b:%s/%d" % [item[0], int(item[1])]] = fade
 	return out
 
 
+## How much something standing at item[2], item[3] blocks the view of the knight,
+## or -1 if it is outside the corridor. [name, index, x, z, height] for both
+## lists, which is why they share this.
+func _corridor_fade(item: Array, camera_xz: Vector2, dirn: Vector2, dist: float,
+		radius: float, reach: float) -> float:
+	if item.size() < 4:
+		return -1.0
+	var to_prop := Vector2(float(item[2]), float(item[3])) - camera_xz
+	var along := to_prop.dot(dirn)
+	if along < 0.5 or along > dist + reach:
+		return -1.0
+	var lateral := absf(to_prop.cross(dirn))
+	if lateral > radius:
+		return -1.0
+	# straight on the line = fully dithered down to a quarter, at the edge of the
+	# corridor = barely touched
+	var strength := 1.0 - lateral / maxf(radius, 0.001)
+	return clampf(1.0 - 0.75 * strength, 0.25, 1.0)
+
+
 func _set_fade(key: String, fade: float) -> void:
+	if key.begins_with("b:"):
+		_set_build_fade(key.substr(2), fade)
+		return
 	var parts := key.split("/")
 	if parts.size() != 2:
 		return
@@ -562,6 +842,22 @@ func _set_fade(key: String, fade: float) -> void:
 		return
 	var c: Color = mmi.multimesh.get_instance_color(idx)
 	mmi.multimesh.set_instance_color(idx, Color(fade, c.g, c.b, c.a))
+
+
+## A mesh building fades through the instance CUSTOM data, because its instance
+## colour carries the plaster tint. `body` is "kind|variant/index".
+func _set_build_fade(body: String, fade: float) -> void:
+	var parts := body.split("/")
+	if parts.size() != 2:
+		return
+	var mmi: MultiMeshInstance3D = _build_mms.get(parts[0], null)
+	if mmi == null or mmi.multimesh == null:
+		return
+	var idx := int(parts[1])
+	if idx < 0 or idx >= mmi.multimesh.instance_count:
+		return
+	var data_now: Color = mmi.multimesh.get_instance_custom_data(idx)
+	mmi.multimesh.set_instance_custom_data(idx, Color(fade, data_now.g, data_now.b, data_now.a))
 
 
 # --------------------------------------------------------------------- api ---
@@ -578,10 +874,18 @@ func prop_layout() -> Array:
 	return _layout
 
 
+## Every 3D building as placed: [kind, variant, x, z, y, yaw, top, block].
+## Same reason as prop_layout(): a headless run cannot read instance transforms
+## back out of a MultiMesh, so the test walks the numbers the mesher handed over.
+func building_layout() -> Array:
+	return _build_layout
+
+
 func stats() -> Dictionary:
 	_stats["chunks"] = _chunks.size()
-	_stats["draws"] = _chunks.size() + _prop_mms.size()
+	_stats["draws"] = _chunks.size() + _prop_mms.size() + _build_mms.size()
 	_stats["prop_kinds"] = _prop_mms.size()
+	_stats["build_kinds"] = _build_mms.size()
 	_stats["pending"] = _pending.size()
 	return _stats
 
@@ -590,12 +894,21 @@ func stats() -> Dictionary:
 ## the sun, so the day's colour is applied here as well to keep them together.
 func set_light_tint(colour: Color) -> void:
 	var v := Vector3(colour.r, colour.g, colour.b)
-	var mats: Array = [_terrain_mat, _cliff_mat, _wood_mat]
+	var mats: Array = [_terrain_mat, _cliff_mat, _wood_mat, _build_mat]
 	for kind in _prop_mats.keys():
 		mats.append(_prop_mats[kind])
 	for mat in mats:
 		if mat != null and (mat as ShaderMaterial).shader != null:
 			(mat as ShaderMaterial).set_shader_parameter("light_tint", v)
+
+
+## How lit the windows and the torches are: 0 at noon, 1 at deep night. The
+## diorama drives it from the lamp's own energy (WorldClock), so a house lights
+## up exactly when the village lamp does instead of on its own schedule.
+func set_nightness(v: float) -> void:
+	if _build_mat == null or _build_mat.shader == null:
+		return
+	_build_mat.set_shader_parameter("night", clampf(v, 0.0, 1.0))
 
 
 ## The cliff shader's window follows the player, so standing behind a two-level

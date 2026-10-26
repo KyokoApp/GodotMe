@@ -488,6 +488,10 @@ func _on_phase_changed(id: String) -> void:
 	if _view != null and _sun != null:
 		# props are unshaded billboards; the phase warms them through this tint
 		_view.call("set_light_tint", _sun.light_color * (0.72 + 0.28 * _sun.light_energy))
+		# and step 3B's windows light up with the same lamp that lights the
+		# village: 0 at noon, 1 at deep night (the clock's own lamp energy)
+		if _lamp != null:
+			_view.call("set_nightness", clampf(_lamp.light_energy / 1.25, 0.0, 1.0))
 
 
 # ---------------------------------------------------------------- time API ---

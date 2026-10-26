@@ -1379,3 +1379,129 @@ tidak bisa membaca warna instance MultiMesh kembali (jebakan langkah 2).
   `camera.json` **belum final** sampai dipilih.
 - Bangunan masih sprite billboard (dinding tampak datar dari sudut rendah);
   diganti model 3D di langkah 3B.
+
+## 22. Bangunan jadi model 3D low-poly (langkah 3B, 0.10.0)
+
+### 22.1 Kenapa dibangun dari kode, bukan .glb
+
+Rumah di Yaros dulu sprite billboard: dari kamera 30° dindingnya tetap terlihat
+datar, tidak punya sisi, tidak punya bayangan sendiri. Langkah 3B menggantinya
+dengan mesh low-poly bertekstur piksel, dan mesh itu **dirakit saat region dimuat
+dari satu kit modular**, bukan diekspor menjadi `.glb`.
+
+| Pilihan | Kenapa tidak dipakai |
+| --- | --- |
+| `.glb` per rumah | Berkas biner tidak bisa ditinjau di PR, dan setiap perubahan atap harus diekspor ulang di Blender. Sumber kebenarannya jadi dua (kode + berkas) dan cepat atau lambat berbeda. |
+| `.res` ArrayMesh hasil skrip | Lebih cepat saat muat, tapi menambah langkah produksi yang wajib dijalankan sebelum mengepak, dan CI akan gagal kalau lupa. |
+| **Dirakit saat muat (dipakai)** | Satu sumber kebenaran: `BuildingKit.gd`. Tidak ada aset biner baru, tidak ada langkah ekspor, dan kit yang sama dipakai tes, tangkapan layar, dan dunia. |
+
+Biayanya diukur, bukan diabaikan: seluruh desa adalah **10 mesh** (7 jenis, 3
+varian rumah, 2 varian menara) yang dibangun sekali, disimpan di cache statis,
+lalu dipakai bersama oleh semua instance. Satu rumah ≈ 250 segitiga; seluruh desa
+(22 bangunan) di bawah 3.200 segitiga — jauh di bawah anggaran 16.000 yang
+dijaga `BuildingTest`.
+
+### 22.2 Satu atlas, satu bahan, satu panggilan gambar per bangunan
+
+`tools/gen_building_kit.py` melukis `building_atlas.png` (512×512, 16 sel 128×128,
+filter **Nearest**) dengan palet yang sama seperti `gen_world_props.py`, dan
+menulis `building_kit.json` (nama sel, rect, UV, berapa meter satu ulangan, jenis
+bangunan, ukuran, radius tabrakan). Teksturnya prosedural dan deterministik
+(seed tetap), jadi membangun ulang menghasilkan PNG yang identik byte demi byte.
+
+Kontrak UV-nya sengaja tidak biasa, dan inilah yang membuat satu rumah cukup satu
+draw call:
+
+| Kanal | Isi |
+| --- | --- |
+| `UV` | ulangan tekstur: meter ÷ ukuran-sel; 0..0,992 untuk decal (sel utuh) |
+| `UV2` | titik asal sel di atlas — **inilah cara memilih sel tanpa array uniform** |
+| `COLOR.rgb` | warna bangunan (putih di mesh, MultiMesh yang membawa warna per rumah) |
+| `COLOR.a` | kelas detail, **bukan transparansi**: 1,0 menyala (jendela, nyala obor), 0,4 detail kecil (pintu, papan, pita besi), 0,0 struktur |
+
+`COLOR.a` dipakai untuk tiga hal sekaligus, semuanya di `building.gdshader`:
+jendela menyala mengikuti fase malam (`night`), detail kecil dibuang di luar
+`detail_range` (LOD jarak), dan tidak ada yang digambar melewati 2,6×
+`detail_range`. Transparansi sel decal (jendela, pintu, panji) dipotong dengan
+scissor alpha 0,42 — tanpa itu setiap jendela akan punya kotak hitam di sekitarnya.
+
+### 22.3 Kit: bagian yang bisa dirakit
+
+| Jenis | Bagian | Varian |
+| --- | --- | --- |
+| `cottage` | fondasi batu, dinding plester berangka kayu, 4 tiang sudut, pintu, 4 jendela, atap pelana (jerami/papan), balok lis, cerobong | 3 (jerami + serambi, papan + loteng jongkok, jerami dengan cerobong) |
+| `tower` | fondasi, batang batu dua tingkat, 12 konsol kayu, geladak kayu, parapet batu, merlon, atap kerucut batu tulis, tiang + panji, pintu, 3 jendela | 2 (kerucut + panji, atau parapet terbuka) |
+| `gate` | 2 tiang batu bermerlon, balok lintel, 2 daun pintu dua sisi, pita besi, atap sirap | 1 |
+| `well` | kerb batu 8 sisi (cincin luar + dalam + bibir), penutup batu, air gelap, 2 tiang, palang, atap jerami, timba, tali | 1 |
+| `dock` | geladak papan, 8 tiang pancang sampai 1,6 m di bawah air, 3 bollard, tali, cleat besi, peti | 1 |
+| `sign` | tiang, papan dua sisi, palang | 2 (bertopi / tidak) |
+| `torch` | tiang, keranjang besi, nyala dua bidang bersilang (4 bingkai animasi di dalam selnya) | 1 |
+
+Fondasi menjulur **1,1 m ke bawah tanah** di setiap bangunan, jadi tidak pernah
+ada celah di bawah dinding di lereng.
+
+### 22.4 Menaruh di peta: kaki di sudut terendah, bukan di rata-rata
+
+`RegionView._place_buildings()` menaruh satu MultiMesh per (jenis, varian) untuk
+seluruh region, sama seperti prop. Tiga keputusan penting:
+
+1. **Ketinggian = sudut terendah tapak.** Menara penjaga berdiri di tepi tangga
+   setinggi 1,8 m; kalau bangunan diletakkan di ketinggian rata-rata ubin, satu
+   sudutnya melayang dan sudut lainnya terbenam. Empat sudut tapak (setelah
+   rotasi dan skala) dicuplik lewat `height_at`, diambil yang terendah, dan sisa
+   lereng ditutup fondasi. `BuildingTest` menuntut kaki **tidak pernah** di atas
+   tanah dan tidak lebih dari 3,2 m di bawahnya.
+2. **Menghadap pusat zona.** Pintu rumah menghadap pusat zona terkecil yang
+   memuatnya (pusat desa, halaman menara, mulut pos), jadi orang yang berjalan
+   mendekat melihat pintu, bukan dinding belakang.
+3. **Warna per instance, pudar per instance.** Warna dinding (krem, okher, kelabu
+   dingin) masuk lewat warna instance, dan pemudaran occlusion lewat *custom
+   data* instance — karena itulah MultiMesh yang sama bisa memuat seluruh desa
+   dan setiap rumah tetap bisa memudar sendiri saat kamera melewatinya.
+
+Kontrak tabrakan **tidak berubah**: `RegionData.blocker_radius`
+(cottage 2,0 / tower 2,4 / gate 2,2 / well 0,9) dan `building_kit.json`
+menyebut angka yang sama, dan `BuildingTest` gagal kalau salah satunya bergeser.
+Rumah mengambil ruang yang sama di 3D seperti saat masih sprite, jadi berjalan
+menembus desa terasa sama.
+
+**Batas yang jujur dicatat:** tabrakan itu sebuah **lingkaran di titik ubin**,
+dan angkanya lebih kecil daripada bangunannya — rumah selebar 6,4 m (7,8 m
+dengan serambi) tetap hanya mengambil 2,0 m. Jadi ksatria bisa masuk ke sudut
+dinding dan serambi. Ini **bukan kemunduran langkah 3B**: sprite rumah selebar
+5,6 m sejak langkah 2 pun memakai lingkaran 2,0 m yang sama persis. Yang berubah
+sekarang hanya bahwa model 3D punya sudut yang kelihatan, jadi batas itu terlihat.
+Memperbaikinya berarti mengubah kontrak tabrakan (kotak per bangunan, bukan
+lingkaran), dan itu keputusan pemilik — dicatat sebagai kandidat langkah
+berikutnya, bukan dikerjakan diam-diam di sini.
+
+### 22.5 Yang tetap bukan mesh (dan kenapa)
+
+Pagar, dinding batu, gerbang peta, tangga, dan jembatan **sudah** geometri 3D
+sejak langkah 2: semuanya dibangun `RegionMesh` dari grid struktur (`S_FENCE`,
+`S_WALL`, `S_GATE`, tangga), jadi langkah 3B tidak menggandakannya. Yang diganti
+hanya prop dekorasi: `cottage`, `tower`, `gate`, `well`, `dock`, `sign`, `torch`.
+Pohon, batu, semak, bunga, alang-alang, dan tunggul tetap billboard — hutan itu
+dilukis sebagai sprite, dan mesh pinus akan menghilangkan lukisan itu.
+
+Sprite lama masih ada di `prop_atlas.png` (selnya tidak dihapus supaya tangkapan
+dan alat lama tidak pecah), tetapi `RegionView` melewatinya: `BuildingTest`
+memastikan tidak ada satu pun bangunan yang digambar dua kali.
+
+### 22.6 Angka
+
+| Hal | Nilai |
+| --- | --- |
+| Atlas bangunan | 512×512, 16 sel, **125.739 B** (grain 2×2 piksel: per-piksel membuat PNG 274 KB untuk beda yang tak terlihat) |
+| Mesh desa | 10 mesh, 22 instance |
+| Segitiga | rumah ±250, menara ±390, seluruh desa **di bawah 3.200** |
+| Draw call | +10 (satu per jenis×varian) untuk seluruh desa |
+| Bayangan | rumah **menghasilkan** bayangan (pertama kali di lembah ini); tanah dan prop tetap tidak |
+
+### 22.7 Yang belum bisa diverifikasi di sini
+
+- Tampilan sebenarnya di GPU HP (Mali/Adreno): di CI memakai Mesa software.
+- Rasa 30 FPS di preset Rendah dengan desa 3D penuh — yang bisa dibuktikan di
+  sini hanya anggaran segitiga, jumlah draw call, dan LOD jarak.
+- Pemilihan angka pitch/FOV masih menunggu pemilik (langkah 3A); bangunan ini
+  dibangun untuk lensa 30°/32° yang sekarang ada di `camera.json`.

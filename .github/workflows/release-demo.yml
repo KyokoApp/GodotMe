@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.9.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.10.0' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,6 +70,14 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
+              "Rumah, menara, gerbang, sumur, dermaga, papan petunjuk dan obor di desa kini MODEL 3D low-poly bertekstur piksel (filter Nearest), bukan lagi sprite yang selalu menghadap kamera.",
+              "Semua bangunan dirakit dari satu kit modular: fondasi batu, dinding plester berangka kayu, tiang sudut, pintu, jendela, atap jerami atau sirap, cerobong, tangga, tiang, pagar, papan, obor, atap kerucut menara, dan merlon.",
+              "Jendela menyala saat malam mengikuti lampu desa, dan nyala obor beranimasi empat bingkai.",
+              "Bangunan menghadap pusat desa, berdiri di sudut terendah tapaknya (tidak melayang di lereng) dengan fondasi 1,1 m ke dalam tanah, dan kini benar-benar melepas bayangan.",
+              "Tiga varian rumah dan dua varian menara, dirakit dari data: mengubah kit mengubah seluruh desa tanpa satu model pun diekspor.",
+              "Kontrak tabrakan tidak berubah: rumah, menara, gerbang dan sumur mengambil ruang yang sama seperti sebelumnya.",
+              "Bila bangunan menghalangi kamera, ia memudar dengan dither seperti pohon; detail kecil (pintu, papan, pita besi) dibuang di luar 120 m supaya ringan di HP.",
+              "Paket yang berubah: world.pck (atlas bangunan + kit + shader + RegionView). Paket lain tidak diunduh ulang, APK tetap.",
               "Kamera kini miring seperti Octopath: pitch 30 derajat, FOV 32, jarak tetap 18 m, semuanya dari satu berkas game/world/camera.json.",
               "Zoom hilang sepenuhnya. Penyebab kamera yang zoom sendiri: penangan sentuhan lama menganggap DUA jari di layar (stik + tombol aksi) sebagai pinch. Sekarang rig tidak punya penangan input sama sekali.",
               "Kamera mengikuti dengan spring kritis: tanpa overshoot, sama pada 30 maupun 60 fps, dead zone 32 cm, dan titik bidik 1,7 m di depan ksatria.",

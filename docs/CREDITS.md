@@ -101,3 +101,24 @@ secara prosedural dan deterministik, lalu disimpan sebagai PNG:
 
 Tidak ada sprite karakter baru di langkah ini: karakter tetap dari paket yang
 sudah ada, dan tidak ada karakter yang digambar lewat kode.
+
+## Aset bangunan langkah 3B (0.10.0)
+
+Bangunan di Yaros kini model 3D low-poly, dan **tidak ada satu model, tekstur,
+atau mesh pun yang diambil dari pihak ketiga**. Semuanya dirakit sendiri:
+
+| aset | sumber | lisensi |
+| --- | --- | --- |
+| `game/world/textures/building_atlas.png` (16 sel 128×128) | `tools/gen_building_kit.py` — dilukis per piksel oleh skrip, seed tetap, deterministik | **CC0** — karya pemilik proyek |
+| `game/world/building_kit.json` (nama sel, ukuran meter, jenis, radius tabrakan) | ditulis skrip yang sama | CC0 |
+| Mesh rumah, menara, gerbang, sumur, dermaga, papan, obor | `game/world/BuildingKit.gd` — dirakit dari primitif (kotak, atap pelana, cincin 8 sisi) saat region dimuat | CC0 |
+| `game/world/building.gdshader` | karya sendiri | CC0 |
+
+Kenapa CC0 dan bukan CC-BY: tidak ada karya orang lain di dalamnya, jadi tidak
+ada yang perlu diatribusikan. Palet dan gaya mengikuti tekstur dunia langkah 2
+yang juga CC0, supaya seluruh lembah satu tangan.
+
+Alasannya tekstur ini dibuat prosedural, bukan dari model gambar AI seperti aset
+dunia Fase 2: sebuah atlas harus **bisa diulang (tileable)** dan ukurannya harus
+tepat dalam meter (satu sel dinding = 2 m), dan dua hal itu tidak bisa dijamin
+dari gambar hasil model. Skrip juga membuat perubahan bisa ditinjau di PR.

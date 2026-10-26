@@ -379,3 +379,34 @@ Tangkapan layar baru (job `screenshots`): `47_kamera_desa` (lensa default),
 `48_kamera_halangan` (ksatria di belakang pohon), dan
 `docs/screenshots/camera/sudut_kamera.png` — grid 6 pitch × 3 FOV berlabel, dengan
 rekomendasi P30 F32 ditandai dan nilai lama P38 F30 ditandai terpisah.
+
+## Langkah 3B — bangunan 3D (0.10.0)
+
+Uji baru: `game/tests/BuildingTest.tscn` (aturan, headless) dan
+`tools/kit_audit.py` (pemeriksaan manifest tanpa Godot). Job CI baru:
+**Building rules**; tangkapan layar masuk job `screenshots`.
+
+| # | Yang diuji | Cara | Lulus bila |
+| --- | --- | --- | --- |
+| B1 | Atlas dan manifest | `kit_audit.py` + `BuildingTest._test_manifest()` | 16 sel bernama unik, UV = rect/atlas, semua sel yang dipakai kode ada, PNG di disk seukuran yang dicatat |
+| B2 | Sel benar-benar terisi | baca PNG sebagai byte mentah (bukan impor sRGB), potong tiap sel | tidak ada sel kosong atau satu warna |
+| B3 | Mesh utuh | setiap jenis × varian: verteks/normal/UV2/warna sejajar, indeks di dalam batas, tidak ada NaN | semua varian terbangun, satu permukaan, satu bahan |
+| B4 | Sel yang dipanggil kode ada di atlas | setiap `UV2` verteks harus sama dengan salah satu titik asal sel | 0 verteks menunjuk sel tak dikenal (menangkap salah ketik nama sel) |
+| B5 | Varian benar-benar berbeda | bandingkan jumlah segitiga + tinggi tiap varian | rumah 3 bentuk, menara 2, papan 2 |
+| B6 | Anggaran ponsel | jumlahkan segitiga seluruh 22 bangunan desa dari mesh sebenarnya | ≤ 16.000 segitiga desa, ≤ 900 per bangunan, ≤ 1.400 verteks per bangunan |
+| B7 | Berdiri di tanah | `RegionView.building_layout()` vs `RegionData.height_at()` | kaki bangunan **tidak pernah** di atas tanah, tidak > 3,2 m di bawahnya |
+| B8 | Kontrak tabrakan | `building.layout[row][7]` vs `RegionData.blocker_radius()` | sama untuk rumah, menara, gerbang, sumur (2,0 / 2,4 / 2,2 / 0,9) |
+| B9 | Tidak ada bangunan ganda | `prop_layout()` tidak boleh memuat jenis bangunan | 0 baris; `stats().buildings` ≥ 20 |
+| B10 | Occlusion ikut bangunan | `occluders_for()` dengan kamera di depan menara, ksatria di belakangnya | minimal satu kunci `b:…` memudar 0,24–1,0 |
+
+Tangkapan layar baru (job `screenshots`), semuanya dari tahap uji yang
+menjejarkan seluruh kit di satu landasan:
+
+| Berkas | Isi |
+| --- | --- |
+| `docs/screenshots/bangunan/50_bangunan_{depan,kanan,belakang,kiri}_{siang,malam}.png` | 4 sisi × 2 fase, 640×360 |
+| `docs/screenshots/bangunan/kit_bangunan.png` | kontak sheet 4×2 berlabel, disusun `tools/building_sheet.py` |
+
+Yang **tidak** dibuktikan di sini: 30 FPS di GPU HP, dan apakah komposisi
+desanya enak dilihat. Yang pertama diukur lewat jurnal `[PERF]` di perangkat,
+yang kedua lewat tangkapan di atas.

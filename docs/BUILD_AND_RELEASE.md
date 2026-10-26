@@ -687,3 +687,49 @@ occlusion) tinggal di `game/world/camera.json`, bukan di kode. Berkas itu masuk
 `world.pck`, jadi mengubah sudut pandang cukup dengan mengubah JSON itu lalu
 merilis ulang paket world (launcher mengunduh ±750 KB, APK tidak berubah).
 `CameraTest` gagal bila angka di layar dan angka di berkas tidak sama.
+
+## Langkah 3B — bangunan 3D (0.10.0)
+
+### Menjalankan penyusun dan gerbangnya
+
+```
+python3 tools/gen_building_kit.py     # building_atlas.png + building_kit.json
+python3 tools/kit_audit.py            # manifest vs atlas vs kode (gagal = jangan rilis)
+python3 tools/pack_audit.py           # tidak ada aset mati di enam paket
+python3 tools/building_sheet.py --dir docs/screenshots/bangunan \
+        --out docs/screenshots/bangunan/kit_bangunan.png
+```
+
+Mesh bangunan **tidak** punya langkah produksi: `BuildingKit.gd` merakitnya saat
+region dimuat dan menyimpannya di cache statis, jadi tidak ada `.glb` atau `.res`
+yang bisa ketinggalan versi (lihat `DESIGN_NOTES.md` §22.1). Yang wajib
+dijalankan hanya pembuat atlas, dan `kit_audit.py` menolak atlas yang tidak cocok
+dengan manifest atau dengan nama sel yang dipakai kode.
+
+### Isi `world.pck` setelah langkah 3B
+
+| berkas | ukuran |
+| --- | --- |
+| `regions/yaros.json` | 197,4 KB |
+| `textures/prop_atlas.png` | 225 KB (14 prop; sel bangunan tidak lagi digambar) |
+| `textures/terrain_atlas.png` | 144 KB |
+| `textures/building_atlas.png` | **126 KB** (16 sel) |
+| `textures/water_tile.png` + 4 tekstur atmosfer | 18 KB + 7 KB |
+| `building_kit.json` + `prop_atlas.json` | ±2 KB |
+| 11 skrip + 4 shader | ±140 KB |
+| **total paket dunia (isi mentah)** | **1,08 MB** |
+
+`pack_audit.py` mencetak barisnya setiap push; paket world naik ±370 KB dari
+0.9.0, dan itulah harga mengganti seluruh rumah sprite dengan model 3D. APK
+tidak berubah ukurannya (paket diunduh terpisah oleh peluncur).
+
+### Rilis 0.10.0
+
+1. `python3 tools/kit_audit.py` mencetak `kit sah`.
+2. CI **Building rules** hijau (tabel B1–B10 di `TEST_PLAN.md`), dan job
+   `screenshots` menghasilkan `docs/screenshots/bangunan/kit_bangunan.png`.
+3. Ubah `RELEASE_DEMO` untuk memicu `release-demo` (versi 0.10.0).
+4. Di peluncur HP: **Periksa Lagi** → hanya `world.pck` yang berubah, jadi
+   unduhannya ±1,1 MB dan APK tidak perlu diganti.
+5. Di HP, `adb logcat | grep -E "PERF|BUILDING|REGION"` untuk fps dan jumlah
+   segitiga; preset Rendah harus tetap 30 FPS di desa.

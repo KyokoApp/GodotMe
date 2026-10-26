@@ -193,6 +193,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Building rules (3B - kit, atlas, footing, collision, occlusion)
+        # Headless: a screenshot shows a village that looks right, not that every
+        # cell name in the kit exists in the atlas, that a house stands on the
+        # lowest corner of its slope instead of floating over it, that a cottage
+        # is still one mesh and one material, or that the village fits a phone's
+        # triangle budget.
+        run: |
+          set -o pipefail
+          set +e
+          : > /tmp/building.log
+          python3 tools/kit_audit.py 2>&1 | tee -a /tmp/building.log
+          kit_code=${PIPESTATUS[0]}
+          godot --headless --path game res://game/tests/BuildingTest.tscn 2>&1 | tee -a /tmp/building.log
+          build_code=${PIPESTATUS[0]}
+          code=$(( kit_code + build_code ))
+          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### building rules (exit $code)"; echo '```'; tail -c 30000 /tmp/building.log; echo '```'; } > /tmp/building.md
+            gh pr comment "$PR" --body-file /tmp/building.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Region rules (Yaros - reachability, seams, streaming, travel)
         # Headless: a screenshot proves the region looks finished, not that the
         # mountain gate is reachable, that no terrace is a trap, that two chunks
@@ -463,6 +487,28 @@ jobs:
             -- --hud=occlusion --phase=sore \
             --capture="$GITHUB_WORKSPACE/docs/screenshots" \
             --capture-name=48_kamera_halangan 2>&1 | tee -a /tmp/capture.log | tail -8
+
+          # --- step 3B: the building kit, four sides x day/night. The stage in
+          # --- BuildingTest puts every kind on one plinth, so the shots are of
+          # --- the kit and not of whatever happens to be behind it.
+          mkdir -p "$GITHUB_WORKSPACE/docs/screenshots/bangunan"
+          for phase in siang malam; do
+            for side in depan kanan belakang kiri; do
+              xvfb-run -a -s "-screen 0 640x360x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+                "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 640x360 \
+                res://game/tests/BuildingTest.tscn -- \
+                --view="$side" --time="$phase" \
+                --capture="$GITHUB_WORKSPACE/docs/screenshots/bangunan" \
+                --capture-name="50_bangunan_${side}_${phase}" \
+                2>&1 | tee -a /tmp/capture.log | tail -4
+            done
+          done
+          python3 -m venv /tmp/bsheetvenv >/dev/null
+          /tmp/bsheetvenv/bin/pip install --quiet pillow
+          /tmp/bsheetvenv/bin/python tools/building_sheet.py \
+            --dir "$GITHUB_WORKSPACE/docs/screenshots/bangunan" \
+            --out "$GITHUB_WORKSPACE/docs/screenshots/bangunan/kit_bangunan.png" \
+            2>&1 | tee -a /tmp/capture.log | tail -3
 
           # --- step 3A: pitch x FOV, the grid the owner picks the angle from.
           # --- 560x315 keeps eighteen shots small enough to live in the repo;
