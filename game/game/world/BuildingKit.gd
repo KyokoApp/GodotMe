@@ -444,7 +444,7 @@ static func _gate(b: Dictionary, cells: Dictionary, tint: Color) -> float:
 			cells.get("wall_stone", Vector2.ZERO), 2.0, tint)
 		# merlons on each pier
 		for k in range(2):
-			var cx := sx * 1.55 - 0.5 + float(k) * 0.55
+			var cx: float = sx * 1.55 - 0.5 + float(k) * 0.55
 			_box(b, Vector3(cx, h, -depth * 0.5), Vector3(cx + 0.3, h + 0.55, depth * 0.5),
 				cells.get("stone_pale", Vector2.ZERO), 1.2, tint)
 	# lintel beam across the opening

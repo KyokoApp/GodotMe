@@ -107,19 +107,19 @@ func _test_manifest() -> void:
 			bad.append("sel bukan objek")
 			continue
 		var c: Dictionary = raw
-		var name := String(c.get("name", ""))
-		if name == "" or seen.has(name):
-			bad.append("nama kosong/ganda: %s" % name)
+		var cell_name := String(c.get("name", ""))
+		if cell_name == "" or seen.has(cell_name):
+			bad.append("nama kosong/ganda: %s" % cell_name)
 			continue
-		seen[name] = true
+		seen[cell_name] = true
 		var uv: Array = c.get("uv", [])
 		var rect: Array = c.get("rect", [])
 		if uv.size() < 4 or rect.size() < 4:
-			bad.append("%s tanpa uv/rect" % name)
+			bad.append("%s tanpa uv/rect" % cell_name)
 			continue
 		if float(uv[0]) < 0.0 or float(uv[1]) < 0.0 \
 				or float(uv[0]) + float(uv[2]) > 1.001 or float(uv[1]) + float(uv[3]) > 1.001:
-			bad.append("%s keluar atlas" % name)
+			bad.append("%s keluar atlas" % cell_name)
 		if float(c.get("tile_m", 0.0)) > 0.0:
 			tile_ok += 1
 	_check(bad.is_empty(), "setiap sel punya nama, uv dan rect yang sah", str(bad))
@@ -127,9 +127,9 @@ func _test_manifest() -> void:
 	# asks for by name has to exist here, or a wall silently disappears
 	var required: Array = KIT_SCRIPT.required_cells()
 	var missing: Array = []
-	for name in required:
-		if not seen.has(String(name)):
-			missing.append(name)
+	for want in required:
+		if not seen.has(String(want)):
+			missing.append(want)
 	_check(missing.is_empty(), "semua sel yang dipakai kode ada di atlas", str(missing))
 	_check(tile_ok >= 8, "sel yang dipetakan berulang punya ukuran meter", str(tile_ok))
 	# kinds
