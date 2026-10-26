@@ -582,11 +582,11 @@ jobs:
           # --- BattleScene standing on the real region. 1280x720 so the interface
           # --- is readable in the PR; the arena is the field the fight started on.
           mkdir -p "$GITHUB_WORKSPACE/docs/screenshots/pertarungan"
-          for state in dunia sapu transisi awal menu kelemahan boost break damage fase2 hasil kalah; do
+          for state in dunia transisi awal menu kelemahan boost break damage fase2 hasil kalah; do
             # the world-only reference frame is a diagnostic, not a deliverable:
             # half resolution keeps it out of the repository's budget
             extra=""
-            case "$state" in dunia|sapu) extra="--capture-size=480x270";; esac
+            case "$state" in dunia) extra="--capture-size=480x270";; esac
             xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
               "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
               res://game/tests/BattleShot.tscn -- --state="$state" \
