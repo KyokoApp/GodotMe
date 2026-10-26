@@ -57,7 +57,7 @@ var awaiting_ready := false
 
 var _root: Control
 var _turn_bar: HBoxContainer
-var _marks: Dictionary = {}        ## uid -> Control (the plate above an enemy)
+var _marks: Dictionary = {}        ## uid -> {plate, name, pips, weak} above an enemy
 var _hit_boxes: Dictionary = {}    ## uid -> Button (tap an enemy)
 var _popups: Control
 var _log: Label
@@ -140,26 +140,26 @@ func _build() -> void:
 	var row1 := HBoxContainer.new()
 	row1.add_theme_constant_override("separation", 8)
 	_command_box.add_child(row1)
-	var attack := _kit().button("Serang", Vector2(150, 54))
+	var attack : Button = _kit().button("Serang", Vector2(150, 54))
 	attack.name = "Serang"
 	attack.pressed.connect(func() -> void: _emit({"kind": "attack"}))
 	row1.add_child(attack)
-	var skill := _kit().button("Skill", Vector2(118, 54))
+	var skill : Button = _kit().button("Skill", Vector2(118, 54))
 	skill.name = "Skill"
 	skill.pressed.connect(_open_skills)
 	row1.add_child(skill)
-	var item := _kit().button("Item", Vector2(112, 54))
+	var item : Button = _kit().button("Item", Vector2(112, 54))
 	item.name = "Item"
 	item.pressed.connect(_open_items)
 	row1.add_child(item)
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 8)
 	_command_box.add_child(row2)
-	var guard := _kit().button("Bertahan", Vector2(150, 48))
+	var guard : Button = _kit().button("Bertahan", Vector2(150, 48))
 	guard.name = "Bertahan"
 	guard.pressed.connect(func() -> void: _emit({"kind": "guard"}))
 	row2.add_child(guard)
-	var flee := _kit().button("Kabur", Vector2(120, 48))
+	var flee : Button = _kit().button("Kabur", Vector2(120, 48))
 	flee.name = "Kabur"
 	flee.pressed.connect(func() -> void: _emit({"kind": "flee"}))
 	row2.add_child(flee)
@@ -230,7 +230,7 @@ func _build_result() -> Control:
 	_result_label.add_theme_font_size_override("normal_font_size", 19)
 	_result_label.add_theme_color_override("default_color", INK)
 	box.add_child(_result_label)
-	var ok := _kit().button("Lanjut", Vector2(240, 56))
+	var ok : Button = _kit().button("Lanjut", Vector2(240, 56))
 	ok.name = "Lanjut"
 	ok.pressed.connect(func() -> void:
 		wrap.visible = false
@@ -261,9 +261,9 @@ func _refresh_turn_bar() -> void:
 	for raw in logic.call("turn_preview"):
 		var unit: Dictionary = raw
 		var chip := PanelContainer.new()
-		var sb := _kit().parchment(12, 8, 4)
+		var sb : StyleBoxTexture = _kit().parchment(12, 8, 4)
 		chip.add_theme_stylebox_override("panel", sb)
-		var label := _kit().label(String(unit["name"]).substr(0, 6), 13,
+		var label : Label = _kit().label(String(unit["name"]).substr(0, 6), 13,
 			INK if String(unit["side"]) == "ally" else Color(0.42, 0.12, 0.09))
 		chip.add_child(label)
 		if bool(unit["broken"]):
@@ -281,20 +281,28 @@ func _refresh_marks() -> void:
 			continue
 		var uid := int(unit["uid"])
 		seen[uid] = true
-		var plate: Control = _marks.get(uid, null)
-		if plate == null:
-			plate = _make_mark(unit)
-			_marks[uid] = plate
-			add_child(plate)
-		_update_mark(plate, unit)
+		var entry: Dictionary = _marks.get(uid, {})
+		if entry.is_empty():
+			entry = _make_mark(unit)
+			_marks[uid] = entry
+		_update_mark(entry, unit)
+		var plate: Control = entry["plate"]
 		plate.visible = bool(unit["alive"])
 	for uid in _marks.keys():
 		if not seen.has(uid):
-			(_marks[uid] as Control).queue_free()
+			var gone: Dictionary = _marks[uid]
+			(gone["plate"] as Control).queue_free()
 			_marks.erase(uid)
+			if _hit_boxes.has(uid):
+				(_hit_boxes[uid] as Button).queue_free()
+				_hit_boxes.erase(uid)
 
 
-func _make_mark(unit: Dictionary) -> Control:
+## The plate above one enemy: name, Shield pips, the "?" row - and, kept in the
+## same dictionary, the labels themselves. An earlier draft looked them up again
+## with `get_node()` on every refresh, which is both slower and a typed-assignment
+## trap (`get_node()` hands back a `Node`).
+func _make_mark(unit: Dictionary) -> Dictionary:
 	var plate := PanelContainer.new()
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.add_theme_stylebox_override("panel", _kit().parchment(12, 8, 4))
@@ -303,16 +311,13 @@ func _make_mark(unit: Dictionary) -> Control:
 	box.add_theme_constant_override("separation", 2)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.add_child(box)
-	var name_label := _kit().label(String(unit["name"]), 13, INK)
-	name_label.name = "Name"
+	var name_label: Label = _kit().label(String(unit["name"]), 13, INK)
 	box.add_child(name_label)
 	var pips := HBoxContainer.new()
-	pips.name = "Shield"
 	pips.add_theme_constant_override("separation", 3)
 	pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(pips)
 	var weak := HBoxContainer.new()
-	weak.name = "Weak"
 	weak.add_theme_constant_override("separation", 2)
 	weak.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(weak)
@@ -324,32 +329,33 @@ func _make_mark(unit: Dictionary) -> Control:
 	hit.custom_minimum_size = Vector2(96, 110)
 	hit.pressed.connect(func() -> void: select_target(int(unit["uid"])))
 	_hit_boxes[int(unit["uid"])] = hit
+	# both go straight onto the interface: the plate is a label, the button is the
+	# thing the thumb hits, and neither is a child of the other
+	add_child(plate)
 	add_child(hit)
-	return plate
+	return {"plate": plate, "name": name_label, "pips": pips, "weak": weak}
 
 
-func _update_mark(plate: Control, unit: Dictionary) -> void:
-	var box: VBoxContainer = plate.get_child(0)
-	var name_label: Label = box.get_node("Name")
+func _update_mark(entry: Dictionary, unit: Dictionary) -> void:
+	var name_label: Label = entry["name"]
 	name_label.text = String(unit["name"])
-	var pips: HBoxContainer = box.get_node("Shield")
+	var pips: HBoxContainer = entry["pips"]
 	for child in pips.get_children():
 		child.queue_free()
 	var shield := int(unit["shield"])
 	var shield_max := maxi(1, int(unit["shield_max"]))
-	if shield_max > 0:
-		for i in range(shield_max):
-			var pip := ColorRect.new()
-			pip.custom_minimum_size = Vector2(9, 9)
-			pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			if bool(unit["broken"]):
-				pip.color = Color(0.45, 0.38, 0.62)
-			elif i < shield:
-				pip.color = BRASS
-			else:
-				pip.color = Color(0.55, 0.48, 0.40, 0.35)
-			pips.add_child(pip)
-	var weak: HBoxContainer = box.get_node("Weak")
+	for i in range(shield_max):
+		var pip := ColorRect.new()
+		pip.custom_minimum_size = Vector2(9, 9)
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if bool(unit["broken"]):
+			pip.color = Color(0.45, 0.38, 0.62)
+		elif i < shield:
+			pip.color = BRASS
+		else:
+			pip.color = Color(0.55, 0.48, 0.40, 0.35)
+		pips.add_child(pip)
+	var weak: HBoxContainer = entry["weak"]
 	for child in weak.get_children():
 		child.queue_free()
 	# the "?" row: an icon appears only once the party has hit that weakness
@@ -359,13 +365,13 @@ func _update_mark(plate: Control, unit: Dictionary) -> void:
 	for tag in known:
 		if shown >= 4:
 			break
-		var icon := _kit().icon_rect(_icon_for(String(tag)), 18)
+		var icon: TextureRect = _kit().icon_rect(_icon_for(String(tag)), 18)
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		weak.add_child(icon)
 		shown += 1
 	var slot_count := maxi(3, (unit["weak"] as Array).size())
 	while shown < slot_count and shown < 4:
-		var q := _kit().label("?", 15, Color(0.35, 0.28, 0.22))
+		var q: Label = _kit().label("?", 15, Color(0.35, 0.28, 0.22))
 		q.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		weak.add_child(q)
 		shown += 1
@@ -390,7 +396,7 @@ func _refresh_party() -> void:
 		var unit: Dictionary = raw
 		var col := VBoxContainer.new()
 		col.add_theme_constant_override("separation", 2)
-		var title := _kit().label("%s  Lv %d" % [String(unit["name"]), int(logic.get("level"))], 15, INK)
+		var title : Label = _kit().label("%s  Lv %d" % [String(unit["name"]), int(logic.get("level"))], 15, INK)
 		col.add_child(title)
 		col.add_child(_bar(float(unit["hp"]) / maxf(1.0, float(unit["hp_max"])),
 			Color(0.55, 0.20, 0.16), "HP %d/%d" % [int(unit["hp"]), int(unit["hp_max"])]))
@@ -398,7 +404,7 @@ func _refresh_party() -> void:
 			Color(0.25, 0.35, 0.55), "SP %d/%d" % [int(unit["sp"]), int(unit["sp_max"])]))
 		var bp_row := HBoxContainer.new()
 		bp_row.add_theme_constant_override("separation", 3)
-		var bp_label := _kit().label("BP", 13, INK)
+		var bp_label : Label = _kit().label("BP", 13, INK)
 		bp_row.add_child(bp_label)
 		for i in range(int(logic.get("data").call("balance_int", "bp_max", 5))):
 			var pip := ColorRect.new()
@@ -420,7 +426,7 @@ func _bar(ratio: float, colour: Color, text: String) -> Control:
 	fill.color = colour
 	fill.size = Vector2(230.0 * clampf(ratio, 0.0, 1.0), 16)
 	wrap.add_child(fill)
-	var label := _kit().label(text, 12, CREAM)
+	var label : Label = _kit().label(text, 12, CREAM)
 	label.position = Vector2(6, -1)
 	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	label.add_theme_constant_override("outline_size", 3)
@@ -491,7 +497,7 @@ func _open_skills() -> void:
 		return
 	for child in _sub_box.get_children():
 		child.queue_free()
-	var title := _kit().label("Skill", 17, INK, true)
+	var title : Label = _kit().label("Skill", 17, INK, true)
 	_sub_box.add_child(title)
 	for raw in (awaiting.get("skills", []) as Array):
 		var sk: Dictionary = logic.get("data").call("skill", String(raw))
@@ -499,12 +505,12 @@ func _open_skills() -> void:
 			continue
 		var cost := int(sk.get("sp", 0))
 		var enough := int(awaiting["sp"]) >= cost
-		var b := _kit().button("%s  (%d SP)" % [String(sk.get("name", "")), cost], Vector2(300, 46), 16)
+		var b : Button = _kit().button("%s  (%d SP)" % [String(sk.get("name", "")), cost], Vector2(300, 46), 16)
 		b.disabled = not enough
 		var id := String(sk.get("id", ""))
 		b.pressed.connect(func() -> void: _emit({"kind": "skill", "id": id}))
 		_sub_box.add_child(b)
-	var back := _kit().chip("Tutup", Vector2(120, 42))
+	var back : Button = _kit().chip("Tutup", Vector2(120, 42))
 	back.pressed.connect(func() -> void: _sub.visible = false)
 	_sub_box.add_child(back)
 	_sub.visible = true
@@ -528,11 +534,11 @@ func _open_items() -> void:
 		var count := int(inventory.get(id, 0))
 		if count <= 0:
 			continue
-		var b := _kit().button("%s  x%d" % [String(item.get("name", id)), count], Vector2(300, 46), 16)
+		var b : Button = _kit().button("%s  x%d" % [String(item.get("name", id)), count], Vector2(300, 46), 16)
 		b.disabled = count <= 0
 		b.pressed.connect(func() -> void: _emit({"kind": "item", "id": id}))
 		_sub_box.add_child(b)
-	var back := _kit().chip("Tutup", Vector2(120, 42))
+	var back : Button = _kit().chip("Tutup", Vector2(120, 42))
 	back.pressed.connect(func() -> void: _sub.visible = false)
 	_sub_box.add_child(back)
 	_sub.visible = true
@@ -554,7 +560,7 @@ func _toggle_auto() -> void:
 func float_text(screen_pos: Vector2, text: String, colour: Color, big: bool = false) -> void:
 	if _popups == null:
 		return
-	var label := _kit().label(text, 30 if big else 22, colour, big)
+	var label : Label = _kit().label(text, 30 if big else 22, colour, big)
 	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	label.add_theme_constant_override("outline_size", 5)
 	label.position = screen_pos + Vector2(-24, -16)
@@ -605,7 +611,7 @@ func _refresh_grid() -> void:
 	for label_text in ["Senjata", "Elemen"]:
 		var row_box := HBoxContainer.new()
 		row_box.add_theme_constant_override("separation", 4)
-		var tag_label := _kit().label(label_text, 12, INK)
+		var tag_label : Label = _kit().label(label_text, 12, INK)
 		tag_label.custom_minimum_size = Vector2(64, 20)
 		row_box.add_child(tag_label)
 		var tags: Array = data.get("weapons") if label_text == "Senjata" else data.get("elements")
@@ -615,7 +621,7 @@ func _refresh_grid() -> void:
 				row_box.add_child(_kit().icon_rect(_icon_for(id), 20))
 			else:
 				var tried := _tried(id)
-				var q := _kit().label("?" if not tried else "·", 15,
+				var q : Label = _kit().label("?" if not tried else "·", 15,
 					Color(0.35, 0.28, 0.22) if not tried else Color(0.55, 0.20, 0.15))
 				q.custom_minimum_size = Vector2(20, 20)
 				row_box.add_child(q)
@@ -638,13 +644,14 @@ func tick_display() -> void:
 	for raw in logic.get("units"):
 		var unit: Dictionary = raw
 		var uid := int(unit["uid"])
-		var plate: Control = _marks.get(uid, null)
+		var entry: Dictionary = _marks.get(uid, {})
 		var hit: Button = _hit_boxes.get(uid, null)
 		var screen := Vector2.ZERO
 		if view.has_method("unit_screen"):
 			screen = view.call("unit_screen", uid)
 		var on_screen := screen != Vector2.ZERO and bool(unit["alive"])
-		if plate != null:
+		if not entry.is_empty():
+			var plate: Control = entry["plate"]
 			plate.visible = on_screen
 			if on_screen:
 				plate.position = screen - Vector2(plate.size.x * 0.5, 0.0)
@@ -682,7 +689,8 @@ func show_result(summary: Dictionary) -> void:
 	_sub.visible = false
 	_command.visible = false
 	for uid in _marks.keys():
-		(_marks[uid] as Control).visible = false
+		var entry: Dictionary = _marks[uid]
+		(entry["plate"] as Control).visible = false
 	for uid in _hit_boxes.keys():
 		(_hit_boxes[uid] as Button).visible = false
 	_result.visible = true
