@@ -315,6 +315,103 @@ func _reach(state: String) -> void:
 			_probe_box()
 			await _wait(0.3)
 			return
+		"tinggi":
+			# Map the dead zone: the same aim from several camera heights and
+			# distances. One run, six numbers, and the shot itself at the last one.
+			await _ready_battle()
+			var region: Variant = world.call("region")
+			var at: Vector2 = centre()
+			var ground := 0.0
+			if region != null:
+				ground = float(region.call("height_at", at))
+				var rows: Array = []
+				for dz in [-8, -4, 0, 4, 8, 12]:
+					for dx in [-8, 0, 8]:
+						rows.append("%d,%d=%.1f" % [dx, dz,
+							float(region.call("height_at", at + Vector2(dx, dz)))])
+				print("[PROBE] tinggi tanah sekitar arena: %s" % ", ".join(rows))
+			print("[PROBE] tanah di pusat = %.2f m" % ground)
+			var trials: Array = [
+				[4.0, 12.6], [6.0, 12.6], [8.4, 12.6], [8.4, 8.0], [8.4, 5.0], [5.0, 6.0],
+			]
+			var cam := _battle_camera()
+			for t in trials:
+				var row: Array = t
+				cam.global_position = Vector3(at.x + 1.2, ground + float(row[0]), at.y + float(row[1]))
+				cam.rotation_degrees = _aim_degrees(cam.global_position,
+					Vector3(at.x, ground + 1.5, at.y - 0.6))
+				await _count("y=+%.1f z=+%.1f" % [row[0], row[1]])
+			return
+		"transisi":
+			# mid-shatter. The wipe tween is running, so the honest way to catch it
+			# is to stand still and let it pass: 0.25 s into a 0.55 s shatter is a
+			# real frame of the real transition, not a hand-set uniform fighting
+			# the tween back on the next frame.
+			await _wait(0.25)
+			return
+		"awal":
+			await _ready_battle()
+			return
+		"menu":
+			await _ready_battle()
+			_ui().call("select_target", int(_foe(1)["uid"]))
+			_ui().call("refresh")
+			return
+		"kelemahan":
+			await _ready_battle()
+			# two known weaknesses on the leader and one on a soldier: the "?" row
+			var observed: Dictionary = _logic().get("observed")
+			observed["orc_pemimpin"] = ["tombak", "es"]
+			observed["orc_prajurit"] = ["tombak", "api"]
+			_ui().call("select_target", int(_foe(3)["uid"]))
+			_ui().call("refresh")
+			return
+		"boost":
+			await _ready_battle()
+			_logic().set("awaiting", (_logic().get("allies") as Array)[0])
+			_ui().call("_cycle_boost")
+			_ui().call("_cycle_boost")
+			_ui().call("refresh")
+			return
+		"break":
+			await _ready_battle()
+			var foe := _foe(0)
+			foe["shield"] = 1
+			_trigger_attack(int(foe["uid"]))
+			await _wait(0.75)
+			return
+		"damage":
+			await _ready_battle()
+			_trigger_attack(int(_foe(1)["uid"]))
+			await _wait(0.42)
+			return
+		"fase2":
+			await _ready_battle()
+			var boss := _foe(3)
+			boss["hp"] = int(float(boss["hp_max"]) * 0.5) + 4
+			_trigger_attack(int(boss["uid"]))
+			await _wait(1.5)
+			return
+		"hasil":
+			await _ready_battle()
+			for raw in (_logic().get("foes") as Array):
+				var foe: Dictionary = raw
+				foe["hp"] = 0
+				foe["alive"] = false
+			_logic().set("finished", true)
+			_logic().set("result", "win")
+			battle.call("_finish")
+			await _wait(0.7)
+			return
+		"kamera":
+			# Is ANY 3D drawn under the battle camera? A bright box three metres
+			# over the arena answers that in one frame: if the box shows and the
+			# world does not, the fault is the world's materials; if nothing
+			# shows, the fault is the camera or the 3D pass itself.
+			await _ready_battle()
+			_probe_box()
+			await _wait(0.3)
+			return
 		"hitung":
 			# How much geometry is the GPU actually drawing? Draw calls and
 			# primitives per frame tell "culled" and "covered" apart, which no
@@ -777,6 +874,12 @@ func _paint_ground() -> void:
 			mi.extra_cull_margin = 400.0
 			n += 1
 	print("[PROBE] %d mesh tanah dicat hijau" % n)
+
+
+func _aim_degrees(from: Vector3, to: Vector3) -> Vector3:
+	var d := (to - from).normalized()
+	return Vector3(rad_to_deg(asin(clampf(d.y, -1.0, 1.0))),
+		rad_to_deg(atan2(-d.x, -d.z)), 0.0)
 
 
 func centre() -> Vector2:
