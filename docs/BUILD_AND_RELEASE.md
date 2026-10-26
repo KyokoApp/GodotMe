@@ -713,15 +713,17 @@ dengan manifest atau dengan nama sel yang dipakai kode.
 | `regions/yaros.json` | 197,4 KB |
 | `textures/prop_atlas.png` | 225 KB (14 prop; sel bangunan tidak lagi digambar) |
 | `textures/terrain_atlas.png` | 144 KB |
-| `textures/building_atlas.png` | **126 KB** (16 sel) |
+| `textures/building_atlas.png` | **121 KB** (16 sel; 123.393 B) |
 | `textures/water_tile.png` + 4 tekstur atmosfer | 18 KB + 7 KB |
 | `building_kit.json` + `prop_atlas.json` | ±2 KB |
 | 11 skrip + 4 shader | ±140 KB |
-| **total paket dunia (isi mentah)** | **1,08 MB** |
+| **total paket dunia (isi mentah)** | **907 KB** (`pack_audit`: 928.680 B, 32 berkas) |
 
-`pack_audit.py` mencetak barisnya setiap push; paket world naik ±370 KB dari
-0.9.0, dan itulah harga mengganti seluruh rumah sprite dengan model 3D. APK
-tidak berubah ukurannya (paket diunduh terpisah oleh peluncur).
+`pack_audit.py` mencetak barisnya setiap push. Dibanding 0.9.0 paket world naik
+±180 KB (atlas bangunan 123 KB, manifest kit 6 KB, satu shader, tiga skrip), dan
+itu harga mengganti seluruh rumah sprite dengan model 3D. APK tidak berubah
+ukurannya (paket diunduh terpisah oleh peluncur). Total enam paket:
+**1.270.793 B (1.241 KB)**, 0 galat, 0 peringatan.
 
 ### Rilis 0.10.0
 

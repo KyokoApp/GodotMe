@@ -535,7 +535,7 @@ func _build_stage(night: bool) -> void:
 	# linear values, not screen values: the renderer encodes them to sRGB on the
 	# way out, so a "sky blue" typed as 0.44 arrives almost white in the PNG (the
 	# first run of this stage captured exactly that)
-	env.background_color = Color(0.012, 0.018, 0.036) if night else Color(0.13, 0.21, 0.36)
+	env.background_color = Color(0.030, 0.045, 0.090) if night else Color(0.13, 0.21, 0.36)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.36, 0.42, 0.58) if night else Color(1.0, 0.97, 0.92)
 	env.ambient_light_energy = 0.30 if night else 0.62

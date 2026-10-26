@@ -106,9 +106,18 @@ void fragment() {
 		discard;
 	}
 
-	ALBEDO = tex.rgb * COLOR.rgb * light_tint * albedo_gain;
-	// windows: barely lit at noon, clearly lit at night; the flame is always hot
-	float warm = v_glow * (0.25 + 0.95 * night);
+	vec3 base = tex.rgb * COLOR.rgb * light_tint * albedo_gain;
+	// A pane of glass in daylight is a dark, cool hole in the wall - not a lamp.
+	// The first capture of step 3B showed every window on the village as a
+	// bright yellow lamp at noon, because the cell is painted warm and only the
+	// EMISSION was being faded. The ALBEDO has to go dark as well.
+	if (v_glow > 0.5 && !flame) {
+		vec3 daylight_glass = vec3(0.055, 0.068, 0.09) + tex.rgb * 0.07;
+		base = mix(daylight_glass, base, clamp(night * 1.6, 0.0, 1.0));
+	}
+	ALBEDO = base;
+	// windows: dark at noon, clearly lit at night; the flame is always hot
+	float warm = v_glow * (0.02 + 1.05 * night);
 	if (flame) {
 		warm = 1.0;
 	}
