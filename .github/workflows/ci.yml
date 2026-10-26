@@ -59,6 +59,15 @@ jobs:
           if grep -qE "Parse Error|Failed to parse" /tmp/lint.log; then
             echo "LINT FAILED: parse error in a GDScript file"
             grep -nE "Parse Error|Failed to parse" /tmp/lint.log
+            # Annotations are also the only part of this log that can be read
+            # back from the API: the full job log lives on blob storage, which a
+            # phone (and the sandbox) cannot always reach.
+            n=0
+            while IFS= read -r line; do
+              n=$((n + 1))
+              [ "$n" -gt 25 ] && break
+              echo "::error::${line}"
+            done < <(grep -E "Parse Error|Failed to parse" /tmp/lint.log | head -25)
             LINT_FAILED=1
           fi
           if [ "${DUP_FAILED:-0}" -ne 0 ]; then
