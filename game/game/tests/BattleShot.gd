@@ -378,106 +378,54 @@ func _camera_trials() -> void:
 	if battle_cam == null:
 		print("[PROBE] kamera pertarungan tidak ada")
 		return
+	var at := Vector3(centre().x, 0.0, centre().y)
 	print("[PROBE] battle visible_in_tree=%s parent_visible=%s world_3d=%s vp_world_3d=%s" % [
 		str(battle_cam.is_visible_in_tree()),
 		str((battle_cam.get_parent() as Node3D).is_visible_in_tree()),
 		str(battle_cam.get_world_3d().get_rid()), str(get_viewport().world_3d.get_rid())])
-	var basis := battle_cam.global_transform.basis
-	print("[PROBE] battle det=%.4f skala=%s near=%.2f far=%.1f keep_aspect=%d attrs=%s env=%s" % [
-		basis.determinant(), str(battle_cam.scale), battle_cam.near, battle_cam.far,
-		battle_cam.keep_aspect, str(battle_cam.attributes), str(battle_cam.environment)])
-	# A: the battle's own camera, as it is
+	print("[PROBE] battle pos=%s fov=%.1f near=%.2f far=%.1f pusat=%s" % [
+		str(battle_cam.global_position.round()), battle_cam.fov, battle_cam.near,
+		battle_cam.far, str(at.round())])
 	await _coverage("A battle apa adanya", battle_cam)
-	# B: the world's camera, untouched
 	if world_cam != null:
 		await _coverage("B kamera dunia", world_cam)
-	# C: a brand new camera at the battle camera's transform, on this node
-	var fresh := Camera3D.new()
-	fresh.name = "FreshCam"
-	fresh.fov = battle_cam.fov
-	fresh.near = battle_cam.near
-	fresh.far = battle_cam.far
-	add_child(fresh)
-	fresh.global_transform = battle_cam.global_transform
-	await _coverage("C kamera baru di akar", fresh)
-	fresh.queue_free()
-	await get_tree().process_frame
-	# D: the battle camera with its properties re-stated
-	battle_cam.projection = Camera3D.PROJECTION_PERSPECTIVE
-	battle_cam.keep_aspect = Camera3D.KEEP_HEIGHT
-	battle_cam.cull_mask = 0xFFFFF
-	battle_cam.current = true
-	await _coverage("D battle di-set ulang", battle_cam)
-	# E: the battle camera, unhidden by force
-	var arena: Node3D = battle.get("view")
-	if arena != null:
-		arena.visible = true
-		battle_cam.visible = true
-	await _coverage("E battle visible dipaksa", battle_cam)
-	# F: a fresh camera at the WORLD camera's transform: the control. If this one
-	# draws and C did not, the transform is the difference, not the object.
-	if world_cam != null:
-		var copy := Camera3D.new()
-		copy.name = "CopyCam"
-		copy.fov = world_cam.fov
-		copy.near = world_cam.near
-		copy.far = world_cam.far
-		add_child(copy)
-		copy.global_transform = world_cam.global_transform
-		await _coverage("F kamera baru, transform dunia", copy)
-		copy.queue_free()
+	# Where exactly does it break? Same aim, several positions along the line the
+	# battle lens sits on, plus the world camera's own spot.
+	var spots: Array = [
+		["battle 46,8,170", Vector3(46.0, 8.0, 170.0)],
+		["dunia   42,9,165", Vector3(42.0, 9.0, 165.0)],
+		["tinggi  46,14,170", Vector3(46.0, 14.0, 170.0)],
+		["rendah  46,4,170", Vector3(46.0, 4.0, 170.0)],
+		["dekat   44,8,164", Vector3(44.0, 8.0, 164.0)],
+		["belakang 46,8,178", Vector3(46.0, 8.0, 178.0)],
+	]
+	for entry in spots:
+		var row: Array = entry
+		var probe := Camera3D.new()
+		probe.name = "Probe"
+		probe.fov = battle_cam.fov
+		probe.near = battle_cam.near
+		probe.far = battle_cam.far
+		add_child(probe)
+		probe.global_position = row[1]
+		probe.look_at(at, Vector3.UP)
+		await _coverage(String(row[0]), probe)
+		probe.queue_free()
 		await get_tree().process_frame
-	# G: the battle camera's POSITION, but rotated straight down by hand. If the
-	# ground appears, the position is fine and the rotation is the whole problem.
-	var down := Camera3D.new()
-	down.name = "DownCam"
-	down.fov = battle_cam.fov
-	down.near = battle_cam.near
-	down.far = battle_cam.far
-	add_child(down)
-	down.global_position = battle_cam.global_position
-	down.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
-	await _coverage("G posisi battle, menghadap bawah", down)
-	# H: the battle camera's position, aimed at the arena centre by hand
-	var aim := Camera3D.new()
-	aim.name = "AimCam"
-	aim.fov = battle_cam.fov
-	aim.near = battle_cam.near
-	aim.far = battle_cam.far
-	add_child(aim)
-	aim.global_position = battle_cam.global_position
-	aim.look_at(Vector3(centre().x, 0.0, centre().y), Vector3.UP)
-	await _coverage("H posisi battle, dibidik manual", aim)
-	# I: the battle position and the battle aim, but expressed as Euler angles -
-	# the exact rotation `_aim()` now builds. If this draws and H did not, the
-	# culprit is `look_at()` itself, not the numbers.
-	var euler := Camera3D.new()
-	euler.name = "EulerCam"
-	euler.fov = battle_cam.fov
-	euler.near = battle_cam.near
-	euler.far = battle_cam.far
-	add_child(euler)
-	euler.global_position = battle_cam.global_position
-	var d := (Vector3(centre().x, 0.0, centre().y) - euler.global_position).normalized()
-	euler.rotation_degrees = Vector3(rad_to_deg(asin(clampf(d.y, -1.0, 1.0))),
-		rad_to_deg(atan2(-d.x, -d.z)), 0.0)
-	await _coverage("I posisi+bidik lewat sudut Euler", euler)
-	euler.queue_free()
-	down.queue_free()
-	aim.queue_free()
-	# the numbers behind all of it
-	var fwd := -battle_cam.global_transform.basis.z
-	print("[PROBE] battle maju=%s pitch=%.1f derajat pos=%s" % [
-		str(fwd), rad_to_deg(asin(clampf(fwd.y, -1.0, 1.0))),
-		str(battle_cam.global_position.round())])
-	var at := Vector3(centre().x, 0.0, centre().y)
-	print("[PROBE] pusat arena %s -> layar %s belakang=%s jarak=%.1f" % [
-		str(at.round()), str(battle_cam.unproject_position(at).round()),
-		str(battle_cam.is_position_behind(at)), battle_cam.global_position.distance_to(at)])
+	# Culling: give every mesh in the world a huge margin. If the arena appears
+	# with the battle camera, the ground was being frustum-culled, not missing.
+	for mi in _meshes(self, []):
+		var m: MeshInstance3D = mi
+		m.extra_cull_margin = 400.0
+	await _coverage("A2 battle, culling dilonggarkan", battle_cam)
 
 
-func centre() -> Vector2:
-	return battle.get("centre")
+func _meshes(node: Node, out: Array) -> Array:
+	for child in node.get_children():
+		if child is MeshInstance3D:
+			out.append(child)
+		_meshes(child, out)
+	return out
 
 
 func _coverage(label: String, cam: Camera3D) -> void:
