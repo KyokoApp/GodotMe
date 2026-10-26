@@ -315,6 +315,101 @@ func _reach(state: String) -> void:
 			_probe_box()
 			await _wait(0.3)
 			return
+		"hitung":
+			# How much geometry is the GPU actually drawing? Draw calls and
+			# primitives per frame tell "culled" and "covered" apart, which no
+			# screenshot can: a frame with 400 draw calls is drawn and hidden, a
+			# frame with 3 is empty.
+			await _ready_battle()
+			await _count("<battle apa adanya>")
+			var cam := _battle_camera()
+			var angles := [-60.0, -75.0, -85.0]
+			for a in angles:
+				var probe := Camera3D.new()
+				probe.fov = cam.fov
+				probe.near = cam.near
+				probe.far = cam.far
+				add_child(probe)
+				probe.global_position = cam.global_position
+				probe.rotation_degrees = Vector3(a, 0.0, 0.0)
+				await _count("pitch %.0f" % a)
+				probe.queue_free()
+				await get_tree().process_frame
+			# and with the haze plain hidden, at the battle angle
+			_paint_far(false)
+			cam.current = true
+			await _count("<tanpa FarScenery>")
+			return
+		"transisi":
+			# mid-shatter. The wipe tween is running, so the honest way to catch it
+			# is to stand still and let it pass: 0.25 s into a 0.55 s shatter is a
+			# real frame of the real transition, not a hand-set uniform fighting
+			# the tween back on the next frame.
+			await _wait(0.25)
+			return
+		"awal":
+			await _ready_battle()
+			return
+		"menu":
+			await _ready_battle()
+			_ui().call("select_target", int(_foe(1)["uid"]))
+			_ui().call("refresh")
+			return
+		"kelemahan":
+			await _ready_battle()
+			# two known weaknesses on the leader and one on a soldier: the "?" row
+			var observed: Dictionary = _logic().get("observed")
+			observed["orc_pemimpin"] = ["tombak", "es"]
+			observed["orc_prajurit"] = ["tombak", "api"]
+			_ui().call("select_target", int(_foe(3)["uid"]))
+			_ui().call("refresh")
+			return
+		"boost":
+			await _ready_battle()
+			_logic().set("awaiting", (_logic().get("allies") as Array)[0])
+			_ui().call("_cycle_boost")
+			_ui().call("_cycle_boost")
+			_ui().call("refresh")
+			return
+		"break":
+			await _ready_battle()
+			var foe := _foe(0)
+			foe["shield"] = 1
+			_trigger_attack(int(foe["uid"]))
+			await _wait(0.75)
+			return
+		"damage":
+			await _ready_battle()
+			_trigger_attack(int(_foe(1)["uid"]))
+			await _wait(0.42)
+			return
+		"fase2":
+			await _ready_battle()
+			var boss := _foe(3)
+			boss["hp"] = int(float(boss["hp_max"]) * 0.5) + 4
+			_trigger_attack(int(boss["uid"]))
+			await _wait(1.5)
+			return
+		"hasil":
+			await _ready_battle()
+			for raw in (_logic().get("foes") as Array):
+				var foe: Dictionary = raw
+				foe["hp"] = 0
+				foe["alive"] = false
+			_logic().set("finished", true)
+			_logic().set("result", "win")
+			battle.call("_finish")
+			await _wait(0.7)
+			return
+		"kamera":
+			# Is ANY 3D drawn under the battle camera? A bright box three metres
+			# over the arena answers that in one frame: if the box shows and the
+			# world does not, the fault is the world's materials; if nothing
+			# shows, the fault is the camera or the 3D pass itself.
+			await _ready_battle()
+			_probe_box()
+			await _wait(0.3)
+			return
 		"tanpahaze":
 			# Everything around the map (sky, ridges, the haze plain) hidden.
 			# Whatever is left is the world itself.
@@ -630,6 +725,21 @@ func _paint_env(bg: Color, keep_sky: bool) -> void:
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = bg
 	print("[PROBE] env sesudah: bg_mode=%d fog=%s" % [env.background_mode, str(env.fog_enabled)])
+
+
+## Draw calls and primitives in the frame just rendered, plus the colour of the
+## middle pixel. Three numbers that separate "nothing is being drawn" from
+## "everything is drawn and something covers it".
+func _count(label: String) -> void:
+	await get_tree().create_timer(0.3).timeout
+	await RenderingServer.frame_post_draw
+	var calls := int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
+	var prims := int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME))
+	var img := get_viewport().get_texture().get_image()
+	var mid := Color(0, 0, 0)
+	if img != null and img.get_width() > 4:
+		mid = img.get_pixel(img.get_width() / 2, img.get_height() / 2)
+	print("[PROBE] %s: draw=%d primitif=%d tengah=%s" % [label, calls, prims, str(mid)])
 
 
 ## Hide (or show) everything the diorama puts around the edge of the map.
