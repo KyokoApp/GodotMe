@@ -598,6 +598,11 @@ jobs:
             # the run reports when a shot comes out wrong.
             grep -h "^\[SHOT\]" /tmp/capture.log | tail -1 | sed 's/^/::warning::/' || true
             grep -h "^\[PROBE\]" /tmp/capture.log | tail -3 | sed 's/^/::notice::/' || true
+            # Annotations are capped and deduplicated, which hid most of the
+            # probe lines. The battle captures keep their own log next to the
+            # PNGs, so the numbers survive the summary.
+            grep -h -E "^\[(PROBE|DIAG|SHOT)\]" /tmp/capture.log | tail -n +1 \
+              > "$GITHUB_WORKSPACE/docs/screenshots/pertarungan/probe.log" || true
           done
 
           # --- step 3A: pitch x FOV, the grid the owner picks the angle from.
