@@ -112,8 +112,10 @@ void fragment() {
 	// bright yellow lamp at noon, because the cell is painted warm and only the
 	// EMISSION was being faded. The ALBEDO has to go dark as well.
 	if (v_glow > 0.5 && !flame) {
-		vec3 daylight_glass = vec3(0.055, 0.068, 0.09) + tex.rgb * 0.07;
-		base = mix(daylight_glass, base, clamp(night * 1.6, 0.0, 1.0));
+		// scale the cell down and cool it instead of replacing it: the oak frame
+		// has to stay visible, or every window is a black rectangle
+		vec3 daylight = tex.rgb * vec3(0.16, 0.19, 0.26);
+		base = mix(daylight, base, clamp(night * 1.6, 0.0, 1.0));
 	}
 	ALBEDO = base;
 	// windows: dark at noon, clearly lit at night; the flame is always hot
