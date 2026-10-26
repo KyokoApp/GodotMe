@@ -169,6 +169,20 @@ func _diagnostics(state: String) -> void:
 			str(vp_img.get_pixel(w / 2, h - 8))])
 
 
+## Which render layers the first battle sprite is on. A camera and a mesh with
+## no layer in common is the classic "3D draws nothing" trap.
+func _first_sprite_layers() -> int:
+	var v: Node3D = battle.get("view") if battle != null else null
+	if v == null:
+		return -1
+	var sprites: Variant = v.get("_sprites")
+	if typeof(sprites) != TYPE_DICTIONARY or (sprites as Dictionary).is_empty():
+		return -2
+	var uid: int = (sprites as Dictionary).keys()[0]
+	var sp: AnimatedSprite3D = (sprites as Dictionary)[uid]
+	return sp.layers
+
+
 func _cameras(node: Node, out: Array) -> Array:
 	for child in node.get_children():
 		if child is Camera3D:
@@ -289,6 +303,26 @@ func _reach(state: String) -> void:
 			_probe_box()
 			await _wait(0.3)
 			return
+		"kamerasalin":
+			# Same transform, different camera OBJECT: the world's own camera is
+			# moved onto the battle camera's position, rotation, fov and planes.
+			# If the world appears now, the transform is fine and the battle's
+			# Camera3D itself is what renders nothing (cull mask, projection...).
+			# If it stays empty, the position is simply wrong.
+			await _ready_battle()
+			var rig := world.get_node_or_null("CameraRig/Camera3D") as Camera3D
+			var cam := _battle_camera()
+			if rig != null and cam != null:
+				rig.global_transform = cam.global_transform
+				rig.fov = cam.fov
+				rig.near = cam.near
+				rig.far = cam.far
+				rig.current = true
+				print("[PROBE] salin: battle cull=%d near=%.2f far=%.1f proj=%d | dunia cull=%d near=%.2f far=%.1f" % [
+					cam.cull_mask, cam.near, cam.far, cam.projection,
+					rig.cull_mask, rig.near, rig.far])
+			await _wait(0.35)
+			return
 		"duakamera":
 			# Hand the frame back to the world's own camera. If the arena appears
 			# now, the battle camera is what breaks the 3D pass; if it stays
@@ -316,6 +350,13 @@ func _reach(state: String) -> void:
 
 
 ## A magenta box, unshaded, floating over the middle of the arena.
+func _battle_camera() -> Camera3D:
+	var v: Node3D = battle.get("view")
+	if v == null:
+		return null
+	return v.get("camera") as Camera3D
+
+
 func _probe_box() -> void:
 	var mesh := BoxMesh.new()
 	mesh.size = Vector3(2.0, 2.0, 2.0)
@@ -334,12 +375,26 @@ func _probe_box() -> void:
 			y = float(region.call("height_at", spot)) + 1.5
 	mi.position = Vector3(spot.x, y, spot.y)
 	add_child(mi)
-	var view: Node3D = battle.get("view")
-	var cam: Camera3D = view.get("camera") as Camera3D
-	if cam != null:
-		print("[DIAG] kotak uji %s -> layar %s (di belakang=%s)" % [
-			str(mi.global_position.round()), str(cam.unproject_position(mi.global_position).round()),
-			str(cam.is_position_behind(mi.global_position))])
+	var cam := _battle_camera()
+	if cam == null:
+		print("[PROBE] kotak: kamera pertarungan tidak ada")
+		return
+	print("[PROBE] kotak %s layar=%s belakang=%s cull=%d sprite_layers=%d" % [
+		str(mi.global_position.round()), str(cam.unproject_position(mi.global_position).round()),
+		str(cam.is_position_behind(mi.global_position)), cam.cull_mask, _first_sprite_layers()])
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	if img == null:
+		return
+	# the box is what we are looking for: read the pixel where it was projected
+	var at := cam.unproject_position(mi.global_position)
+	var x := clampi(int(at.x), 0, img.get_width() - 1)
+	var y := clampi(int(at.y), 0, img.get_height() - 1)
+	var px := img.get_pixel(x, y)
+	var magenta := px.r > 0.5 and px.b > 0.4 and px.g < 0.4
+	print("[PROBE] piksel kotak (%d,%d)=%s -> %s" % [x, y, str(px),
+		"KOTAK TERGAMBAR" if magenta else "KOTAK TIDAK TERGAMBAR"])
 
 
 ## Act as if the player had tapped Serang (or the skill) on that enemy, without
