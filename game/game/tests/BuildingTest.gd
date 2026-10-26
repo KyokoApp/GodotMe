@@ -510,6 +510,12 @@ func _shutdown() -> void:
 ## building can be photographed without a forest in the way. This is a measuring
 ## instrument, not the game: the game itself is captured through Main.tscn.
 func _stage_shot() -> void:
+	# the capture path returns from _ready() before the test path runs, so the kit
+	# and the manifest have to be loaded here as well: without this every
+	# building was skipped with "called on a null instance" and the shots were of
+	# an empty plinth (step 3B, first capture run)
+	if not _load():
+		print("[BUILDING] panggung tanpa kit, %d gagal" % failures)
 	var side := HARNESS.arg("--view=", "depan")
 	var time := HARNESS.arg("--time=", "siang")
 	var night := time == "malam"
@@ -582,6 +588,8 @@ func _place_kit(night: bool) -> void:
 	mat.set_shader_parameter("cell_size", 128.0 / 512.0)
 	mat.set_shader_parameter("night", 1.0 if night else 0.0)
 	mat.set_shader_parameter("instance_fade", 0.0)
+	var placed := 0
+	var tris := 0
 	var cells: Dictionary = _kit.call("cells_of", _meta)
 	if cells.has("flame"):
 		mat.set_shader_parameter("flame_cell", cells["flame"])
@@ -609,10 +617,15 @@ func _place_kit(night: bool) -> void:
 		mi.name = "Kit_%s_%d" % [row[0], int(row[1])]
 		mi.mesh = made["mesh"]
 		mi.material_override = mat
+		tris += int(made.get("tris", 0))
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		mi.position = row[2]
 		mi.rotation.y = float(row[3])
 		add_child(mi)
+		placed += 1
+	# one line the capture log keeps: if a shot of this stage comes back empty,
+	# the number here says whether the stage was never built or the roof was
+	print("[BUILDING] panggung: %d bangunan, %d segitiga" % [placed, tris])
 
 
 ## Four sides around the tower, so the kit is photographed from every direction

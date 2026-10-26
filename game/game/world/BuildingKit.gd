@@ -135,6 +135,10 @@ static func _quad(b: Dictionary, a: Vector3, bb: Vector3, c: Vector3, d: Vector3
 	var u: float
 	var v: float
 	if tile <= 0.0:
+		# a decal uses the whole cell, but the LAST row of texels would land on
+		# the cell's first row once the shader wraps the UV with fract() - a
+		# one-pixel line of the wrong colour along the top of every door. Stop
+		# half a texel short instead.
 		u = DECAL_UV
 		v = DECAL_UV
 	else:
