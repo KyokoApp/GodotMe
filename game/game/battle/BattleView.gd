@@ -135,8 +135,34 @@ func _frame_camera() -> void:
 	_camera_look = Vector3(centre.x, ground + 1.5, centre.y - 0.6)
 	camera.position = _camera_base
 	add_child(camera)
-	camera.look_at(_camera_look, Vector3.UP)
+	_aim()
 	camera.make_current()
+
+
+## Point the battle lens at `_camera_look` - with Euler angles, NOT `look_at()`.
+##
+## This is not a style preference; it is the fix for an empty arena. A camera
+## aimed with `look_at()` at (46, 8, 170) rendered the sky and nothing else: no
+## ground, no buildings, no fighters. The very same position, rotated by hand to
+## look straight down, rendered the world; the world's own camera - whose rig
+## builds its rotation from Euler angles in `DioramaCamera._apply_lens()` - drew
+## the identical frame fine. The forward vector `look_at()` produced was correct
+## (pitch -27,5 degrees, arena centre projecting to the middle of the screen), so
+## the numbers looked right while the GPU got nothing, which is exactly the kind
+## of bug a screenshot catches and a calculator does not.
+##
+## The arithmetic below is the inverse of a camera rotation (X then Y, looking
+## down -Z): forward = (-cos(rx)sin(ry), sin(rx), -cos(rx)cos(ry)).
+func _aim() -> void:
+	if camera == null:
+		return
+	var d := _camera_look - _camera_base
+	if d.length() < 0.001:
+		return
+	d = d.normalized()
+	var rx := asin(clampf(d.y, -1.0, 1.0))
+	var ry := atan2(-d.x, -d.z)
+	camera.rotation_degrees = Vector3(rad_to_deg(rx), rad_to_deg(ry), 0.0)
 
 
 ## Screen position of a unit, for floating damage numbers. Returns Vector2.ZERO
@@ -281,7 +307,8 @@ func tick(delta: float) -> void:
 		camera.position = _camera_base + Vector3(sin(t * 61.0) * amp, sin(t * 43.0) * amp * 0.5, 0.0)
 	else:
 		camera.position = _camera_base
-	camera.look_at(_camera_look, Vector3.UP)
+	# the rotation is set once (`_aim`); `look_at()` here would undo the fix in
+	# `_frame_camera` - see the note there
 
 
 func clear() -> void:

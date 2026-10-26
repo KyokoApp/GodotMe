@@ -448,6 +448,21 @@ func _camera_trials() -> void:
 	aim.global_position = battle_cam.global_position
 	aim.look_at(Vector3(centre().x, 0.0, centre().y), Vector3.UP)
 	await _coverage("H posisi battle, dibidik manual", aim)
+	# I: the battle position and the battle aim, but expressed as Euler angles -
+	# the exact rotation `_aim()` now builds. If this draws and H did not, the
+	# culprit is `look_at()` itself, not the numbers.
+	var euler := Camera3D.new()
+	euler.name = "EulerCam"
+	euler.fov = battle_cam.fov
+	euler.near = battle_cam.near
+	euler.far = battle_cam.far
+	add_child(euler)
+	euler.global_position = battle_cam.global_position
+	var d := (Vector3(centre().x, 0.0, centre().y) - euler.global_position).normalized()
+	euler.rotation_degrees = Vector3(rad_to_deg(asin(clampf(d.y, -1.0, 1.0))),
+		rad_to_deg(atan2(-d.x, -d.z)), 0.0)
+	await _coverage("I posisi+bidik lewat sudut Euler", euler)
+	euler.queue_free()
 	down.queue_free()
 	aim.queue_free()
 	# the numbers behind all of it
