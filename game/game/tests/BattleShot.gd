@@ -315,13 +315,30 @@ func _reach(state: String) -> void:
 			_probe_box()
 			await _wait(0.3)
 			return
-		"uji":
-			# One run, several cameras, one number each: how much of the frame is
-			# NOT the flat background. That single measurement separates "this
-			# camera object is broken" from "this transform is wrong" from "this
-			# subtree is hidden", which no screenshot on its own can do.
+		"bawah":
+			# The battle position, looking straight DOWN: the frame that proved
+			# geometry does render from here. A picture of what is under the lens
+			# says more than any pixel count.
 			await _ready_battle()
-			await _camera_trials()
+			var cam := _battle_camera()
+			cam.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
+			cam.position.y -= 2.0
+			await _wait(0.4)
+			return
+		"samping":
+			# The battle position with the lens laid back to half the pitch: the
+			# transition between "renders" and "does not".
+			await _ready_battle()
+			var cam2 := _battle_camera()
+			cam2.rotation_degrees = Vector3(-45.0, 5.0, 0.0)
+			await _wait(0.4)
+			return
+		"kotak":
+			# A bright box on the arena floor from the battle lens: if the box is
+			# invisible too, the whole view is fogged or covered, not just sprites.
+			await _ready_battle()
+			_probe_box()
+			await _wait(0.4)
 			return
 		"kamerasalin":
 			# Same transform, different camera OBJECT: the world's own camera is
@@ -426,6 +443,10 @@ func _meshes(node: Node, out: Array) -> Array:
 			out.append(child)
 		_meshes(child, out)
 	return out
+
+
+func centre() -> Vector2:
+	return battle.get("centre")
 
 
 func _coverage(label: String, cam: Camera3D) -> void:
