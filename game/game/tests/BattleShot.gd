@@ -315,6 +315,93 @@ func _reach(state: String) -> void:
 			_probe_box()
 			await _wait(0.3)
 			return
+		"tanpahaze":
+			# Everything around the map (sky, ridges, the haze plain) hidden.
+			# Whatever is left is the world itself.
+			await _ready_battle()
+			_paint_far(false)
+			await _wait(0.4)
+			return
+		"hanya":
+			# Far scenery hidden AND the ground chunks' material replaced by an
+			# unshaded bright green: if the frame is still tan, nothing in the
+			# world is being drawn at all and the tan comes from somewhere else
+			# entirely.
+			await _ready_battle()
+			_paint_far(false)
+			_paint_ground()
+			await _wait(0.4)
+			return
+		"transisi":
+			# mid-shatter. The wipe tween is running, so the honest way to catch it
+			# is to stand still and let it pass: 0.25 s into a 0.55 s shatter is a
+			# real frame of the real transition, not a hand-set uniform fighting
+			# the tween back on the next frame.
+			await _wait(0.25)
+			return
+		"awal":
+			await _ready_battle()
+			return
+		"menu":
+			await _ready_battle()
+			_ui().call("select_target", int(_foe(1)["uid"]))
+			_ui().call("refresh")
+			return
+		"kelemahan":
+			await _ready_battle()
+			# two known weaknesses on the leader and one on a soldier: the "?" row
+			var observed: Dictionary = _logic().get("observed")
+			observed["orc_pemimpin"] = ["tombak", "es"]
+			observed["orc_prajurit"] = ["tombak", "api"]
+			_ui().call("select_target", int(_foe(3)["uid"]))
+			_ui().call("refresh")
+			return
+		"boost":
+			await _ready_battle()
+			_logic().set("awaiting", (_logic().get("allies") as Array)[0])
+			_ui().call("_cycle_boost")
+			_ui().call("_cycle_boost")
+			_ui().call("refresh")
+			return
+		"break":
+			await _ready_battle()
+			var foe := _foe(0)
+			foe["shield"] = 1
+			_trigger_attack(int(foe["uid"]))
+			await _wait(0.75)
+			return
+		"damage":
+			await _ready_battle()
+			_trigger_attack(int(_foe(1)["uid"]))
+			await _wait(0.42)
+			return
+		"fase2":
+			await _ready_battle()
+			var boss := _foe(3)
+			boss["hp"] = int(float(boss["hp_max"]) * 0.5) + 4
+			_trigger_attack(int(boss["uid"]))
+			await _wait(1.5)
+			return
+		"hasil":
+			await _ready_battle()
+			for raw in (_logic().get("foes") as Array):
+				var foe: Dictionary = raw
+				foe["hp"] = 0
+				foe["alive"] = false
+			_logic().set("finished", true)
+			_logic().set("result", "win")
+			battle.call("_finish")
+			await _wait(0.7)
+			return
+		"kamera":
+			# Is ANY 3D drawn under the battle camera? A bright box three metres
+			# over the arena answers that in one frame: if the box shows and the
+			# world does not, the fault is the world's materials; if nothing
+			# shows, the fault is the camera or the 3D pass itself.
+			await _ready_battle()
+			_probe_box()
+			await _wait(0.3)
+			return
 		"magenta":
 			# Fog off and a magenta background: whatever is left tan is fog drawn
 			# over the world, and whatever is magenta is sky with nothing in front
@@ -543,6 +630,43 @@ func _paint_env(bg: Color, keep_sky: bool) -> void:
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = bg
 	print("[PROBE] env sesudah: bg_mode=%d fog=%s" % [env.background_mode, str(env.fog_enabled)])
+
+
+## Hide (or show) everything the diorama puts around the edge of the map.
+func _paint_far(show_it: bool) -> void:
+	var far := world.get_node_or_null("FarScenery") if world != null else null
+	if far != null:
+		var mi := (far as Node).get_children()
+		for c in mi:
+			if c is Node3D:
+				(c as Node3D).visible = show_it
+		print("[PROBE] FarScenery %s: %d anak" % ["tampil" if show_it else "disembunyikan", mi.size()])
+	var env := _world_env(self)
+	if env != null:
+		env.background_mode = Environment.BG_COLOR
+		env.background_color = Color(1.0, 0.0, 1.0)
+		env.fog_enabled = false
+		print("[PROBE] latar dipaksa magenta, kabut mati")
+
+
+## Replace every ground chunk's material with flat, unshaded green.
+func _paint_ground() -> void:
+	var view: Node3D = world.call("view") if world != null else null
+	if view == null:
+		return
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.1, 1.0, 0.1)
+	var nodes: Dictionary = view.call("chunk_nodes")
+	var n := 0
+	for key in nodes.keys():
+		var chunk: Node3D = nodes[key]
+		var mi := chunk.get_node_or_null("Ground") as MeshInstance3D
+		if mi != null:
+			mi.material_override = mat
+			mi.extra_cull_margin = 400.0
+			n += 1
+	print("[PROBE] %d mesh tanah dicat hijau" % n)
 
 
 func centre() -> Vector2:
