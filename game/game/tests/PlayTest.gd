@@ -156,13 +156,24 @@ func _test_orc_swing_does_not_lock_player() -> void:
 ## KIND for the whole region, so this walks the real instances and compares each
 ## one's bottom edge with RegionData's own ground height.
 func _prop_meshes(world: Node3D) -> Array:
+	return _meshes_named(world, "Props_")
+
+
+## Step 3B's houses are MultiMeshInstance3D as well. They are found by their own
+## name prefix so this test keeps measuring the billboards, and a second list can
+## measure the meshes, instead of the two quietly being counted as one.
+func _building_meshes(world: Node3D) -> Array:
+	return _meshes_named(world, "Buildings_")
+
+
+func _meshes_named(world: Node3D, prefix: String) -> Array:
 	var out: Array = []
 	var view: Node = world.call("view") if world.has_method("view") else null
 	if view == null:
 		return out
 	for child in view.get_children():
 		var mi := child as MultiMeshInstance3D
-		if mi != null and mi.multimesh != null:
+		if mi != null and mi.multimesh != null and String(mi.name).begins_with(prefix):
 			out.append(mi)
 	return out
 
@@ -209,6 +220,16 @@ func _test_props_stand_on_ground() -> void:
 			outside += 1
 	_check(layout.size() == instanced, "setiap prop yang dihitung juga terpasang",
 		"%d vs %d" % [layout.size(), instanced])
+	# and the same count for the meshes: every building the region says it placed
+	# is really in a MultiMesh
+	var placed_buildings := 0
+	for mi in _building_meshes(world):
+		placed_buildings += (mi as MultiMeshInstance3D).multimesh.instance_count
+	var buildings: Array = view.call("building_layout")
+	_check(buildings.size() >= 20, "bangunan 3D terpasang di desa", str(buildings.size()))
+	_check(buildings.size() == placed_buildings,
+		"setiap bangunan yang dihitung juga terpasang",
+		"%d vs %d" % [buildings.size(), placed_buildings])
 	_check(outside == 0, "setiap prop berdiri di dalam peta", str(outside))
 	# 2 cm is a fifth of one source pixel at the world pixel size: invisible.
 	_check(absf(worst) <= 0.02, "semua prop menapak di tanah",
@@ -249,6 +270,20 @@ func _test_billboards_stay_upright() -> void:
 			bad += 1
 	_check(bad == 0, "semua prop memakai billboard shader sumbu Y",
 		"%d dari %d salah" % [bad, mms.size()])
+	# the buildings are NOT billboards any more: they must use their own shader,
+	# and a house that quietly fell back to the sprite shader would be invisible
+	var meshes := _building_meshes(world)
+	var bad_mesh := 0
+	for mi in meshes:
+		var mat := (mi as MultiMeshInstance3D).material_override as ShaderMaterial
+		if mat == null or mat.shader == null:
+			bad_mesh += 1
+			continue
+		if not String(mat.shader.resource_path).ends_with("building.gdshader"):
+			bad_mesh += 1
+	_check(not meshes.is_empty() and bad_mesh == 0,
+		"bangunan memakai shader bangunan (bukan billboard)",
+		"%d dari %d salah" % [bad_mesh, meshes.size()])
 	world.queue_free()
 
 

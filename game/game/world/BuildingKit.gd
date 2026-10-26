@@ -85,28 +85,46 @@ static func kinds(meta: Dictionary) -> Dictionary:
 
 
 # ------------------------------------------------------------------- buffer ---
+## The buffer is built with plain `Array`s and converted to packed arrays once,
+## at the end. That is not a style choice: a PackedVector3Array is a VALUE type,
+## so `(b["norms"] as PackedVector3Array).append(n)` appends to a temporary copy
+## and throws the vertex away - the first version of this file did exactly that
+## and produced a mesh whose normals had zero length ("Invalid array format for
+## surface"). A plain Array is a reference type: appending to it really appends.
 static func _buf() -> Dictionary:
 	return {
-		"verts": PackedVector3Array(),
-		"norms": PackedVector3Array(),
-		"uvs": PackedVector2Array(),
-		"uv2s": PackedVector2Array(),
-		"colors": PackedColorArray(),
-		"index": PackedInt32Array(),
+		"verts": [],
+		"norms": [],
+		"uvs": [],
+		"uv2s": [],
+		"colors": [],
+		"index": [],
 	}
 
 
 static func _vert(b: Dictionary, p: Vector3, n: Vector3, uv: Vector2, cell: Vector2,
 		tint: Color, glow: float) -> int:
-	var verts: PackedVector3Array = b["verts"]
+	var verts: Array = b["verts"]
 	var idx := verts.size()
 	verts.append(p)
-	(b["norms"] as PackedVector3Array).append(n)
-	(b["uvs"] as PackedVector2Array).append(uv)
-	(b["uv2s"] as PackedVector2Array).append(cell)
-	(b["colors"] as PackedColorArray).append(Color(tint.r, tint.g, tint.b, glow))
-	b["verts"] = verts
+	(b["norms"] as Array).append(n)
+	(b["uvs"] as Array).append(uv)
+	(b["uv2s"] as Array).append(cell)
+	(b["colors"] as Array).append(Color(tint.r, tint.g, tint.b, glow))
 	return idx
+
+
+## Plain arrays -> the packed arrays an ArrayMesh and the tests want. One copy of
+## each buffer, done once, instead of per vertex.
+static func packed_arrays(b: Dictionary) -> Dictionary:
+	return {
+		"verts": PackedVector3Array(b["verts"]),
+		"norms": PackedVector3Array(b["norms"]),
+		"uvs": PackedVector2Array(b["uvs"]),
+		"uv2s": PackedVector2Array(b["uv2s"]),
+		"colors": PackedColorArray(b["colors"]),
+		"index": PackedInt32Array(b["index"]),
+	}
 
 
 ## A quad from four corners in order (a -> b -> c -> d around the face). `tile`
@@ -126,11 +144,12 @@ static func _quad(b: Dictionary, a: Vector3, bb: Vector3, c: Vector3, d: Vector3
 	var i1 := _vert(b, bb, n, Vector2(u, 0.0), cell, tint, glow)
 	var i2 := _vert(b, c, n, Vector2(u, v), cell, tint, glow)
 	var i3 := _vert(b, d, n, Vector2(0.0, v), cell, tint, glow)
-	var index: PackedInt32Array = b["index"]
-	index.append_array([i0, i1, i2, i0, i2, i3])
-	b["index"] = index
+	(b["index"] as Array).append_array([i0, i1, i2, i0, i2, i3])
 
 
+## A triangle, for the gable ends and the cone. `tile` 0 is a decal; otherwise
+## the UVs are the position projected on the plane the triangle faces, so a gable
+## end gets its texture upright and a cone facet does not smear.
 static func _tri(b: Dictionary, a: Vector3, bb: Vector3, c: Vector3, n: Vector3,
 		cell: Vector2, tile: float, tint: Color, glow: float = 0.0) -> void:
 	# project on the plane the triangle faces: a gable end lives in Y/Z, a cone
@@ -148,9 +167,7 @@ static func _tri(b: Dictionary, a: Vector3, bb: Vector3, c: Vector3, n: Vector3,
 	var i0 := _vert(b, a, n, uv.call(a), cell, tint, glow)
 	var i1 := _vert(b, bb, n, uv.call(bb), cell, tint, glow)
 	var i2 := _vert(b, c, n, uv.call(c), cell, tint, glow)
-	var index: PackedInt32Array = b["index"]
-	index.append_array([i0, i1, i2])
-	b["index"] = index
+	(b["index"] as Array).append_array([i0, i1, i2])
 
 
 ## Axis-aligned box. `side` covers the four walls, `top`/`bottom` the caps; a
@@ -600,22 +617,22 @@ static func build_tinted(kind: String, variant: int, meta: Dictionary, tint: Col
 		_:
 			return {}
 	var kk: Dictionary = kinds(meta).get(kind, {})
-	var verts: PackedVector3Array = b["verts"]
+	var raw_verts: Array = b["verts"]
 	if not is_equal_approx(scale, 1.0):
-		for i in range(verts.size()):
-			verts[i] = verts[i] * scale
-		b["verts"] = verts
+		for i in range(raw_verts.size()):
+			raw_verts[i] = (raw_verts[i] as Vector3) * scale
 		top *= scale
-	var index: PackedInt32Array = b["index"]
+	var arrays := packed_arrays(b)
+	var index: PackedInt32Array = arrays["index"]
 	return {
-		"arrays": b,
-		"mesh": mesh_from(b),
+		"arrays": arrays,
+		"mesh": mesh_from(arrays),
 		"top": top,
 		"block": float(kk.get("block_radius", 0.0)) * scale,
 		"animate": kind == "torch",
 		"kind": kind,
 		"variant": variant,
-		"verts": verts.size(),
+		"verts": (arrays["verts"] as PackedVector3Array).size(),
 		"tris": index.size() / 3,
 	}
 
