@@ -397,6 +397,9 @@ jobs:
   screenshots:
     name: screenshots
     runs-on: ubuntu-latest
+    # A capture run that hangs used to hold this job for the default six hours.
+    # Forty minutes is many times the real cost (~12) and still bounded.
+    timeout-minutes: 40
     needs: [launcher-tests]
     if: always()
     steps:

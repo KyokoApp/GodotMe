@@ -26,6 +26,12 @@ func _ready() -> void:
 		get_tree().quit(2)
 		return
 	var state := HARNESS.arg("--state=", "awal")
+	print("[SHOT] mulai state=%s" % state)
+	# A capture run that never reaches its capture line hangs the whole CI job
+	# (a real failure this step had: one state awaited a signal that the software
+	# renderer never sent, and the job sat there for forty minutes). The watchdog
+	# turns any such bug into a logged, bounded exit instead.
+	_watchdog(90.0)
 	if not ResourceLoader.exists(DIORAMA):
 		print("[SHOT] Diorama tidak ada")
 		get_tree().quit(2)
@@ -206,6 +212,12 @@ func ui_size() -> Vector2:
 	return ui.size if ui != null else Vector2.ZERO
 
 
+func _watchdog(seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout
+	print("[SHOT] batas waktu %.0f s tercapai, keluar." % seconds)
+	get_tree().quit(3)
+
+
 func _wait(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
 
@@ -382,19 +394,9 @@ func _probe_box() -> void:
 	print("[PROBE] kotak %s layar=%s belakang=%s cull=%d sprite_layers=%d" % [
 		str(mi.global_position.round()), str(cam.unproject_position(mi.global_position).round()),
 		str(cam.is_position_behind(mi.global_position)), cam.cull_mask, _first_sprite_layers()])
-	await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	var img := get_viewport().get_texture().get_image()
-	if img == null:
-		return
-	# the box is what we are looking for: read the pixel where it was projected
-	var at := cam.unproject_position(mi.global_position)
-	var x := clampi(int(at.x), 0, img.get_width() - 1)
-	var y := clampi(int(at.y), 0, img.get_height() - 1)
-	var px := img.get_pixel(x, y)
-	var magenta := px.r > 0.5 and px.b > 0.4 and px.g < 0.4
-	print("[PROBE] piksel kotak (%d,%d)=%s -> %s" % [x, y, str(px),
-		"KOTAK TERGAMBAR" if magenta else "KOTAK TIDAK TERGAMBAR"])
+	# The picture itself is the measurement (a magenta box is impossible to miss
+	# in a 640x360 frame); reading the framebuffer back mid-frame was where this
+	# step hung, so it does not do that any more.
 
 
 ## Act as if the player had tapped Serang (or the skill) on that enemy, without
