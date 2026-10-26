@@ -539,7 +539,7 @@ func _test_save() -> void:
 	_check((obs.get("orc_prajurit", []) as Array).size() == 2,
 		"kelemahan yang sudah terungkap ikut tersimpan", str(obs))
 	# an older save without the battle blob must still load
-	var old := script.new(dir + "_old")
+	var old: RefCounted = script.new(dir + "_old")
 	old.call("erase")
 	old.call("load_game")
 	old.call("set_counter", "orcs_defeated", 2)
