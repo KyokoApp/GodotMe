@@ -48,6 +48,7 @@ var summary: Dictionary = {}
 var _busy := false
 var _finished := false
 var _wipe: ColorRect = null
+var _wipe_layer: CanvasLayer = null
 var _wipe_mat: ShaderMaterial = null
 var _ui_layer: CanvasLayer = null
 var _waiting_for_tap := false
@@ -131,6 +132,9 @@ func _build_wipe() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "Wipe"
 	layer.layer = 60
+	# Parked from the start: nothing to draw until a tween moves it.
+	layer.visible = false
+	_wipe_layer = layer
 	add_child(layer)
 	_wipe = ColorRect.new()
 	_wipe.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -153,6 +157,10 @@ func _play_wipe_in() -> void:
 	await get_tree().process_frame
 	_refresh_all()
 	await _wipe_to(0.0, 0.4)
+	# belt and braces: whatever the last tween frame rounded to, the transition is
+	# over and the arena has to be seen without anything over it
+	if _wipe_layer != null:
+		_wipe_layer.visible = false
 	_run()
 
 
@@ -171,12 +179,18 @@ func _wipe_to(value: float, seconds: float) -> void:
 func _set_wipe(value: float) -> void:
 	if _wipe_mat != null:
 		_wipe_mat.set_shader_parameter("t", value)
-	# A shader at t = 0 samples the screen and redraws it, i.e. an exact copy -
-	# but "exact copy" still means a full-screen pass, and on the phone that pass
-	# would run for every frame of the battle. Park the rect when it has nothing
-	# to say: fully open at 0, fully past the frame at 1.
+	# The overlay is a full-screen copy of the frame behind it, and a copy is only
+	# wanted WHILE the picture is breaking. Park the whole layer at both ends: at
+	# 0 there is nothing to cover, and at 1 the controller is about to swap the
+	# scene. Leaving it up (an earlier draft only hid the rect, and before that
+	# nothing at all) cost a full-screen pass over the arena for the whole fight -
+	# and on the GL Compatibility renderer the "copy" it drew was the 2D canvas
+	# rather than the 3D frame, so the parked overlay painted a flat brown wash
+	# and a grid of shard seams over every battle screenshot.
+	if _wipe_layer != null:
+		_wipe_layer.visible = value > 0.0005 and value < 0.9995
 	if _wipe != null:
-		_wipe.visible = value > 0.0005 and value < 0.9995
+		_wipe.visible = _wipe_layer == null or _wipe_layer.visible
 
 
 # -------------------------------------------------------------------- turns ---

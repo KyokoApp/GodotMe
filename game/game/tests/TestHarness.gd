@@ -33,6 +33,17 @@ static func capture(node: Node, default_name: String, delay: float = 2.0) -> voi
 	await RenderingServer.frame_post_draw
 	DirAccess.make_dir_recursive_absolute(dir)
 	var img := node.get_viewport().get_texture().get_image()
+	# A shot whose only job is to answer "is the 3D there at all" does not need
+	# 1280x720 of detail in the repository. `--capture-size=640x360` keeps the
+	# diagnostic frames small; every other shot keeps the full frame.
+	var wanted := arg("--capture-size=")
+	if wanted != "" and img != null:
+		var parts := wanted.split("x")
+		if parts.size() == 2:
+			var w := int(parts[0])
+			var h := int(parts[1])
+			if w > 0 and h > 0 and (img.get_width() != w or img.get_height() != h):
+				img.resize(w, h, Image.INTERPOLATE_BILINEAR)
 	var path := dir.path_join(shot + ".png")
 	var err := img.save_png(path)
 	print("[TEST] capture %s -> %s (err %d, %dx%d)" % [

@@ -144,6 +144,11 @@ func _diagnostics(state: String) -> void:
 					str(mi.visible), "ADA" if tex != null else "NULL"]
 	print("[DIAG] chunk=%d mesh_tanah=%d %s" % [chunks, mesh_ok, sample])
 	if battle != null:
+		var layer: CanvasLayer = battle.get("_wipe_layer") as CanvasLayer
+		var mat: ShaderMaterial = battle.get("_wipe_mat") as ShaderMaterial
+		print("[DIAG] transisi layer=%s t=%s" % [
+			"tampil" if layer != null and layer.visible else "parkir",
+			str(mat.get_shader_parameter("t")) if mat != null else "-"])
 		var v: Node3D = battle.get("view")
 		if v != null:
 			var sprites: Variant = v.get("_sprites")
