@@ -739,6 +739,15 @@ ukurannya (paket diunduh terpisah oleh peluncur). Total enam paket:
 5. Di HP, `adb logcat | grep -E "PERF|BUILDING|REGION"` untuk fps dan jumlah
    segitiga; preset Rendah harus tetap 30 FPS di desa.
 
+### Status rilis 0.10.0
+
+Sudah dipublikasikan: `release-demo` **40265317795** (semua langkah success,
+termasuk "Verify the release is reachable exactly like the launcher does"), tag
+`demo-v0.1.0`, `version.json` **10.197 B**, `world_100.pck` **932.348 B**
+(sebelumnya 750.496 B), APK sama seperti 0.9.0 sehingga **tidak perlu dipasang
+ulang**. Di HP: buka peluncur → **Periksa Lagi** → unduh world.pck ±0,9 MB →
+**MAIN**.
+
 ### Yang berubah selama langkah 3B (catatan untuk rilis berikutnya)
 
 Empat cacat ditemukan **dari tangkapan layar**, bukan dari tes logika, dan
