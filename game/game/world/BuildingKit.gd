@@ -224,41 +224,49 @@ static func _decal(b: Dictionary, centre: Vector3, size: Vector2, face: Vector3,
 static func _gable_roof(b: Dictionary, mn: Vector3, mx: Vector3, ridge_h: float,
 		cell: Vector2, tile: float, tint: Color, axis: String = "x",
 		inset: float = 0.0, end_cell: Vector2 = Vector2.ZERO) -> void:
+	# `inset` pulls the ROOF's end planes in as well as the gable wall, and that is
+	# the whole point: the first version left the roof overhanging by 0.42 m while
+	# the gable was inset back to the wall, so the two ends of the roof were open
+	# and you saw the inside of both slopes - a bright thatch sliver beside every
+	# cottage in the capture. A gable roof overhangs at the EAVES, not at the
+	# gable ends.
+	var x0 := mn.x + (inset if axis == "x" else 0.0)
+	var x1 := mx.x - (inset if axis == "x" else 0.0)
+	var z0 := mn.z + (inset if axis != "x" else 0.0)
+	var z1 := mx.z - (inset if axis != "x" else 0.0)
 	var rz := (mn.z + mx.z) * 0.5
 	var rx := (mn.x + mx.x) * 0.5
 	var ends: Vector2 = end_cell if end_cell != Vector2.ZERO else cell
 	if axis == "x":
 		# front slope (+z) and back slope (-z), both from the eaves up to the ridge
-		_quad(b, Vector3(mn.x, mx.y, mx.z), Vector3(mx.x, mx.y, mx.z),
-			Vector3(mx.x, ridge_h, rz), Vector3(mn.x, ridge_h, rz),
+		_quad(b, Vector3(x0, mx.y, mx.z), Vector3(x1, mx.y, mx.z),
+			Vector3(x1, ridge_h, rz), Vector3(x0, ridge_h, rz),
 			Vector3(0.0, 1.0, 0.7).normalized(), cell, tile, tint)
-		_quad(b, Vector3(mx.x, mx.y, mn.z), Vector3(mn.x, mx.y, mn.z),
-			Vector3(mn.x, ridge_h, rz), Vector3(mx.x, ridge_h, rz),
+		_quad(b, Vector3(x1, mx.y, mn.z), Vector3(x0, mx.y, mn.z),
+			Vector3(x0, ridge_h, rz), Vector3(x1, ridge_h, rz),
 			Vector3(0.0, 1.0, -0.7).normalized(), cell, tile, tint)
-		# the gable ends: base on the wall (not on the eaves overhang), apex on the
-		# ridge - a peak wider than its own house is the classic give-away
-		_tri(b, Vector3(mn.x + inset, mx.y, mn.z + inset),
-			Vector3(mn.x + inset, mx.y, mx.z - inset),
-			Vector3(mn.x + inset, ridge_h, rz), Vector3.LEFT, ends, tile, tint)
-		_tri(b, Vector3(mx.x - inset, mx.y, mx.z - inset),
-			Vector3(mx.x - inset, mx.y, mn.z + inset),
-			Vector3(mx.x - inset, ridge_h, rz), Vector3.RIGHT, ends, tile, tint)
+		# the two ends: a triangle on the wall plane, apex on the ridge. It is the
+		# cap of the roof as well as the gable wall, so nothing is left open
+		_tri(b, Vector3(x0, mx.y, mn.z), Vector3(x0, mx.y, mx.z),
+			Vector3(x0, ridge_h, rz), Vector3.LEFT, ends, tile, tint)
+		_tri(b, Vector3(x1, mx.y, mx.z), Vector3(x1, mx.y, mn.z),
+			Vector3(x1, ridge_h, rz), Vector3.RIGHT, ends, tile, tint)
 		# ridge
-		_box(b, Vector3(mn.x - 0.06, ridge_h - 0.08, rz - 0.1),
-			Vector3(mx.x + 0.06, ridge_h + 0.06, rz + 0.1), cell, tile, tint)
+		_box(b, Vector3(x0 - 0.06, ridge_h - 0.08, rz - 0.1),
+			Vector3(x1 + 0.06, ridge_h + 0.06, rz + 0.1), cell, tile, tint)
 	else:
-		_quad(b, Vector3(mx.x, mx.y, mx.z), Vector3(mx.x, mx.y, mn.z),
-			Vector3(rx, ridge_h, mn.z), Vector3(rx, ridge_h, mx.z),
+		_quad(b, Vector3(mx.x, mx.y, z1), Vector3(mx.x, mx.y, z0),
+			Vector3(rx, ridge_h, z0), Vector3(rx, ridge_h, z1),
 			Vector3(0.7, 1.0, 0.0).normalized(), cell, tile, tint)
-		_quad(b, Vector3(mn.x, mx.y, mn.z), Vector3(mn.x, mx.y, mx.z),
-			Vector3(rx, ridge_h, mx.z), Vector3(rx, ridge_h, mn.z),
+		_quad(b, Vector3(mn.x, mx.y, z0), Vector3(mn.x, mx.y, z1),
+			Vector3(rx, ridge_h, z1), Vector3(rx, ridge_h, z0),
 			Vector3(-0.7, 1.0, 0.0).normalized(), cell, tile, tint)
-		_tri(b, Vector3(mn.x, mx.y, mx.z + inset), Vector3(mx.x, mx.y, mx.z + inset),
-			Vector3(rx, ridge_h, mx.z + inset), Vector3.BACK, ends, tile, tint)
-		_tri(b, Vector3(mx.x, mx.y, mn.z - inset), Vector3(mn.x, mx.y, mn.z - inset),
-			Vector3(rx, ridge_h, mn.z - inset), Vector3.FORWARD, ends, tile, tint)
-		_box(b, Vector3(rx - 0.1, ridge_h - 0.08, mn.z - 0.06),
-			Vector3(rx + 0.1, ridge_h + 0.06, mx.z + 0.06), cell, tile, tint)
+		_tri(b, Vector3(mn.x, mx.y, z0), Vector3(mx.x, mx.y, z0),
+			Vector3(rx, ridge_h, z0), Vector3.BACK, ends, tile, tint)
+		_tri(b, Vector3(mx.x, mx.y, z1), Vector3(mn.x, mx.y, z1),
+			Vector3(rx, ridge_h, z1), Vector3.FORWARD, ends, tile, tint)
+		_box(b, Vector3(rx - 0.1, ridge_h - 0.08, z0 - 0.06),
+			Vector3(rx + 0.1, ridge_h + 0.06, z1 + 0.06), cell, tile, tint)
 
 
 # ------------------------------------------------------------------ pieces ----

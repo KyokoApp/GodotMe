@@ -1395,11 +1395,13 @@ dari satu kit modular**, bukan diekspor menjadi `.glb`.
 | `.res` ArrayMesh hasil skrip | Lebih cepat saat muat, tapi menambah langkah produksi yang wajib dijalankan sebelum mengepak, dan CI akan gagal kalau lupa. |
 | **Dirakit saat muat (dipakai)** | Satu sumber kebenaran: `BuildingKit.gd`. Tidak ada aset biner baru, tidak ada langkah ekspor, dan kit yang sama dipakai tes, tangkapan layar, dan dunia. |
 
-Biayanya diukur, bukan diabaikan: seluruh desa adalah **10 mesh** (7 jenis, 3
-varian rumah, 2 varian menara) yang dibangun sekali, disimpan di cache statis,
-lalu dipakai bersama oleh semua instance. Satu rumah ≈ 250 segitiga; seluruh desa
-(22 bangunan) di bawah 3.200 segitiga — jauh di bawah anggaran 16.000 yang
-dijaga `BuildingTest`.
+Biayanya diukur, bukan diabaikan: seluruh desa adalah **11 mesh** (7 jenis, 3
+varian rumah, 2 varian menara, 2 varian papan) yang dibangun sekali, disimpan di
+cache statis, lalu dipakai bersama oleh semua instance. Angka nyata dari
+`BuildingTest` (23 Oktober): rumah **442** segitiga, menara **782**, gerbang
+**194**, sumur **172**, dermaga **150**, papan **64**, obor **24**; seluruh desa
+(22 bangunan) **2.568 segitiga** terburuk — jauh di bawah anggaran 16.000 yang
+dijaga tes.
 
 ### 22.2 Satu atlas, satu bahan, satu panggilan gambar per bangunan
 
@@ -1492,10 +1494,11 @@ memastikan tidak ada satu pun bangunan yang digambar dua kali.
 
 | Hal | Nilai |
 | --- | --- |
-| Atlas bangunan | 512×512, 16 sel, **125.739 B** (grain 2×2 piksel: per-piksel membuat PNG 274 KB untuk beda yang tak terlihat) |
-| Mesh desa | 10 mesh, 22 instance |
-| Segitiga | rumah ±250, menara ±390, seluruh desa **di bawah 3.200** |
-| Draw call | +10 (satu per jenis×varian) untuk seluruh desa |
+| Atlas bangunan | 512×512, 16 sel, **123.393 B** (grain 2×2 piksel: per-piksel membuat PNG 274 KB untuk beda yang tak terlihat) |
+| Mesh desa | 11 mesh, 22 instance |
+| Segitiga | rumah 442, menara 782, seluruh desa **2.568** (anggaran tes 16.000; 900 per bangunan) |
+| Verteks | rumah 892, menara 1.572 (anggaran 1.400 per bangunan) |
+| Draw call | +11 (satu per jenis×varian) untuk seluruh desa |
 | Bayangan | rumah **menghasilkan** bayangan (pertama kali di lembah ini); tanah dan prop tetap tidak |
 
 ### 22.7 Yang belum bisa diverifikasi di sini
@@ -1505,3 +1508,25 @@ memastikan tidak ada satu pun bangunan yang digambar dua kali.
   sini hanya anggaran segitiga, jumlah draw call, dan LOD jarak.
 - Pemilihan angka pitch/FOV masih menunggu pemilik (langkah 3A); bangunan ini
   dibangun untuk lensa 30°/32° yang sekarang ada di `camera.json`.
+
+### 22.8 Dua jebakan yang memakan waktu (dicatat supaya tidak diulang)
+
+1. **`PackedVector3Array` adalah tipe nilai.** Versi pertama perakit mesh menulis
+   `(b["norms"] as PackedVector3Array).append(n)`: itu menambah ke salinan
+   sementara, jadi setiap verteks kehilangan normalnya dan Godot menolak
+   `add_surface_from_arrays` dengan *"Invalid array format for surface"* — seluruh
+   bangunan desa tidak tergambar, sementara uji segitiga tetap lulus (indeksnya
+   benar). Perakitan sekarang memakai `Array` biasa lalu dikonversi **sekali** di
+   akhir. Aturannya: `Packed*` untuk menyimpan dan mengirim, `Array` untuk
+   menumpuk.
+2. **Jalur tangkapan layar melewati `_ready()` normal.** `_stage_shot()` dipanggil
+   sebelum `_load()`, jadi `_kit` masih `null` dan setiap bangunan dilewati
+   dengan "called on a null instance" — delapan tangkapan berisi alas kosong
+   sementara job tes hijau. Sekarang panggung memuat kitnya sendiri dan mencetak
+   `[BUILDING] panggung: N bangunan, M segitiga` supaya tangkapan kosong langsung
+   terbaca dari log.
+
+Dua hal lain yang ikut diperbaiki dari tangkapan pertama: warna latar Environment
+adalah **nilai linear** (0,44,0,55,0,68 yang diketik sebagai "langit biru" keluar
+hampir putih), dan sel decal dipetakan ke 0..0,992 — UV tepat 1,0 jatuh ke
+`fract(1,0) = 0` dan menarik satu baris piksel sel berikutnya.

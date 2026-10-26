@@ -554,7 +554,9 @@ func _build_stage(night: bool) -> void:
 	env.fog_light_color = Color(0.74, 0.68, 0.62)
 	env.fog_light_energy = 0.55
 	env.fog_density = 0.006
-	env.fog_sky_affect = 0.35
+	# 0, not the game's 0.35: this stage has no sky shader, so fog on the
+	# background only washed the blue out to grey
+	env.fog_sky_affect = 0.0
 	env.adjustment_enabled = true
 	env.adjustment_contrast = 1.08
 	env.adjustment_saturation = 1.12
