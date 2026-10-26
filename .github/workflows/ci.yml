@@ -203,7 +203,11 @@ jobs:
           set -o pipefail
           set +e
           : > /tmp/building.log
-          python3 tools/kit_audit.py 2>&1 | tee -a /tmp/building.log
+          # pillow only for the "is the PNG the size the manifest claims" check
+          python3 -m venv /tmp/kitvenv >/dev/null 2>&1 || true
+          /tmp/kitvenv/bin/pip install --quiet pillow 2>/dev/null \
+            || /tmp/kitvenv/bin/pip install --quiet --break-system-packages pillow
+          /tmp/kitvenv/bin/python tools/kit_audit.py 2>&1 | tee -a /tmp/building.log
           kit_code=${PIPESTATUS[0]}
           godot --headless --path game res://game/tests/BuildingTest.tscn 2>&1 | tee -a /tmp/building.log
           build_code=${PIPESTATUS[0]}

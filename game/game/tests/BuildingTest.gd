@@ -526,7 +526,10 @@ func _stage_shot() -> void:
 func _build_stage(night: bool) -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.05, 0.07, 0.13) if night else Color(0.44, 0.55, 0.68)
+	# linear values, not screen values: the renderer encodes them to sRGB on the
+	# way out, so a "sky blue" typed as 0.44 arrives almost white in the PNG (the
+	# first run of this stage captured exactly that)
+	env.background_color = Color(0.012, 0.018, 0.036) if night else Color(0.10, 0.16, 0.28)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.36, 0.42, 0.58) if night else Color(1.0, 0.97, 0.92)
 	env.ambient_light_energy = 0.30 if night else 0.62
@@ -534,7 +537,7 @@ func _build_stage(night: bool) -> void:
 	# the windows and the torch flame are emission, so the night shot needs glow
 	# to bloom them the way the game's Environment does
 	env.glow_enabled = true
-	env.glow_intensity = 0.75 if night else 0.2
+	env.glow_intensity = 0.75 if night else 0.12
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -560,7 +563,7 @@ func _build_stage(night: bool) -> void:
 	box.size = Vector3(64.0, 0.6, 64.0)
 	ground.mesh = box
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.30, 0.36, 0.25) if not night else Color(0.16, 0.20, 0.16)
+	mat.albedo_color = Color(0.075, 0.105, 0.050) if not night else Color(0.012, 0.016, 0.012)
 	mat.roughness = 0.95
 	ground.material_override = mat
 	ground.position = Vector3(0.0, -0.3, 0.0)

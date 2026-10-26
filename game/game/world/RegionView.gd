@@ -451,8 +451,11 @@ func _place_buildings(kind: String, rows: Array) -> void:
 			mm.set_instance_color(i, Color(tint.r, tint.g, tint.b, 1.0))
 			# r = fade (see the shader): solid until the camera passes in front
 			mm.set_instance_custom_data(i, Color(1.0, 0.0, 0.0, 1.0))
+			# the block radius is NOT scaled: it is the collision contract from
+			# step 2 (a circle on the tile), not a measurement of the model. A
+			# tower drawn at 0.75 must still take the room RegionData says it takes
 			_build_layout.append([kind, variant, ex, ez, foot, yaw, top * sc,
-				float(made.get("block", 0.0)) * sc])
+				float(made.get("block", 0.0))])
 			# only the tall ones can hide the knight; a sign post cannot
 			if top * sc > 2.4:
 				_build_tall.append([mmkey, i, ex, ez, top * sc])
