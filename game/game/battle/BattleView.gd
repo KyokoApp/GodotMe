@@ -163,24 +163,25 @@ func _frame_with_rig() -> void:
 	if region != null:
 		ground = float(region.call("height_at", centre))
 	_rig_lens = rig.call("lens") if rig.has_method("lens") else {}
-	# the fight frames itself: the party on the near side, the orcs beyond
-	var aim := centre + Vector2(0.0, 1.6)
 	rig.call("set_follow_target", null)
 	rig.call("set_ground_height", ground)
-	rig.call("place_at", aim)
-	rig.call("set_lens", 27.0, 33.0, 13.5)
-	rig.call("snap_to_target")
+	# the fight frames itself: the party on the near side, the orcs beyond, both
+	# lines inside the frame - so the aim point is the middle of the arena
+	if rig.has_method("battle_frame"):
+		rig.call("battle_frame", centre, ground)
+	else:
+		rig.call("place_at", centre)
 	camera = rig.call("camera") as Camera3D
 	if camera != null:
 		camera.current = true
-	print("[BATTLE] kamera memakai rig dunia: pitch 27 fov 33 jarak 13.5 di %s" % str(aim))
+	print("[BATTLE] kamera memakai rig dunia di %s" % str(centre))
 
 
 func _restore_rig() -> void:
-	if rig == null or _rig_lens.is_empty():
+	if rig == null:
 		return
-	rig.call("set_lens", float(_rig_lens.get("pitch_deg", 30.0)),
-		float(_rig_lens.get("fov_deg", 32.0)), float(_rig_lens.get("distance_m", 18.0)))
+	if rig.has_method("battle_release"):
+		rig.call("battle_release")
 	_rig_lens = {}
 
 

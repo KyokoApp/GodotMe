@@ -78,6 +78,8 @@ var _focus_pair: Array = []
 ## 9 m up - which is IN the mountain, and the capture showed props from inside and
 ## no knight at all. The world feeds this every frame.
 var _ground_y := 0.0
+## Field lens numbers parked while a battle borrows the rig.
+var _saved: Dictionary = {}
 ## Map rectangle the camera must stay over.
 var _map := Rect2()
 var _has_map := false
@@ -202,6 +204,43 @@ func set_lens(pitch: float = NAN, fov: float = NAN, distance: float = NAN) -> vo
 		fov_deg = clampf(fov, 18.0, 60.0)
 	if not is_nan(distance):
 		distance_m = clampf(distance, 8.0, 40.0)
+	_apply_lens()
+	_apply()
+
+
+## Scripted battle framing: face the arena straight on, close in, and drop the
+## walking look-ahead (which would push the aim past the enemies). The field's
+## numbers are handed back by `battle_release()`.
+##
+## Like `set_lens()`, nothing in input can reach this: step 3A's rule is that the
+## player never moves the lens. A battle is the same kind of moment as a cutscene.
+func battle_frame(aim: Vector2, ground_y: float) -> void:
+	_saved = {
+		"pitch": pitch_deg, "yaw": yaw_deg, "fov": fov_deg,
+		"distance": distance_m, "look_ahead": look_ahead_m,
+	}
+	look_ahead_m = 0.0
+	yaw_deg = 0.0
+	pitch_deg = 30.0
+	fov_deg = 34.0
+	distance_m = 15.0
+	_apply_lens()
+	_ground_y = ground_y
+	_target = Vector3(aim.x, ground_y, aim.y)
+	_vel = Vector3.ZERO
+	_apply()
+	print("[CAMERA] bingkai pertarungan: pitch 30 fov 34 jarak 15 di %s" % str(aim))
+
+
+func battle_release() -> void:
+	if _saved.is_empty():
+		return
+	pitch_deg = float(_saved.get("pitch", pitch_deg))
+	yaw_deg = float(_saved.get("yaw", yaw_deg))
+	fov_deg = float(_saved.get("fov", fov_deg))
+	distance_m = float(_saved.get("distance", distance_m))
+	look_ahead_m = float(_saved.get("look_ahead", look_ahead_m))
+	_saved = {}
 	_apply_lens()
 	_apply()
 
