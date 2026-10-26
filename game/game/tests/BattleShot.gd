@@ -36,6 +36,13 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var region: Variant = world.call("region")
 	var spot: Vector2 = world.call("start_position")
+	# Build the ground under the arena before anything stands on it. The field
+	# does this for the player every time he crosses a tile; here there is no
+	# cast to walk, so the shot asks the world directly (the same call a teleport
+	# makes). Without it the battle stands on a hole: the first ten captures
+	# showed the interface over flat fog.
+	world.call("stream_now", spot)
+	await get_tree().process_frame
 	var script: Script = load(BATTLE)
 	battle = script.new()
 	battle.name = "Battle"
@@ -45,9 +52,43 @@ func _ready() -> void:
 		"observed": {"orc_prajurit": ["tombak"], "orc_pemimpin": ["tombak", "es"]},
 	})
 	await _reach(state)
+	_describe(state)
 	var shot := HARNESS.arg("--capture-name=", "51_pertarungan_%s" % state)
 	# the transition shot must not wait: its whole point is a frame mid-flight
 	await HARNESS.capture(self, shot, 0.0 if state == "transisi" else 0.35)
+
+
+## One line of numbers per shot. A screenshot can only be judged by looking at
+## it, but when it comes out wrong the first question is always "is the world
+## there, are the fighters there, is the camera the right one" - and the CI log is
+## the only place to ask. Printed as the last thing before the frame is grabbed,
+## so `tail` shows it next to the capture line.
+func _describe(state: String) -> void:
+	var stats: Dictionary = {}
+	if world != null and world.has_method("stream_stats"):
+		stats = world.call("stream_stats")
+	var chunks := int(stats.get("loaded", stats.get("chunks", -1)))
+	var view: Node3D = battle.get("view")
+	var sprite_count := 0
+	var cam_pos := Vector3.ZERO
+	var cam_current := "?"
+	if view != null:
+		var sprites: Variant = view.get("_sprites")
+		if typeof(sprites) == TYPE_DICTIONARY:
+			sprite_count = (sprites as Dictionary).size()
+		var cam: Camera3D = view.get("camera") as Camera3D
+		if cam != null:
+			cam_pos = cam.global_position
+			cam_current = "ya" if cam.current else "tidak"
+	print("[SHOT] state=%s region=%s chunk=%d sprite=%d kamera=%s pos=%s ui=%s" % [
+		state, "ada" if world.call("region") != null else "TIDAK",
+		chunks, sprite_count, cam_current, str(cam_pos.round()),
+		str(ui_size())])
+
+
+func ui_size() -> Vector2:
+	var ui: Control = battle.get("ui")
+	return ui.size if ui != null else Vector2.ZERO
 
 
 func _wait(seconds: float) -> void:

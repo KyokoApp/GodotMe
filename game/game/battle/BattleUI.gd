@@ -57,6 +57,9 @@ var awaiting_ready := false
 
 var _root: Control
 var _turn_bar: HBoxContainer
+var _tools: HBoxContainer
+var _party_plate: PanelContainer
+var _result_panel: PanelContainer
 var _marks: Dictionary = {}        ## uid -> {plate, name, pips, weak} above an enemy
 var _hit_boxes: Dictionary = {}    ## uid -> Button (tap an enemy)
 var _popups: Control
@@ -81,9 +84,21 @@ var _result_label: RichTextLabel
 func setup(battle_logic: RefCounted, battle_view: Node3D) -> void:
 	logic = battle_logic
 	view = battle_view
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Anchors written out, not `set_anchors_preset`: this control is a direct
+	# child of a CanvasLayer, has no Control parent, and a preset alone left it a
+	# fixed rect at (0,0). Every corner below is then placed from `size`.
+	anchor_left = 0.0
+	anchor_top = 0.0
+	anchor_right = 1.0
+	anchor_bottom = 1.0
+	offset_left = 0.0
+	offset_top = 0.0
+	offset_right = 0.0
+	offset_bottom = 0.0
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
+	resized.connect(_layout)
+	_layout()
 	refresh()
 
 
@@ -101,8 +116,7 @@ func _build() -> void:
 	var tools := HBoxContainer.new()
 	tools.name = "Tools"
 	tools.add_theme_constant_override("separation", 8)
-	tools.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	tools.position = Vector2(-320, 20)
+	_tools = tools
 	add_child(tools)
 	_speed_btn = _kit().chip("1x", Vector2(76, 48))
 	_speed_btn.pressed.connect(_cycle_speed)
@@ -115,15 +129,12 @@ func _build() -> void:
 	_log = _kit().label("", 17, CREAM)
 	_log.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	_log.add_theme_constant_override("outline_size", 4)
-	_log.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_log.position = Vector2(26, -196)
 	_log.custom_minimum_size = Vector2(700, 40)
 	add_child(_log)
 
 	# party strip, bottom left
 	var party_plate := _plate()
-	party_plate.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	party_plate.position = Vector2(20, -150)
+	_party_plate = party_plate
 	add_child(party_plate)
 	_party_box = HBoxContainer.new()
 	_party_box.add_theme_constant_override("separation", 14)
@@ -131,8 +142,6 @@ func _build() -> void:
 
 	# command menu, bottom right
 	_command = _plate()
-	_command.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_command.position = Vector2(-430, -210)
 	add_child(_command)
 	_command_box = VBoxContainer.new()
 	_command_box.add_theme_constant_override("separation", 8)
@@ -171,8 +180,6 @@ func _build() -> void:
 
 	# sub menu (skills / items), appears above the command menu
 	_sub = _plate()
-	_sub.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_sub.position = Vector2(-700, -300)
 	_sub.visible = false
 	add_child(_sub)
 	_sub_box = VBoxContainer.new()
@@ -181,7 +188,6 @@ func _build() -> void:
 
 	# the 6x6 knowledge board for the selected enemy
 	_grid_panel = _plate()
-	_grid_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_grid_panel.position = Vector2(20, 96)
 	_grid_panel.visible = false
 	add_child(_grid_panel)
@@ -196,6 +202,35 @@ func _build() -> void:
 	add_child(_popups)
 
 	_result = _build_result()
+
+
+## Every corner is placed from `size`, in one function, and re-run on every
+## resize. The first version wrote `position = Vector2(-430, -210)` on a control
+## whose anchors had just been set to the BOTTOM-RIGHT corner: `position` is
+## measured from the parent's top-left, not from the anchor, so the command menu,
+## the party strip, the speed buttons and the result sheet all landed off the
+## left/top edge of the screen - visible only as a parchment sliver in the corner
+## of the first ten battle screenshots. Anchors stay at 0 so `position` means what
+## it looks like it means.
+func _layout() -> void:
+	var w := size.x
+	var h := size.y
+	if w <= 1.0:
+		w = 1280.0
+	if h <= 1.0:
+		h = 720.0
+	if _tools != null:
+		_tools.position = Vector2(w - 200.0, 18.0)
+	if _log != null:
+		_log.position = Vector2(26.0, h - 196.0)
+	if _party_plate != null:
+		_party_plate.position = Vector2(20.0, h - 158.0)
+	if _command != null:
+		_command.position = Vector2(w - 430.0, h - 208.0)
+	if _sub != null:
+		_sub.position = Vector2(w - 480.0, h - 430.0)
+	if _result_panel != null:
+		_result_panel.position = Vector2((w - 520.0) * 0.5, (h - 360.0) * 0.5)
 
 
 func _plate() -> PanelContainer:
@@ -215,8 +250,7 @@ func _build_result() -> Control:
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrap.add_child(dim)
 	var panel := _plate()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.position = Vector2(-260, -180)
+	_result_panel = panel
 	panel.custom_minimum_size = Vector2(520, 360)
 	wrap.add_child(panel)
 	var box := VBoxContainer.new()

@@ -586,6 +586,10 @@ jobs:
               --capture="$GITHUB_WORKSPACE/docs/screenshots/pertarungan" \
               --capture-name="51_pertarungan_${state}" \
               2>&1 | tee -a /tmp/capture.log | tail -4
+            # The frame is the evidence, but "no world / no fighters / wrong
+            # camera" all look like the same grey rectangle. This line is what
+            # the run reports when a shot comes out wrong.
+            grep -h "^\[SHOT\]" /tmp/capture.log | tail -1 | sed 's/^/::warning::/' || true
           done
 
           # --- step 3A: pitch x FOV, the grid the owner picks the angle from.

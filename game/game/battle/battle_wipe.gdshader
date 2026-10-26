@@ -59,12 +59,21 @@ void fragment() {
 	sample_uv = mix(sample_uv, shard_uv, k);
 
 	vec3 col = textureLod(screen_tex, sample_uv, 0.0).rgb;
-	// darken the torn edge of every shard
+	// Darken the torn edge of every shard - but only once the shards have begun
+	// to move. Drawn unconditionally, this grid of dark seams is painted over a
+	// perfectly intact frame, and every battle screenshot carried a permanent
+	// black grid across the arena because at t = 0 the "broken glass" edges
+	// existed while the glass was still whole.
 	float edge = min(min(local.x, 1.0 - local.x), min(local.y, 1.0 - local.y));
-	col = mix(tear_color, col, smoothstep(0.0, 0.06 + 0.12 * k, edge));
+	float tear = (1.0 - smoothstep(0.0, 0.06 + 0.12 * k, edge)) * clamp(k * 2.5, 0.0, 1.0);
+	col = mix(col, tear_color, tear);
 
 	// and the whole overlay fades out at the end, so nothing pops when the
 	// controller swaps the scene behind it
 	float cover = 1.0 - smoothstep(0.82, 1.0, t);
-	COLOR = vec4(col, clamp(cover * (0.35 + 0.65 * (1.0 - k)), 0.0, 1.0));
+	// ... and it has to be INVISIBLE at the start, not merely a copy: a shader
+	// that is always at least partly drawn costs a full-screen pass over the
+	// arena for the whole fight.
+	float lead = smoothstep(0.0, 0.06, t);
+	COLOR = vec4(col, clamp(cover * lead * (0.35 + 0.65 * (1.0 - k)), 0.0, 1.0));
 }

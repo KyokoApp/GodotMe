@@ -135,6 +135,8 @@ func _build_wipe() -> void:
 	_wipe = ColorRect.new()
 	_wipe.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_wipe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# nothing to draw until the tween moves it (see `_set_wipe`)
+	_wipe.visible = false
 	_wipe_mat = ShaderMaterial.new()
 	if ResourceLoader.exists(WIPE_SHADER):
 		_wipe_mat.shader = load(WIPE_SHADER)
@@ -169,6 +171,12 @@ func _wipe_to(value: float, seconds: float) -> void:
 func _set_wipe(value: float) -> void:
 	if _wipe_mat != null:
 		_wipe_mat.set_shader_parameter("t", value)
+	# A shader at t = 0 samples the screen and redraws it, i.e. an exact copy -
+	# but "exact copy" still means a full-screen pass, and on the phone that pass
+	# would run for every frame of the battle. Park the rect when it has nothing
+	# to say: fully open at 0, fully past the frame at 1.
+	if _wipe != null:
+		_wipe.visible = value > 0.0005 and value < 0.9995
 
 
 # -------------------------------------------------------------------- turns ---
