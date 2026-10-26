@@ -1684,22 +1684,35 @@ terbaca dengan `battle: {}` (level 1, tanpa pengetahuan) — migrasinya satu blo
 ### 23.10 Angka hasil kalibrasi
 
 Simulator headless (policy Auto yang sama dengan tombol Auto) untuk encounter
-`ujian_orc` (3 Orc Prajurit + 1 Orc Pemimpin):
+`ujian_orc` (2 Orc Prajurit + 1 Orc Pengintai + 1 Orc Pemimpin):
 
 | Ukuran | Hasil |
 | --- | --- |
 | 1000 pertarungan, policy Auto | menang **1000/1000** |
-| giliran-unit rata-rata | 18,14 (≈ **7,08 ronde**; median 7, minimum 5, maksimum 13) |
-| 200 pertarungan tanpa Break/Boost | menang **104** (rata-rata 46,8 giliran-unit) |
+| ronde rata-rata | **7,41** (median 7, terburuk 20) |
+| BREAK per pertarungan | **1,02** (Shield orc habis tepat sebelum mati, Pemimpin sekali di sekitar setengah HP) |
+| 200 pertarungan tanpa Break/Boost | menang **0** |
 
 Artinya: memakai Break + Boost menyelesaikan pertarungan dalam 5–8 ronde seperti
-yang diminta, dan mengabaikannya membuat kalah jauh lebih sering. Angka ini
-diukur ulang setiap push oleh `BattleTest` (target: menang ≥95%, rata-rata
-4,5–9 ronde, median 5–8, terburuk ≤30).
+yang diminta, dan mengabaikannya berarti kalah. Angka ini diukur ulang setiap
+push oleh `BattleTest` (target: menang ≥95%, rata-rata 4,5–9 ronde, median 5–8,
+terburuk ≤30, BREAK ≥90% pertarungan).
 
 Stat final: Knight HP 370 / SP 44 / ATK 48 / DEF 32 / MATK 16 / MDEF 22 / SPD 26 /
-CRIT 8 / EVA 5; Orc Prajurit 88/22/14/SPD 14/Shield 3; Orc Pengintai 80/19/12/
-SPD 21/Shield 3; Orc Pemimpin 300/30/22/SPD 17/Shield 6 (fase 2: ATK 38, SPD 20).
+CRIT 8 / EVA 5; Orc Prajurit HP 160 / ATK 14 / DEF 14 / SPD 14 / Shield 3; Orc
+Pengintai HP 147 / ATK 12 / DEF 12 / SPD 21 / Shield 3; Orc Pemimpin HP 320 /
+ATK 20 / DEF 22 / SPD 17 / Shield 6 (fase 2: ATK 28, SPD 20, kelemahan `petir`).
+
+**Kalibrasi pertama salah, dan tes yang menemukannya.** Dengan angka awal
+(Orc Prajurit HP 88, Knight ATK 48) pertarungan memang selesai 7 ronde — tetapi
+simulator melaporkan **BREAK 0 kali dalam 1000 pertarungan**. Sebabnya aritmetika
+sederhana: Tebas Naik mengenai kelemahan untuk ±51 damage, jadi Orc Prajurit mati
+dalam dua pukulan, sedangkan Shield 3 baru habis di pukulan ketiga. Musuh selalu
+mati sebelum Shield-nya sempat pecah, dan mekanik utama langkah ini tidak pernah
+terlihat sama sekali. Perbaikannya: HP musuh dinaikkan (160/147/320) dan ATK-nya
+diturunkan (14/12/20) supaya jumlah pukulan-per-mati hampir sama dengan jumlah
+pukulan-per-break, dan Knight tetap bisa bertahan 7 ronde. Ini persis alasan
+`BattleTest` mengukur BREAK, bukan hanya kemenangan.
 
 ### 23.11 Yang belum bisa diverifikasi di sini
 

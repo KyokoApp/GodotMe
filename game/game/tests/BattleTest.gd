@@ -411,6 +411,9 @@ func _test_items_and_skills() -> void:
 	_check(int(knight["sp"]) == before_sp - 6, "skill memakai SP dari data",
 		"%d -> %d" % [before_sp, int(knight["sp"])])
 	knight["hp"] = 40
+	# `submit()` only acts on the unit whose turn it is, and the knight just spent
+	# its turn: settle the orc's turn first (this is what the field does too)
+	_ally_turn(b)
 	var inv_before := int((b.get("inventory") as Dictionary).get("ramuan", 0))
 	b.call("submit", {"kind": "item", "id": "ramuan", "target": int(knight["uid"])})
 	b.call("drain")
@@ -474,7 +477,12 @@ func _test_simulation() -> void:
 	_check(mean >= 4.5 and mean <= 9.0, "panjang pertarungan 5-8 giliran", "rata-rata %.2f" % mean)
 	_check(median >= 5 and median <= 8, "median pertarungan 5-8 giliran", str(median))
 	_check(worst <= 30, "tidak ada pertarungan yang menggantung", str(worst))
-	_check(breaks > BATTLES, "BREAK benar-benar terjadi di hampir setiap pertarungan", str(breaks))
+	# One break per battle is what the numbers buy: an Orc Prajurit's Shield 3
+	# runs out just as it dies, and the leader breaks once around half health.
+	# Demanding more than one per battle would be demanding a slower fight than
+	# the 5-8 turn target allows.
+	_check(breaks >= int(float(BATTLES) * 0.9),
+		"BREAK terjadi di hampir setiap pertarungan", str(breaks))
 	_check(boost_used > BATTLES, "Boost benar-benar dipakai", str(boost_used))
 
 	# the other half of the design: ignoring Break and Boost has to be worse

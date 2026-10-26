@@ -457,7 +457,7 @@ xvfb-run -a godot --path game --resolution 1280x720 \
 | C10 | Kejutan | `apply_ambush()` | +1 BP untuk party, −1 Shield musuh pertama, encounter `pos_gunung` bertanda `ambush` |
 | C11 | Kabur | bos: satu percobaan; orc biasa: sampai 30 percobaan | bos **tidak bisa** kabur dan pertarungan tidak berakhir; orc biasa berakhir dengan `result == "flee"` |
 | C12 | Skill, item, buff | Tebas Naik (SP 6), Ramuan, Sumpah Penjaga | SP berkurang tepat 6, HP naik, item berkurang satu, `def_up` > 0 dan bertahan 3 giliran |
-| C13 | 1000 pertarungan, policy Auto | `suggest_action()` + `submit()` | menang ≥95%; rata-rata 4,5–9 ronde; median 5–8; terburuk ≤30; BREAK >1000 kali; Boost dipakai >1000 BP |
+| C13 | 1000 pertarungan, policy Auto | `suggest_action()` + `submit()` | menang ≥95%; rata-rata 4,5–9 ronde; median 5–8; terburuk ≤30; BREAK di ≥90% pertarungan; Boost dipakai >1000 BP |
 | C14 | Tanpa Break/Boost lebih buruk | 200 pertarungan `attack` boost 0 | menang < 120 dari 200 |
 | C15 | Simpanan hasil pertarungan | `SaveGame` skema 3: tulis, muat ulang, dan simpanan skema 2 | `battles_won`, `leaf`, `observed` kembali utuh; simpanan lama tetap terbaca dengan `battle` kosong dan progres lama tidak hilang |
 

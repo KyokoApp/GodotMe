@@ -790,8 +790,8 @@ unduhan sprite baru:
 | `game/battle/BattleScene.gd` | kontroler: waktu, event, transisi pecah, EXP/Leaf/level |
 | `game/battle/battle_wipe.gdshader` | transisi pecah + pusar |
 
-`pack_audit` setelah perubahan ini: `enemies` **7 berkas, 95.118 B**; total enam
-paket **1.375.180 B (1.342 KB)**, 0 galat, 0 peringatan. (Paket `ui` tetap 7
+`pack_audit` setelah perubahan ini: `enemies` **7 berkas, 95.896 B**; total enam
+paket **1.376.340 B (1.344 KB)**, 0 galat, 0 peringatan. (Paket `ui` tetap 7
 berkas karena ikon baru masuk ke `atlas_ui.png` yang sudah ada; ikon per-sel
 `game/assets/ui/icons/*.png` tetap disimpan sebagai jatuhan editor dan tidak
 dipaket.)
