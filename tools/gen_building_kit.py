@@ -373,6 +373,17 @@ def window_cell() -> np.ndarray:
     # sill
     rect(img, 4, CELL - 12, CELL - 4, CELL - 6, STONE_LIGHT)
     rect(img, 4, CELL - 7, CELL - 4, CELL - 5, STONE)
+    # Glass carries a slightly lower alpha than its frame. The scissor in
+    # building.gdshader only asks "is this pixel there" (>= 0.42), so the exact
+    # value is free - and it is what lets the shader tell a pane from its oak
+    # frame: at noon the PANE goes dark and cool like real glass while the frame
+    # keeps the wood colour. Without the split, fading a window for daylight also
+    # faded its frame and every wall got black rectangles.
+    glass = ((img[:, :, 0] == GLASS_WARM[0]) & (img[:, :, 1] == GLASS_WARM[1])
+             & (img[:, :, 2] == GLASS_WARM[2]))
+    hot = ((img[:, :, 0] == GLASS_HOT[0]) & (img[:, :, 1] == GLASS_HOT[1])
+           & (img[:, :, 2] == GLASS_HOT[2]))
+    img[glass | hot, 3] = 204
     return img
 
 

@@ -1420,6 +1420,13 @@ draw call:
 | `UV2` | titik asal sel di atlas — **inilah cara memilih sel tanpa array uniform** |
 | `COLOR.rgb` | warna bangunan (putih di mesh, MultiMesh yang membawa warna per rumah) |
 | `COLOR.a` | kelas detail, **bukan transparansi**: 1,0 menyala (jendela, nyala obor), 0,4 detail kecil (pintu, papan, pita besi), 0,0 struktur |
+| `tex.a` | hanya dipakai sel jendela: kaca 0,8 vs kusen 1,0, supaya siang hari **kacanya** yang menjadi gelap dan dingin sementara kusen kayu tetap berwarna |
+
+Jendela siang hari adalah jebakan kecil yang tertangkap dari tangkapan pertama:
+sel jendela dilukis hangat (memang harus, itu lampu malam), jadi tanpa aturan
+khusus setiap jendela di desa menyala kuning di tengah siang. Sekarang kanal
+alpha tekstur membedakan kaca dari kusen: kaca dikalikan 0,20–0,32 dan
+didinginkan, kusen dibiarkan, dan `night` mengembalikan keduanya ke warna hangat.
 
 `COLOR.a` dipakai untuk tiga hal sekaligus, semuanya di `building.gdshader`:
 jendela menyala mengikuti fase malam (`night`), detail kecil dibuang di luar
@@ -1494,7 +1501,7 @@ memastikan tidak ada satu pun bangunan yang digambar dua kali.
 
 | Hal | Nilai |
 | --- | --- |
-| Atlas bangunan | 512×512, 16 sel, **123.393 B** (grain 2×2 piksel: per-piksel membuat PNG 274 KB untuk beda yang tak terlihat) |
+| Atlas bangunan | 512×512, 16 sel, **123.416 B** (grain 2×2 piksel: per-piksel membuat PNG 274 KB untuk beda yang tak terlihat) |
 | Mesh desa | 11 mesh, 22 instance |
 | Segitiga | rumah 442, menara 782, seluruh desa **2.568** (anggaran tes 16.000; 900 per bangunan) |
 | Verteks | rumah 892, menara 1.572 (anggaran 1.400 per bangunan) |

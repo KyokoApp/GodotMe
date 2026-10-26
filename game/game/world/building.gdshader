@@ -111,10 +111,13 @@ void fragment() {
 	// The first capture of step 3B showed every window on the village as a
 	// bright yellow lamp at noon, because the cell is painted warm and only the
 	// EMISSION was being faded. The ALBEDO has to go dark as well.
+	// A pane of glass in daylight is a dark, cool hole in the wall; its oak frame
+	// is not. The window cell stores the panes with alpha 0.8 and the frame with
+	// 1.0 (the scissor below only asks "present", so the value is free), which is
+	// how the two can be told apart without a second material.
 	if (v_glow > 0.5 && !flame) {
-		// scale the cell down and cool it instead of replacing it: the oak frame
-		// has to stay visible, or every window is a black rectangle
-		vec3 daylight = tex.rgb * vec3(0.16, 0.19, 0.26);
+		float pane = step(tex.a, 0.9);
+		vec3 daylight = tex.rgb * mix(vec3(1.0), vec3(0.20, 0.24, 0.32), pane);
 		base = mix(daylight, base, clamp(night * 1.6, 0.0, 1.0));
 	}
 	ALBEDO = base;
