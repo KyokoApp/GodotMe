@@ -315,6 +315,14 @@ func _reach(state: String) -> void:
 			_probe_box()
 			await _wait(0.3)
 			return
+		"uji":
+			# One run, several cameras, one number each: how much of the frame is
+			# NOT the flat background. That single measurement separates "this
+			# camera object is broken" from "this transform is wrong" from "this
+			# subtree is hidden", which no screenshot on its own can do.
+			await _ready_battle()
+			await _camera_trials()
+			return
 		"kamerasalin":
 			# Same transform, different camera OBJECT: the world's own camera is
 			# moved onto the battle camera's position, rotation, fov and planes.
@@ -359,6 +367,77 @@ func _reach(state: String) -> void:
 		_:
 			await _ready_battle()
 			return
+
+
+## Try every camera arrangement that could explain an empty frame, and report a
+## coverage number for each. Coverage = share of pixels that differ from the flat
+## background the frame had when nothing was drawn.
+func _camera_trials() -> void:
+	var battle_cam := _battle_camera()
+	var world_cam := world.get_node_or_null("CameraRig/Camera3D") as Camera3D
+	if battle_cam == null:
+		print("[PROBE] kamera pertarungan tidak ada")
+		return
+	print("[PROBE] battle visible_in_tree=%s parent_visible=%s world_3d=%s vp_world_3d=%s" % [
+		str(battle_cam.is_visible_in_tree()),
+		str((battle_cam.get_parent() as Node3D).is_visible_in_tree()),
+		str(battle_cam.get_world_3d().get_rid()), str(get_viewport().world_3d.get_rid())])
+	var basis := battle_cam.global_transform.basis
+	print("[PROBE] battle det=%.4f skala=%s near=%.2f far=%.1f keep_aspect=%d attrs=%s env=%s" % [
+		basis.determinant(), str(battle_cam.scale), battle_cam.near, battle_cam.far,
+		battle_cam.keep_aspect, str(battle_cam.attributes), str(battle_cam.environment)])
+	# A: the battle's own camera, as it is
+	await _coverage("A battle apa adanya", battle_cam)
+	# B: the world's camera, untouched
+	if world_cam != null:
+		await _coverage("B kamera dunia", world_cam)
+	# C: a brand new camera at the battle camera's transform, on this node
+	var fresh := Camera3D.new()
+	fresh.name = "FreshCam"
+	fresh.fov = battle_cam.fov
+	fresh.near = battle_cam.near
+	fresh.far = battle_cam.far
+	add_child(fresh)
+	fresh.global_transform = battle_cam.global_transform
+	await _coverage("C kamera baru di akar", fresh)
+	fresh.queue_free()
+	await get_tree().process_frame
+	# D: the battle camera with its properties re-stated
+	battle_cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+	battle_cam.keep_aspect = Camera3D.KEEP_HEIGHT
+	battle_cam.cull_mask = 0xFFFFF
+	battle_cam.current = true
+	await _coverage("D battle di-set ulang", battle_cam)
+	# E: the battle camera, unhidden by force
+	var arena: Node3D = battle.get("view")
+	if arena != null:
+		arena.visible = true
+		battle_cam.visible = true
+	await _coverage("E battle visible dipaksa", battle_cam)
+
+
+func _coverage(label: String, cam: Camera3D) -> void:
+	cam.current = true
+	await get_tree().create_timer(0.35).timeout
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	if img == null:
+		print("[PROBE] %s: tidak ada gambar" % label)
+		return
+	var w := img.get_width()
+	var h := img.get_height()
+	var bg := img.get_pixel(4, 4)
+	var drawn := 0
+	var total := 0
+	for y in range(0, h, 6):
+		for x in range(0, w, 6):
+			total += 1
+			var c := img.get_pixel(x, y)
+			if absf(c.r - bg.r) + absf(c.g - bg.g) + absf(c.b - bg.b) > 0.08:
+				drawn += 1
+	print("[PROBE] %s: %d/%d piksel berisi (%.1f%%) kamera=%s" % [
+		label, drawn, total, 100.0 * float(drawn) / float(maxi(1, total)),
+		str(cam.get_path())])
 
 
 ## A magenta box, unshaded, floating over the middle of the arena.
