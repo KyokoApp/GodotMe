@@ -727,11 +727,25 @@ ukurannya (paket diunduh terpisah oleh peluncur). Total enam paket:
 
 ### Rilis 0.10.0
 
-1. `python3 tools/kit_audit.py` mencetak `kit sah`.
+1. `python3 tools/kit_audit.py` mencetak `kit sah` — **16 sel, 7 jenis,
+   123.416 B**; `BuildingTest` **29 pemeriksaan, 0 gagal**; `pack_audit`
+   1.270.793 B, 0 galat.
 2. CI **Building rules** hijau (tabel B1–B10 di `TEST_PLAN.md`), dan job
-   `screenshots` menghasilkan `docs/screenshots/bangunan/kit_bangunan.png`.
+   `screenshots` menghasilkan `docs/screenshots/bangunan/kit_bangunan.png`
+   (8 tangkapan 4 sisi × siang/malam + kontak sheet berlabel).
 3. Ubah `RELEASE_DEMO` untuk memicu `release-demo` (versi 0.10.0).
 4. Di peluncur HP: **Periksa Lagi** → hanya `world.pck` yang berubah, jadi
    unduhannya ±1,1 MB dan APK tidak perlu diganti.
 5. Di HP, `adb logcat | grep -E "PERF|BUILDING|REGION"` untuk fps dan jumlah
    segitiga; preset Rendah harus tetap 30 FPS di desa.
+
+### Yang berubah selama langkah 3B (catatan untuk rilis berikutnya)
+
+Empat cacat ditemukan **dari tangkapan layar**, bukan dari tes logika, dan
+semuanya sudah diperbaiki: panggung tangkapan tidak memuat kit sehingga delapan
+gambar berisi alas kosong; ujung atap pelana terbuka (terlihat sebagai celah
+jerami terang); jendela menyala kuning di siang hari; dan nyala obor digambar
+sebagai 90 bintik acak sehingga tampak seperti konfeti. Pelajaran yang
+ditulis di `DESIGN_NOTES.md` §22.8: **tangkapan layar adalah tes**, dan sebuah
+jebakan tipe GDScript (`Packed*` adalah tipe nilai) bisa lolos dari semua
+pemeriksaan aritmetika.

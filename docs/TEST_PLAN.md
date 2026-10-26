@@ -407,6 +407,25 @@ menjejarkan seluruh kit di satu landasan:
 | `docs/screenshots/bangunan/50_bangunan_{depan,kanan,belakang,kiri}_{siang,malam}.png` | 4 sisi × 2 fase, 640×360 |
 | `docs/screenshots/bangunan/kit_bangunan.png` | kontak sheet 4×2 berlabel, disusun `tools/building_sheet.py` |
 
+Hasil nyata (CI `ci` **40263694665**, semua job hijau): `BuildingTest`
+**29 pemeriksaan, 0 gagal**; `kit_audit` **16 sel, 7 jenis, 123.416 B**;
+`pack_audit` 6 paket, 1.270.793 B, 0 galat. Selain B1–B10, tes juga menjaga
+empat hal yang tidak direncanakan di awal tetapi menangkap bug sungguhan:
+
+- **normal bukan nol** untuk setiap verteks (`|n| = 1 ± 0,02`) — inilah yang
+  menangkap jebakan `PackedVector3Array` (DESIGN_NOTES §22.8);
+- **mesh deterministik**: kit yang sama membangun verteks pertama yang sama
+  persis, supaya dua tangkapan bisa dibandingkan;
+- **alpha kelas yang sah**: hanya 0, 0,4, atau 1,0 — nilai lain berarti kelas
+  detail salah tulis;
+- **PlayTest** kini memisahkan `Props_` dari `Buildings_` dan menuntut setiap
+  prop tetap memakai `prop.gdshader` sementara setiap bangunan memakai
+  `building.gdshader`, serta jumlah instance bangunan sama dengan isi
+  `building_layout()`.
+
 Yang **tidak** dibuktikan di sini: 30 FPS di GPU HP, dan apakah komposisi
 desanya enak dilihat. Yang pertama diukur lewat jurnal `[PERF]` di perangkat,
-yang kedua lewat tangkapan di atas.
+yang kedua lewat tangkapan di atas — ditambah pemeriksaan mata pada delapan
+tangkapan itu sendiri, yang sudah menangkap empat cacat (panggung tanpa kit,
+atap terbuka di ujung, jendela menyala di siang hari, dan nyala obor mirip
+konfeti) sebelum langkah ini dinyatakan selesai.
