@@ -280,6 +280,25 @@ func _reach(state: String) -> void:
 			battle.call("_finish")
 			await _wait(0.7)
 			return
+		"kamera":
+			# Is ANY 3D drawn under the battle camera? A bright box three metres
+			# over the arena answers that in one frame: if the box shows and the
+			# world does not, the fault is the world's materials; if nothing
+			# shows, the fault is the camera or the 3D pass itself.
+			await _ready_battle()
+			_probe_box()
+			await _wait(0.3)
+			return
+		"duakamera":
+			# Hand the frame back to the world's own camera. If the arena appears
+			# now, the battle camera is what breaks the 3D pass; if it stays
+			# brown, something in the battle's own subtree is.
+			await _ready_battle()
+			var rig := world.get_node_or_null("CameraRig/Camera3D") as Camera3D
+			if rig != null:
+				rig.current = true
+			await _wait(0.35)
+			return
 		"kalah":
 			await _ready_battle()
 			for raw in (_logic().get("allies") as Array):
@@ -294,6 +313,33 @@ func _reach(state: String) -> void:
 		_:
 			await _ready_battle()
 			return
+
+
+## A magenta box, unshaded, floating over the middle of the arena.
+func _probe_box() -> void:
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(2.0, 2.0, 2.0)
+	var mi := MeshInstance3D.new()
+	mi.name = "ProbeBox"
+	mi.mesh = mesh
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1.0, 0.1, 0.9)
+	mi.material_override = mat
+	var spot: Vector2 = battle.get("centre")
+	var y := 2.0
+	if world != null and world.has_method("region"):
+		var region: Variant = world.call("region")
+		if region != null:
+			y = float(region.call("height_at", spot)) + 1.5
+	mi.position = Vector3(spot.x, y, spot.y)
+	add_child(mi)
+	var view: Node3D = battle.get("view")
+	var cam: Camera3D = view.get("camera") as Camera3D
+	if cam != null:
+		print("[DIAG] kotak uji %s -> layar %s (di belakang=%s)" % [
+			str(mi.global_position.round()), str(cam.unproject_position(mi.global_position).round()),
+			str(cam.is_position_behind(mi.global_position))])
 
 
 ## Act as if the player had tapped Serang (or the skill) on that enemy, without
