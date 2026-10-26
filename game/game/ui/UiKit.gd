@@ -29,6 +29,12 @@ const DANGER := Color(0.55, 0.16, 0.12)
 const ICONS := [
 	"heart_full", "heart_empty", "sun", "moon", "gear", "save", "arrow_left",
 	"talk", "door", "inspect", "take", "map", "close", "book",
+	# step 3C: the six weapons and six elements the weakness board is built from,
+	# plus the shield. They are listed here for the same reason as the others -
+	# this list is what the "?" row can draw and what the atlas must contain.
+	"w_pedang", "w_tombak", "w_kapak", "w_busur", "w_tongkat", "w_belati",
+	"e_api", "e_es", "e_petir", "e_angin", "e_cahaya", "e_kegelapan",
+	"perisai",
 ]
 
 ## Touch floors, in DESIGN pixels of the 1280x720 canvas.
