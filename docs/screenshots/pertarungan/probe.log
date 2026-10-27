@@ -1,107 +1,110 @@
-[SHOT] mulai state=dunia
-[DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(42.0, 9.0, 164.0) fov=32.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(42.0, 9.0, 164.0)
-[DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
-[DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
-[DIAG] piksel tengah=(0.1686, 0.1608, 0.0941, 1.0) kiri-atas=(0.3333, 0.3569, 0.1961, 1.0) bawah=(0.3451, 0.2078, 0.0824, 1.0)
 [SHOT] mulai state=transisi
-[SHOT] state=transisi region=ada chunk=17 sprite=5 kamera=ya pos=(42.0, 8.0, 170.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=transisi region=ada chunk=17 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(42.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(42.0, 8.0, 170.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=17 mesh_tanah=16 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
-[DIAG] transisi layer=tampil t=0.35186117887497
+[DIAG] transisi layer=tampil t=0.45454543828964
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.2745, 0.2471, 0.2353, 1.0) kiri-atas=(0.4157, 0.2824, 0.1725, 1.0) bawah=(0.6196, 0.5608, 0.5333, 1.0)
+[DIAG] piksel tengah=(0.251, 0.2235, 0.2157, 1.0) kiri-atas=(0.4157, 0.3804, 0.349, 1.0) bawah=(0.4039, 0.3686, 0.3451, 1.0)
 [SHOT] mulai state=awal
-[SHOT] state=awal region=ada chunk=25 sprite=5 kamera=ya pos=(43.0, 8.0, 162.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=awal region=ada chunk=25 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(43.0, 8.0, 162.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(43.0, 8.0, 162.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.149, 0.1529, 0.0863, 1.0) kiri-atas=(0.7608, 0.3843, 0.1569, 1.0) bawah=(0.1098, 0.1216, 0.0588, 1.0)
+[DIAG] piksel tengah=(0.698, 0.6353, 0.6, 1.0) kiri-atas=(0.2157, 0.2078, 0.1608, 1.0) bawah=(0.698, 0.6392, 0.6, 1.0)
 [SHOT] mulai state=menu
-[SHOT] state=menu region=ada chunk=25 sprite=5 kamera=ya pos=(44.0, 8.0, 162.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=menu region=ada chunk=25 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(44.0, 8.0, 162.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(44.0, 8.0, 162.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.1725, 0.1686, 0.0902, 1.0) kiri-atas=(0.8784, 0.498, 0.1961, 1.0) bawah=(0.4431, 0.3765, 0.1294, 1.0)
+[DIAG] piksel tengah=(0.698, 0.6353, 0.6, 1.0) kiri-atas=(0.2157, 0.2078, 0.1608, 1.0) bawah=(0.698, 0.6392, 0.6, 1.0)
 [SHOT] mulai state=kelemahan
-[SHOT] state=kelemahan region=ada chunk=25 sprite=5 kamera=ya pos=(44.0, 8.0, 162.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=kelemahan region=ada chunk=25 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(44.0, 8.0, 162.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(44.0, 8.0, 162.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.1333, 0.1451, 0.0824, 1.0) kiri-atas=(0.8784, 0.498, 0.1961, 1.0) bawah=(0.3176, 0.2902, 0.0902, 1.0)
+[DIAG] piksel tengah=(0.698, 0.6353, 0.6, 1.0) kiri-atas=(0.2157, 0.2078, 0.1608, 1.0) bawah=(0.698, 0.6392, 0.6, 1.0)
 [SHOT] mulai state=boost
-[SHOT] state=boost region=ada chunk=25 sprite=5 kamera=ya pos=(44.0, 8.0, 162.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=boost region=ada chunk=25 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(44.0, 8.0, 162.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(44.0, 8.0, 162.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.2667, 0.2431, 0.098, 1.0) kiri-atas=(0.7176, 0.3294, 0.1569, 1.0) bawah=(0.4588, 0.3804, 0.1333, 1.0)
+[DIAG] piksel tengah=(0.698, 0.6353, 0.6, 1.0) kiri-atas=(0.2157, 0.2078, 0.1608, 1.0) bawah=(0.698, 0.6392, 0.6, 1.0)
 [SHOT] mulai state=break
-[SHOT] state=break region=ada chunk=25 sprite=5 kamera=ya pos=(45.0, 8.0, 157.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=break region=ada chunk=25 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(45.0, 8.0, 157.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(45.0, 8.0, 157.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.2039, 0.149, 0.1176, 1.0) kiri-atas=(0.3804, 0.1608, 0.1333, 1.0) bawah=(0.2039, 0.2118, 0.0784, 1.0)
+[DIAG] piksel tengah=(0.698, 0.6353, 0.6, 1.0) kiri-atas=(0.2157, 0.2078, 0.1608, 1.0) bawah=(0.698, 0.6392, 0.6, 1.0)
 [SHOT] mulai state=damage
-[SHOT] state=damage region=ada chunk=25 sprite=5 kamera=ya pos=(44.0, 8.0, 160.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=damage region=ada chunk=25 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(44.0, 8.0, 160.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(44.0, 8.0, 160.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.1333, 0.1569, 0.0863, 1.0) kiri-atas=(0.451, 0.1843, 0.149, 1.0) bawah=(0.6392, 0.4549, 0.2078, 1.0)
+[DIAG] piksel tengah=(0.698, 0.6353, 0.6, 1.0) kiri-atas=(0.2157, 0.2078, 0.1608, 1.0) bawah=(0.698, 0.6392, 0.6, 1.0)
 [SHOT] mulai state=fase2
-[SHOT] state=fase2 region=ada chunk=25 sprite=5 kamera=ya pos=(45.0, 8.0, 153.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=fase2 region=ada chunk=25 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(45.0, 8.0, 153.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(45.0, 8.0, 153.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.251, 0.1922, 0.1216, 1.0) kiri-atas=(0.5647, 0.2392, 0.149, 1.0) bawah=(0.2157, 0.1961, 0.1922, 1.0)
+[DIAG] piksel tengah=(0.698, 0.6353, 0.6, 1.0) kiri-atas=(0.2157, 0.2078, 0.1608, 1.0) bawah=(0.698, 0.6392, 0.6, 1.0)
 [SHOT] mulai state=hasil
-[SHOT] state=hasil region=ada chunk=25 sprite=5 kamera=ya pos=(44.0, 8.0, 158.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=hasil region=ada chunk=25 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(44.0, 8.0, 158.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(44.0, 8.0, 158.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.8706, 0.7765, 0.5961, 1.0) kiri-atas=(0.1373, 0.0863, 0.0745, 1.0) bawah=(0.0706, 0.0745, 0.0431, 1.0)
+[DIAG] piksel tengah=(0.8706, 0.7765, 0.5961, 1.0) kiri-atas=(0.1255, 0.1137, 0.0863, 1.0) bawah=(0.3412, 0.3098, 0.2863, 1.0)
 [SHOT] mulai state=kalah
-[SHOT] state=kalah region=ada chunk=25 sprite=5 kamera=ya pos=(44.0, 8.0, 158.0) ui=(1280.0, 720.0)
+[SHOT] layar: Knig@(546,232) Orc @(297,199) Orc @(515,152) Orc @(717,137) Orc @(939,150)
+[SHOT] state=kalah region=ada chunk=25 sprite=5 kamera=ya pos=(41.0, 8.0, 170.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
-[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(44.0, 8.0, 158.0) fov=34.0 near=0.40 far=420.0
-[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(44.0, 8.0, 158.0)
+[DIAG] kamera aktif=/root/BattleShot/Diorama/CameraRig/Camera3D pos=(41.0, 8.0, 170.0) fov=34.0 near=0.40 far=420.0
+[DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(41.0, 8.0, 170.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=25 mesh_tanah=20 aabb=[P: (0.0, 0.0, 96.0), S: (32.0, 10.5, 32.0)] visible=true atlas=ADA
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(42.0, 2.0, 161.0) frames=true teks=true
-[DIAG] piksel tengah=(0.8706, 0.7765, 0.5961, 1.0) kiri-atas=(0.1059, 0.0863, 0.0706, 1.0) bawah=(0.0863, 0.0902, 0.0471, 1.0)
+[DIAG] piksel tengah=(0.8706, 0.7765, 0.5961, 1.0) kiri-atas=(0.1255, 0.1137, 0.0863, 1.0) bawah=(0.3412, 0.3098, 0.2863, 1.0)
