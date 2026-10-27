@@ -260,12 +260,41 @@ func _ready_battle() -> void:
 
 func _reach(state: String) -> void:
 	match state:
-		"transisi":
-			# mid-shatter. The wipe tween is running, so the honest way to catch it
-			# is to stand still and let it pass: 0.25 s into a 0.55 s shatter is a
-			# real frame of the real transition, not a hand-set uniform fighting
-			# the tween back on the next frame.
-			await _wait(0.25)
+		"cek":
+			# Is the ground culled, covered, or simply not drawn? For every chunk
+			# mesh and every far-scenery mesh: is its centre inside the camera
+			# frustum, is it visible in the tree, which layers, and what covers the
+			# middle of the frame. One run, and the answer is a line of numbers.
+			await _ready_battle()
+			var cam := _battle_camera()
+			print("[PROBE] kamera pos=%s arah=%s fov=%.1f" % [str(cam.global_position.round()),
+				str((-cam.global_transform.basis.z).round()), cam.fov])
+			var view: Node3D = world.call("view")
+			var nodes: Dictionary = view.call("chunk_nodes")
+			var inside := 0
+			for key in nodes.keys():
+				var chunk: Node3D = nodes[key]
+				var mi := chunk.get_node_or_null("Ground") as MeshInstance3D
+				if mi == null:
+					continue
+				var centre3 := mi.global_transform * mi.mesh.get_aabb().get_center()
+				var in_frustum := cam.is_position_in_frustum(centre3)
+				if in_frustum:
+					inside += 1
+				print("[PROBE] chunk %s pusat=%s frustum=%s visible=%s layers=%d" % [
+					String(chunk.name), str(centre3.round()), str(in_frustum),
+					str(mi.is_visible_in_tree()), mi.layers])
+			print("[PROBE] chunk di frustum: %d dari %d" % [inside, nodes.size()])
+			var far := world.get_node_or_null("FarScenery")
+			if far != null:
+				for c in far.get_children():
+					if c is MeshInstance3D:
+						var f: MeshInstance3D = c
+						print("[PROBE] jauh %s pusat=%s frustum=%s aabb=%s" % [
+							f.name, str((f.global_transform * f.mesh.get_aabb().get_center()).round()),
+							str(cam.is_position_in_frustum(f.global_transform * f.mesh.get_aabb().get_center())),
+							str(f.mesh.get_aabb().size.round())])
+			await _count("<cek>")
 			return
 		"awal":
 			await _ready_battle()
