@@ -45,6 +45,12 @@ var _shake_time := 0.0
 var _flash: Dictionary = {}        ## uid -> seconds left
 var _camera_base := Vector3.ZERO
 var _camera_look := Vector3.ZERO
+## Middle of the two lines, in world XZ. The camera aims HERE, not at the point
+## where the fight started: the party stands up to 4,8 m on the near side and the
+## enemies 3,5 m beyond, so a lens aimed at the start point pushes the party out
+## of the bottom of the frame - which is exactly what the first borrow of the
+## field rig did (the fighters were below the edge, only their plates showed).
+var _focus := Vector2.ZERO
 var _frozen := false
 
 
@@ -72,8 +78,22 @@ func build(logic: RefCounted) -> void:
 			slot = FOE_SLOTS[foe_index % FOE_SLOTS.size()]
 			foe_index += 1
 		_spawn(int(unit["uid"]), def, centre + slot, unit, assets)
+	_focus = _mean_spot()
 	_frame_camera()
 	play_idle_all()
+	print("[BATTLE] arena: %d petarung, fokus %s (mulai di %s)" % [
+		_roots.size(), str(_focus.round()), str(centre.round())])
+
+
+## Average of where the fighters actually stand.
+func _mean_spot() -> Vector2:
+	if _roots.is_empty():
+		return centre
+	var sum := Vector2.ZERO
+	for uid in _roots.keys():
+		var root: Node3D = _roots[uid]
+		sum += Vector2(root.position.x, root.position.z)
+	return sum / float(_roots.size())
 
 
 func _find_region() -> RefCounted:
@@ -168,13 +188,13 @@ func _frame_with_rig() -> void:
 	# the fight frames itself: the party on the near side, the orcs beyond, both
 	# lines inside the frame - so the aim point is the middle of the arena
 	if rig.has_method("battle_frame"):
-		rig.call("battle_frame", centre, ground)
+		rig.call("battle_frame", _focus, ground)
 	else:
-		rig.call("place_at", centre)
+		rig.call("place_at", _focus)
 	camera = rig.call("camera") as Camera3D
 	if camera != null:
 		camera.current = true
-	print("[BATTLE] kamera memakai rig dunia di %s" % str(centre))
+	print("[BATTLE] kamera memakai rig dunia di %s" % str(_focus.round()))
 
 
 func _restore_rig() -> void:

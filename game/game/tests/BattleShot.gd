@@ -97,6 +97,20 @@ func _describe(state: String) -> void:
 		if cam != null:
 			cam_pos = cam.global_position
 			cam_current = "ya" if cam.current else "tidak"
+	# Every fighter's place on screen: a shot where the fighters are off frame
+	# looks exactly like a shot of an empty field, and this line says which.
+	var v: Node3D = battle.get("view") if battle != null else null
+	if v != null and v.has_method("unit_screen"):
+		var vp := get_viewport().get_visible_rect().size
+		var spots: Array = []
+		for raw in _logic().get("units"):
+			var unit: Dictionary = raw
+			var uid := int(unit["uid"])
+			var sp: Vector2 = v.call("unit_screen", uid)
+			var inside := sp.x > 0.0 and sp.y > 0.0 and sp.x < vp.x and sp.y < vp.y
+			spots.append("%s@(%d,%d)%s" % [String(unit["name"]).substr(0, 4),
+				int(sp.x), int(sp.y), "" if inside else "!"])
+		print("[SHOT] layar: %s" % " ".join(spots))
 	print("[SHOT] state=%s region=%s chunk=%d sprite=%d kamera=%s pos=%s ui=%s" % [
 		state, "ada" if world.call("region") != null else "TIDAK",
 		chunks, sprite_count, cam_current, str(cam_pos.round()),

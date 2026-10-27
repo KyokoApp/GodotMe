@@ -223,7 +223,7 @@ func battle_frame(aim: Vector2, ground_y: float) -> void:
 	# +22 all rendered the arena (draw calls 97-106, mid-pixel green or brown, no
 	# haze), at pitch 30, fov 34 and 16 m. -12 is the three-quarter view that puts
 	# both lines in frame with the village behind them.
-	look_ahead_m = 1.7
+	look_ahead_m = 0.0
 	yaw_deg = -12.0
 	pitch_deg = 30.0
 	fov_deg = 34.0
