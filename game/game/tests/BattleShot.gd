@@ -70,6 +70,12 @@ func _ready() -> void:
 	battle = script.new()
 	battle.name = "Battle"
 	add_child(battle)
+	# the field HUD is hidden for the length of a fight (Main does this through
+	# `_hud.visible = false`); the capture stage stands next to the diorama, so it
+	# has no HUD to hide - except in the transition shot, where what is breaking
+	# apart has to be the frame the player was looking at, HUD and all.
+	var field_hud := _make_field_hud()
+	field_hud.visible = state == "transisi"
 	var rig: Node3D = world.call("camera_rig")
 	battle.call("start", region, spot, "ujian_orc", {
 		"level": 3, "exp": 320, "leaf": 240, "seed": 7,
@@ -239,6 +245,37 @@ func _watchdog(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
 	print("[SHOT] batas waktu %.0f s tercapai, keluar." % seconds)
 	get_tree().quit(3)
+
+
+## A stand-in for the field HUD, shown only for the transition shot.
+func _make_field_hud() -> Control:
+	var layer := CanvasLayer.new()
+	layer.name = "FieldHud"
+	layer.layer = 20
+	add_child(layer)
+	var hud := Control.new()
+	hud.name = "Hud"
+	hud.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(hud)
+	var kit: Script = load("res://game/ui/UiKit.gd")
+	if kit == null:
+		return hud
+	var plate := PanelContainer.new()
+	plate.add_theme_stylebox_override("panel", kit.call("parchment"))
+	plate.position = Vector2(20, 18)
+	hud.add_child(plate)
+	var minimap := Control.new()
+	minimap.custom_minimum_size = Vector2(150, 150)
+	var bg := ColorRect.new()
+	bg.color = Color(0.22, 0.28, 0.18)
+	bg.size = Vector2(150, 150)
+	minimap.add_child(bg)
+	plate.add_child(minimap)
+	var menu: Button = kit.call("button", "Menu", Vector2(196, 80))
+	menu.position = Vector2(1280.0 - 196.0 - 22.0, 18.0)
+	hud.add_child(menu)
+	return hud
 
 
 func _wait(seconds: float) -> void:

@@ -724,6 +724,12 @@ func show_result(summary: Dictionary) -> void:
 	if bool(summary.get("fled", false)):
 		lines = ["[b]Kabur[/b]", "Kembali ke jalan."]
 	_result_label.text = "\n".join(lines)
+	# the plates above the enemies belong to the fight; on the result sheet they
+	# float over the panel and collide with its text (the "Orc Prajurit" plate
+	# landed on top of "Kembali ke simpanan terakhir" in the first shots)
+	for uid in _marks.keys():
+		var entry: Dictionary = _marks[uid]
+		(entry["plate"] as Control).visible = false
 	_result.visible = true
 	_sub.visible = false
 	_command.visible = false
