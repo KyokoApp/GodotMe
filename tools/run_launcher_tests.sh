@@ -79,12 +79,13 @@ run_case() {
       run_scenario startup_rollback t_crash --manifest="$HOST/v110.json"
       ;;
     ui_input)          run_scenario ui_input t_ui ;;
+    boot_packs)        case_manifest boot_packs v100.json t_bootpack ;;
     capture)           run_scenario capture t_capture --manifest="$HOST/slow.json" --captures="${CAPTURES:-/tmp/shots}" ;;
     *) fail "unknown case $1"; return 1 ;;
   esac
 }
 
-ALL_CASES="unit first_install partial_update resume bad_hash offline launcher_too_old blocked signed_ok signed_bad ui_input crash"
+ALL_CASES="unit first_install partial_update resume bad_hash offline launcher_too_old blocked signed_ok signed_bad ui_input boot_packs crash"
 
 prepare || exit 1
 if [ $# -gt 0 ]; then

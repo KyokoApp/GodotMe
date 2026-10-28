@@ -1,0 +1,344 @@
+{
+  "schema": 1,
+  "note": "Semua angka pertarungan tinggal di berkas ini. Mengubah keseimbangan tidak boleh menuntut menyentuh satu baris kode pun; BattleData.gd memvalidasi berkas ini dan BattleTest gagal bila ada yang tidak masuk akal.",
+  "balance": {
+    "bp_start": 1,
+    "bp_per_turn": 1,
+    "bp_max": 5,
+    "bp_spend_max": 3,
+    "shield_max": 8,
+    "shield_min": 2,
+    "break_multiplier": 1.5,
+    "break_defense_factor": 0.5,
+    "break_turns": 1,
+    "guard_multiplier": 0.5,
+    "boss_flee": false,
+    "flee_base": 0.55,
+    "crit_multiplier": 1.6,
+    "variance_low": 0.95,
+    "variance_high": 1.05,
+    "hit_stop_frames": 3,
+    "turn_bar_entries": 8,
+    "level_curve": [
+      0,
+      120,
+      300,
+      560,
+      900,
+      1320,
+      1840,
+      2460
+    ],
+    "level_hp": 24,
+    "level_atk": 3,
+    "level_def": 2,
+    "level_sp": 4
+  },
+  "formula": "damage = round(ATK x (power/100) x (100 / (100 + DEF)) x Boost x Break x crit x rand(0.95, 1.05)). ATK/DEF memakai pasangan fisik (atk/def) untuk senjata dan sihir (matk/mdef) untuk elemen. Boost = 1 + 0.25 x BP yang dipakai, dan setiap 1 BP menambah satu pukulan. Break: DEF x0.5 dan damage x1.5 sampai target pulih. Bertahan: damage masuk x0.5.",
+  "elements": [
+    "api",
+    "es",
+    "petir",
+    "angin",
+    "cahaya",
+    "kegelapan"
+  ],
+  "weapons": [
+    "pedang",
+    "tombak",
+    "kapak",
+    "busur",
+    "tongkat",
+    "belati"
+  ],
+  "items": [
+    {
+      "id": "ramuan",
+      "name": "Ramuan",
+      "icon": "e_api",
+      "kind": "heal",
+      "power": 120,
+      "target": "ally",
+      "price": 30,
+      "text": "Memulihkan 120 HP satu kawan."
+    },
+    {
+      "id": "elixir",
+      "name": "Elixir",
+      "icon": "e_cahaya",
+      "kind": "heal",
+      "power": 260,
+      "target": "ally",
+      "price": 120,
+      "text": "Memulihkan 260 HP satu kawan."
+    },
+    {
+      "id": "granat_api",
+      "name": "Granat Api",
+      "icon": "e_api",
+      "kind": "damage",
+      "element": "api",
+      "power": 110,
+      "target": "enemy",
+      "price": 60,
+      "text": "Ledakan api: 110 kekuatan, menghitung kelemahan api."
+    },
+    {
+      "id": "botol_es",
+      "name": "Botol Es",
+      "icon": "e_es",
+      "kind": "damage",
+      "element": "es",
+      "power": 110,
+      "target": "enemy",
+      "price": 60,
+      "text": "Pecahan es: 110 kekuatan, menghitung kelemahan es."
+    }
+  ],
+  "skills": [
+    {
+      "id": "tebas_naik",
+      "name": "Tebas Naik",
+      "owner": "knight",
+      "icon": "w_tombak",
+      "weapon": "tombak",
+      "power": 130,
+      "sp": 6,
+      "target": "enemy",
+      "text": "Tusukan tombak dari bawah: 130 kekuatan, menghitung kelemahan tombak."
+    },
+    {
+      "id": "hentak_perisai",
+      "name": "Hentak Perisai",
+      "owner": "knight",
+      "icon": "perisai",
+      "weapon": "pedang",
+      "power": 85,
+      "sp": 5,
+      "shield_break": 2,
+      "target": "enemy",
+      "text": "Hantaman perisai: 85 kekuatan dan memotong 2 lapis Shield sekaligus."
+    },
+    {
+      "id": "sumpah_penjaga",
+      "name": "Sumpah Penjaga",
+      "owner": "knight",
+      "icon": "perisai",
+      "kind": "buff",
+      "sp": 8,
+      "turns": 3,
+      "def_up": 0.35,
+      "target": "self",
+      "text": "DEF naik 35% selama 3 giliran."
+    }
+  ],
+  "party": [
+    {
+      "id": "knight",
+      "name": "Knight",
+      "def_path": "res://game/characters/data/knight.tres",
+      "hp": 370,
+      "sp": 44,
+      "atk": 48,
+      "def": 32,
+      "matk": 16,
+      "mdef": 22,
+      "spd": 26,
+      "crit": 8,
+      "eva": 5,
+      "weapons": [
+        "pedang",
+        "tombak"
+      ],
+      "skills": [
+        "tebas_naik",
+        "hentak_perisai",
+        "sumpah_penjaga"
+      ],
+      "items": [
+        "ramuan",
+        "elixir",
+        "granat_api",
+        "botol_es"
+      ]
+    }
+  ],
+  "enemies": [
+    {
+      "id": "orc_prajurit",
+      "name": "Orc Prajurit",
+      "def_path": "res://game/characters/data/orc.tres",
+      "hp": 160,
+      "sp": 0,
+      "atk": 14,
+      "def": 14,
+      "matk": 6,
+      "mdef": 8,
+      "spd": 14,
+      "crit": 5,
+      "eva": 3,
+      "shield": 3,
+      "weak": [
+        "tombak",
+        "api",
+        "angin"
+      ],
+      "ai": [
+        "attack",
+        "attack",
+        "charge"
+      ],
+      "charge": {
+        "name": "mengumpulkan tenaga",
+        "text": "Orc Prajurit mengumpulkan tenaga!",
+        "power": 190,
+        "cancel_by_break": true
+      },
+      "reward": {
+        "exp": 42,
+        "leaf": 18,
+        "drop": "ramuan",
+        "drop_chance": 0.35
+      }
+    },
+    {
+      "id": "orc_pengintai",
+      "name": "Orc Pengintai",
+      "def_path": "res://game/characters/data/orc.tres",
+      "hp": 147,
+      "sp": 0,
+      "atk": 12,
+      "def": 12,
+      "matk": 6,
+      "mdef": 10,
+      "spd": 21,
+      "crit": 8,
+      "eva": 8,
+      "shield": 3,
+      "weak": [
+        "pedang",
+        "busur",
+        "kegelapan"
+      ],
+      "ai": [
+        "attack",
+        "attack",
+        "attack"
+      ],
+      "reward": {
+        "exp": 36,
+        "leaf": 14,
+        "drop": "granat_api",
+        "drop_chance": 0.25
+      }
+    },
+    {
+      "id": "orc_pemimpin",
+      "name": "Orc Pemimpin",
+      "def_path": "res://game/characters/data/orc.tres",
+      "hp": 320,
+      "sp": 0,
+      "atk": 20,
+      "def": 22,
+      "matk": 10,
+      "mdef": 12,
+      "spd": 17,
+      "crit": 6,
+      "eva": 4,
+      "shield": 6,
+      "boss": true,
+      "weak": [
+        "tombak",
+        "es",
+        "cahaya"
+      ],
+      "ai": [
+        "attack",
+        "attack",
+        "charge"
+      ],
+      "charge": {
+        "name": "mengumpulkan tenaga",
+        "text": "Orc Pemimpin mengumpulkan tenaga!",
+        "power": 210,
+        "cancel_by_break": true
+      },
+      "phases": [
+        {
+          "at_hp": 0.5,
+          "name": "Murka",
+          "add_weak": [
+            "petir"
+          ],
+          "atk": 28,
+          "spd": 20,
+          "text": "Orc Pemimpin murka! Kelemahan barunya terlihat: petir."
+        }
+      ],
+      "reward": {
+        "exp": 180,
+        "leaf": 90,
+        "drop": "elixir",
+        "drop_chance": 0.6
+      }
+    }
+  ],
+  "encounters": [
+    {
+      "id": "pos_gunung",
+      "name": "Gerbang Pos Gunung",
+      "enemies": [
+        "orc_prajurit",
+        "orc_prajurit",
+        "orc_prajurit",
+        "orc_pemimpin"
+      ],
+      "row": 2,
+      "trigger": "field",
+      "ambush": true,
+      "ambush_bp": 1,
+      "ambush_shield": 1
+    },
+    {
+      "id": "ujian_orc",
+      "name": "Ujian: 3 orc + pemimpin",
+      "enemies": [
+        "orc_prajurit",
+        "orc_pengintai",
+        "orc_prajurit",
+        "orc_pemimpin"
+      ],
+      "row": 2,
+      "trigger": "test"
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "rumput",
+      "tile": "rumput",
+      "sky": [
+        0.36,
+        0.47,
+        0.6
+      ]
+    },
+    {
+      "id": "batu",
+      "tile": "batu",
+      "sky": [
+        0.3,
+        0.34,
+        0.42
+      ]
+    },
+    {
+      "id": "pasir",
+      "tile": "pasir",
+      "sky": [
+        0.52,
+        0.44,
+        0.34
+      ]
+    }
+  ]
+}

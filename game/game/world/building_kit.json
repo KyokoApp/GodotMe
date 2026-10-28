@@ -1,0 +1,355 @@
+{
+ "schema": 1,
+ "atlas": [
+  512,
+  512
+ ],
+ "cells": [
+  {
+   "name": "wall_timber",
+   "index": 0,
+   "rect": [
+    0,
+    0,
+    128,
+    128
+   ],
+   "uv": [
+    0.0,
+    0.0,
+    0.25,
+    0.25
+   ],
+   "tile_m": 2.0,
+   "glow": false
+  },
+  {
+   "name": "wall_wood",
+   "index": 1,
+   "rect": [
+    128,
+    0,
+    128,
+    128
+   ],
+   "uv": [
+    0.25,
+    0.0,
+    0.25,
+    0.25
+   ],
+   "tile_m": 1.6,
+   "glow": false
+  },
+  {
+   "name": "wall_stone",
+   "index": 2,
+   "rect": [
+    256,
+    0,
+    128,
+    128
+   ],
+   "uv": [
+    0.5,
+    0.0,
+    0.25,
+    0.25
+   ],
+   "tile_m": 2.0,
+   "glow": false
+  },
+  {
+   "name": "roof_shingle",
+   "index": 3,
+   "rect": [
+    384,
+    0,
+    128,
+    128
+   ],
+   "uv": [
+    0.75,
+    0.0,
+    0.25,
+    0.25
+   ],
+   "tile_m": 1.2,
+   "glow": false
+  },
+  {
+   "name": "roof_thatch",
+   "index": 4,
+   "rect": [
+    0,
+    128,
+    128,
+    128
+   ],
+   "uv": [
+    0.0,
+    0.25,
+    0.25,
+    0.25
+   ],
+   "tile_m": 1.2,
+   "glow": false
+  },
+  {
+   "name": "floor_stone",
+   "index": 5,
+   "rect": [
+    128,
+    128,
+    128,
+    128
+   ],
+   "uv": [
+    0.25,
+    0.25,
+    0.25,
+    0.25
+   ],
+   "tile_m": 1.6,
+   "glow": false
+  },
+  {
+   "name": "window",
+   "index": 6,
+   "rect": [
+    256,
+    128,
+    128,
+    128
+   ],
+   "uv": [
+    0.5,
+    0.25,
+    0.25,
+    0.25
+   ],
+   "tile_m": 0.0,
+   "glow": true
+  },
+  {
+   "name": "door",
+   "index": 7,
+   "rect": [
+    384,
+    128,
+    128,
+    128
+   ],
+   "uv": [
+    0.75,
+    0.25,
+    0.25,
+    0.25
+   ],
+   "tile_m": 0.0,
+   "glow": false
+  },
+  {
+   "name": "beam",
+   "index": 8,
+   "rect": [
+    0,
+    256,
+    128,
+    128
+   ],
+   "uv": [
+    0.0,
+    0.5,
+    0.25,
+    0.25
+   ],
+   "tile_m": 1.0,
+   "glow": false
+  },
+  {
+   "name": "gable",
+   "index": 9,
+   "rect": [
+    128,
+    256,
+    128,
+    128
+   ],
+   "uv": [
+    0.25,
+    0.5,
+    0.25,
+    0.25
+   ],
+   "tile_m": 0.0,
+   "glow": false
+  },
+  {
+   "name": "plank_light",
+   "index": 10,
+   "rect": [
+    256,
+    256,
+    128,
+    128
+   ],
+   "uv": [
+    0.5,
+    0.5,
+    0.25,
+    0.25
+   ],
+   "tile_m": 1.2,
+   "glow": false
+  },
+  {
+   "name": "iron",
+   "index": 11,
+   "rect": [
+    384,
+    256,
+    128,
+    128
+   ],
+   "uv": [
+    0.75,
+    0.5,
+    0.25,
+    0.25
+   ],
+   "tile_m": 0.8,
+   "glow": false
+  },
+  {
+   "name": "banner",
+   "index": 12,
+   "rect": [
+    0,
+    384,
+    128,
+    128
+   ],
+   "uv": [
+    0.0,
+    0.75,
+    0.25,
+    0.25
+   ],
+   "tile_m": 0.0,
+   "glow": false
+  },
+  {
+   "name": "stone_pale",
+   "index": 13,
+   "rect": [
+    128,
+    384,
+    128,
+    128
+   ],
+   "uv": [
+    0.25,
+    0.75,
+    0.25,
+    0.25
+   ],
+   "tile_m": 2.0,
+   "glow": false
+  },
+  {
+   "name": "roof_dark",
+   "index": 14,
+   "rect": [
+    256,
+    384,
+    128,
+    128
+   ],
+   "uv": [
+    0.5,
+    0.75,
+    0.25,
+    0.25
+   ],
+   "tile_m": 1.2,
+   "glow": false
+  },
+  {
+   "name": "flame",
+   "index": 15,
+   "rect": [
+    384,
+    384,
+    128,
+    128
+   ],
+   "uv": [
+    0.75,
+    0.75,
+    0.25,
+    0.25
+   ],
+   "tile_m": 0.0,
+   "glow": true
+  }
+ ],
+ "kinds": {
+  "cottage": {
+   "w": 7.8,
+   "d": 5.04,
+   "h": 5.9,
+   "variants": 3,
+   "block_radius": 2.0,
+   "front": true
+  },
+  "tower": {
+   "w": 4.7,
+   "d": 4.7,
+   "h": 13.3,
+   "variants": 2,
+   "block_radius": 2.4,
+   "front": true
+  },
+  "gate": {
+   "w": 4.9,
+   "d": 1.6,
+   "h": 5.0,
+   "variants": 1,
+   "block_radius": 2.2,
+   "front": true
+  },
+  "well": {
+   "w": 2.4,
+   "d": 2.4,
+   "h": 3.3,
+   "variants": 1,
+   "block_radius": 0.9,
+   "front": false
+  },
+  "dock": {
+   "w": 4.8,
+   "d": 2.4,
+   "h": 1.0,
+   "variants": 1,
+   "block_radius": 0.0,
+   "front": false
+  },
+  "sign": {
+   "w": 1.1,
+   "d": 0.3,
+   "h": 2.2,
+   "variants": 2,
+   "block_radius": 0.45,
+   "front": true
+  },
+  "torch": {
+   "w": 0.7,
+   "d": 0.7,
+   "h": 3.0,
+   "variants": 1,
+   "block_radius": 0.3,
+   "front": false
+  }
+ }
+}

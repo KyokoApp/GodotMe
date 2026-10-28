@@ -10,7 +10,7 @@
 # one line here.
 #
 # Release tag: demo-v0.1.0
-# Pack version written into version.json: 0.1.0
+# Pack version written into version.json: 0.2.0
 # re-run 13:29:17
 # re-run 13:34:33
 # re-run 13:39:41
@@ -29,3 +29,31 @@
 # re-run 15:12:29
 # re-run 18:50:39
 # re-run 19:49:30
+# re-run 20:62 tahap sprite: characters.pck berisi ksatria/penjaga/orc; core berubah (kontrol+dialog)
+# re-run 21:04 notes rilis tidak lagi kosong; changelog menyebut world.pck
+# re-run 22:40 perbaikan boot: skrip game tanpa class_name; paket 0.2.1
+# re-run 23:12 perbaikan stun + prop melayang; paket 0.2.2
+# re-run 23:40 billboard sumbu Y, kamera follow, stik dinamis; paket 0.3.0
+
+0.3.1
+
+0.3.2
+
+0.4.0
+
+0.4.0a
+
+0.4.0b
+
+0.5.0
+
+0.5.0a
+
+0.6.0
+
+0.7.0
+
+# re-run 06:43:20: paket 0.7.0 dibangun ulang (label aksi kapital, ukiran stik)
+# re-run 12:15:27 - langkah 2: dunia Yaros
+# re-run 23:08:18 - langkah 3A: kamera octopath 0.9.0
+# re-run 10:41:26 - langkah 3B: bangunan 3D low-poly 0.10.0

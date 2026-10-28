@@ -11,7 +11,7 @@ uniform sampler2D dirt_tex : source_color, filter_nearest, repeat_enable;
 uniform sampler2D grass_tex : source_color, filter_nearest, repeat_enable;
 uniform float half_width = 0.8;   // strip half width in metres (for square texels)
 uniform float feather = 0.28;
-uniform vec3 dirt_tint : source_color = vec3(1.08, 1.00, 0.88);
+uniform vec3 dirt_tint : source_color = vec3(0.94, 0.90, 0.84);
 
 varying vec2 ground_uv;
 
@@ -29,6 +29,11 @@ void fragment() {
 	// two samples at different scales keep the tile from reading as stripes
 	vec3 dirt = (texture(dirt_tex, duv).rgb * 0.62
 		+ texture(dirt_tex, duv * 0.37 + vec2(0.31, 0.17)).rgb * 0.38) * dirt_tint;
+	// The dirt tile is a warm ochre; at full strength it read as a strip of gold
+	// laid over the meadow. Pull it towards its own luminance and dim it a
+	// little so it sits in the grass like trodden earth instead of glowing.
+	float lum = dot(dirt, vec3(0.299, 0.587, 0.114));
+	dirt = mix(dirt, vec3(lum), 0.34) * 0.82;
 	vec3 grass = texture(grass_tex, ground_uv).rgb;
 
 	// noise pushes the boundary in and out so the track looks worn, not painted

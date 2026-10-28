@@ -191,3 +191,1690 @@ dipaksa APK (`gl_compatibility`), tanpa satu pun sprite karakter.
   edge-blend, kalau tidak seam-nya terlihat sebagai grid.
 * `alpha_scissor` butuh tepi alpha keras; PNG hasil `pixelate()` sudah dibuat
   biner (ambang 110/255).
+
+---
+
+## 9. Fase 2 — tahap 2: karakter (sprite, pivot, langkah)
+
+Tambahan 25 Okt 2026. Tiga karakter hidup di lembah: **Ksatria = pemain**,
+**Penjaga = NPC**, **Orc = musuh**. Semua data, bukan kode: satu
+`CharacterDef.tres` per karakter (id, peran, folder sprite, daftar animasi,
+frame size, frame count, fps, loop, pivot, pixel size, langkah). Menambah
+karakter = tambah PNG + satu entri di `tools/import_character_sprites.py`.
+
+**Frame yang diverifikasi (jangan diubah tanpa ukur ulang)**
+
+| Karakter | Kanvas | Animasi (frame) | fps awal | Tinggi dunia |
+| --- | --- | --- | --- | --- |
+| Ksatria | 112×96 | idle 14, walk 8, run 8, attack_1 8, attack_2 9, attack_3 11, block 6, hurt 8, death 15, jump_start/transition/fall 3/3/3 (disimpan, belum dipakai) | 9 / 11 / 13 / 14 / 14 / 15 / 10 / 12 / 11 | 1,80 m |
+| Penjaga | 100×100 | idle 6, walk 8, attack_1 6, attack_2 6, attack_3 9, hurt 4, death 4 (+ arrow 100×100 & 32×32 disimpan) | 8 / 10 / 13 / 13 / 14 / 12 / 11 | 1,61 m |
+| Orc | 100×100 | idle 6, walk 8, attack_1 6, attack_2 6, hurt 4, death 4 | 9 / 10 / 13 / 13 / 12 / 11 | 1,40 m |
+
+`tools/import_character_sprites.py --check` menghitung ulang
+`lebar PNG == jumlah frame × lebar frame`; kalau tidak cocok, **build gagal**
+(bukan ditebak atau dipotong paksa). Pemeriksaan yang sama dijalankan ulang di
+runtime (`CharacterAssets.problems_for`) dan di `ValidateCharacters.tscn`.
+
+**Pivot kaki, bukan tengah kanvas**
+
+Pivot = `(tengah bbox IDLE horizontal, bawah bbox IDLE)` dalam piksel sumber:
+Ksatria `(53, 85)`, Penjaga `(48.5, 57)`, Orc `(55, 57)`. Node aktor berdiri di
+titik itu, jadi karakter menapak di tanah. Kuad sprite digeser sebesar
+`(w/2 − pivot.x, pivot.y − h/2) × pixel_world`; saat `flip_h` aktif, komponen X
+dibalik supaya kaki tidak bergeser saat menghadap kiri.
+
+**Satu `pixel_size` dunia, pengali per karakter (dicatat, disengaja)**
+
+`world_pixel_size = 0,05 m/piksel`. Ketiga pack digambar pada resolusi berbeda
+(tinggi badan: Ksatria 36 px, Penjaga 19 px setelah bayangan bake dihapus,
+Orc 16 px), jadi `pixel_scale` per karakter 1,0 / 1,7 / 1,75 menghasilkan
+1,80 / 1,61 / 1,40 m. Tanpa pengali, penjaga akan setinggi anak-anak.
+
+**Bayangan bake dihapus di pipeline, bukan ditambal di engine.** Lembar Penjaga
+dari pack membawa bayangan jatuh sendiri: satu warna datar `(83, 69, 69)` yang
+hanya muncul di lima baris di bawah kaki, di **setiap** frame (termasuk death),
+berbentuk elips mengelilingi sepatu. `tools/import_character_sprites.py` membuat
+warna itu transparan (`erase_colors`), sehingga (a) tidak ada bayangan ganda,
+(b) blob shadow engine sama untuk ketiga karakter, (c) pivot kaki jatuh di sepatu
+(y=57), bukan di bayangan (y=60). Ksatria dan Orc tidak punya bayangan bake.
+Jumlah piksel yang dihapus dicetak saat `--import` (mis. idle 276 px).
+
+> **Risiko visual yang harus disebut jujur:** Ksatria dan Penjaga/Orc berasal
+> dari dua pack dengan gaya, kerapatan piksel, dan palet berbeda. Ini arahan
+> pemilik (tiga peran itu yang diminta), tetapi secara tampilan mereka tidak
+> satu keluarga. Pack **Blacksmith** yang ikut terkirim gayanya sejalan dengan
+> pack Ksatria; kalau nanti penjaga perlu seragam dengan ksatria, itu kandidat
+> yang paling murah. Belum dipakai di tahap ini.
+
+**Tanpa foot sliding — dihitung, bukan dikira**
+
+Tiap karakter punya `walk_stride_m` (jarak tanah per satu siklus animasi):
+Ksatria 0,90 m (lari 1,90 m), Penjaga 0,75 m, Orc 0,70 m. Kecepatan nominal
+diturunkan dari situ:
+
+```
+speed = stride / (frames / fps)      # mis. Ksatria: 0.90 / (8/11) = 1.24 m/s
+speed_scale = speed_sekarang / speed_nominal
+```
+
+Dorongan stik setengah berarti kecepatan setengah **dan** irama langkah
+setengah, jadi kaki tetap menapak. Nilai rasionya dicetak oleh
+`ValidateCharacters.tscn` (harus 1,000).
+
+**Tampilan**
+
+| Unsur | Keputusan | Alasan |
+| --- | --- | --- |
+| Sprite aktor | `AnimatedSprite3D`, billboard, `alpha_cut = DISCARD` 0,45, Nearest, `shaded = true`, `pixel_size = 0,05 × pixel_scale` | Menerima cahaya matahari dan bisa diurutkan terhadap pohon, bukan stiker datar. Bayangan asli dimatikan (`cast_shadow = OFF`) karena penggantinya blob. |
+| Tekstur | PNG mentah di dalam `.pck`, didekode runtime menjadi RGBA8, **tanpa mipmap**, Nearest | Tidak ada `.import`, jadi tidak ada kompresi ETC2/ASTC yang mengotori tepi piksel atau mipmap yang mengaburkan saat zoom jauh. Biayanya memori, dan untuk ~25 strip kecil itu tidak terasa. |
+| Bayangan | satu `blob_shadow.gdshader` (oval lembut, unshaded) di semua aktor | Semua pack dipakai **tanpa bayangan bawaan**, jadi tidak ada bayangan ganda dan tidak ada karakter yang "melayang". |
+| Anti-shimmer | posisi aktor di-snap ke **¼ piksel sumber** (`SNAP_FRACTION = 0.25`) | Snap satu piksel penuh (≈3,5 px layar di zoom 19) membuat jalan terasa patah-patah; ¼ piksel menghapus getaran tepi tanpa mengorbankan kehalusan. Sisa shimmer saat menggeser kamera tidak bisa hilang total di 3D — dicatat sebagai batas, dicek di `VisualTest`. |
+| Debu langkah | `CPUParticles3D` + `dust_puff.gdshader` (billboard, radial) | Tidak perlu tekstur tambahan; muncul tiap setengah langkah. |
+| Flash hurt | `modulate` 1,0 → 2,3 selama 0,09 s | Putih sesaat tanpa mengubah tekstur. |
+| Hit-stop | 0,05 s (≈3 frame @60 fps) saat kena pukulan | Memberi bobot pukulan tanpa menambah animasi. |
+| Squash/stretch | skala `Visual` 9%/11% selama 0,18 s | Ringan saja; sumbu X/Y dari kaki, jadi tidak menggeser tapak. |
+| Getar kamera | rotasi rig ±0,35° dengan redaman | Halus; bukan shake ala game aksi. |
+
+**State machine & aturan main**
+
+* `idle → walk → run` mengikuti besaran stik; `run` hanya untuk karakter yang
+  punya animasi lari (Ksatria). Penjaga/Orc berjalan.
+* Serangan pemain bersiklus `attack_1 → attack_2 → attack_3 → idle`; menekan
+  lagi saat masih menyerang menyiapkan serangan berikutnya. Orc memilih
+  `attack_1`/`attack_2` secara acak (pack-nya tidak punya attack_3).
+* Blok: animasi diputar sekali lalu **menahan frame terakhir** selama tombol
+  ditahan.
+* Hurt: sekali, lalu kembali ke idle; memotong serangan yang sedang berjalan.
+* Death: menahan frame terakhir. Orc lalu memudar (~0,9 s) dan disembunyikan.
+* Orc: patroli antar titik; radius deteksi 4,5 m → mendekat pelan; jarak ≤1,0 m
+  → `battle_triggered` (belum ada sistem pertempuran, jadi tidak ada yang
+  dipalsukan) dan pemberitahuan di layar.
+
+**Animasi yang TIDAK ada di aset — jangan dipalsukan**
+
+Tidak ada `cast`, `victory`, `boost`, atau panah yang ditembakkan pada ketiga
+pack ini. Tahap ini tidak membuatnya dari kode. **Butuh aset tambahan** kalau
+nanti mau: sihir, kemenangan, lompatan (Ksatria sudah punya 3 frame lompat yang
+disimpan), dan pemanah (panahnya sudah ada, busurnya belum).
+
+**Kontrol sentuh**
+
+Stik 196 px di kiri bawah (dorong kecil = jalan, penuh = lari); tiga tombol
+kanan bawah: **Serang** 140 px, **Tahan** 120 px, **Bicara** 120 px. Semua
+≥96 px agar nyaman dijempol. Saat salah satu disentuh, kamera tidak ikut
+menggeser (`DioramaCamera.touch_blockers`); kamera juga mengikuti pemain dengan
+redaman dan berhenti mengikuti 2,5 s setelah pengguna menggeser sendiri.
+
+**Penyempurnaan setelah tangkapan layar pertama (25 Okt 2026)**
+
+Yang diubah setelah melihat hasil CI, bukan setelah "kira-kira":
+
+- **Jalur tanah.** Tile tanah yang dipakai apa adanya terbaca sebagai pita emas
+  di atas padang rumput. `path.gdshader` sekarang menariknya 34% ke arah
+  luminansinya sendiri lalu mengalikannya 0,82, dan `dirt_tint` turun dari
+  (1,08; 1,00; 0,88) ke (0,94; 0,90; 0,84). Hasilnya tanah kecokelatan yang
+  menyatu, bukan garis menyala.
+- **Posisi penjaga.** Dari (-6,6; 1,4) — di luar bingkai kamera pemain — ke
+  (2,4; 4,2): dua langkah dari titik awal ksatria, di tepi jalur, jadi tombol
+  Bicara menyala tanpa pemain harus mencari. Ia berdiri *di samping* jalur,
+  bukan menghalanginya (`body_radius_m` 0,28 dan ia bukan blocker).
+- **Panel dialog.** Tinggi panel dulu dipaku 210 px, sehingga pilihan kedua
+  terpotong tepi bawah layar. Panel kini tumbuh **ke atas** dari margin bawah
+  (`grow_vertical = GROW_DIRECTION_BEGIN`), jadi berapa pun panjang teks dan
+  pilihan, semuanya masuk layar.
+- **Kontrol sentuh saat bicara.** Stik dan tiga tombol disembunyikan selama
+  dialog terbuka (signal `closed` dari `DialogueBox` mengembalikannya), karena
+  panel perkamen menutupi ibu jari kanan dan gerakan memang dikunci.
+- **Bayangan ganda penjaga.** Lihat §9: bayangan bake dihapus di pipeline.
+- **`root.sort_children = true` di `Diorama`** dihapus: properti itu milik
+  `SpriteBase3D`, bukan `Node3D`, dan setiap frame mencetak SCRIPT ERROR di CI.
+
+Tangkapan layar yang menjadi bukti: `09_karakter.png` (tiga karakter + penggaris
++ penanda pivot), `10_visual_siang.png`, `11_visual_malam.png`, `12_dialog.png`
+(satu halaman dialog), `13_pilihan.png` (dua cabang).
+
+## 10. Kenapa game tidak pernah boot di HP (25 Okt 2026) — dan aturannya
+
+Gejala di perangkat: tekan **MAIN** → layar hitam → launcher kembali dengan
+"Versi 0.2.0 ditahan". Versi 0.1.0 juga pernah gagal dengan cara yang sama.
+
+Penyebab pastinya ditemukan dari CI, bukan dari perangkat. Skenario uji baru
+`boot_packs` (memuat `res://game/Main.tscn` dari paket `.pck` yang benar-benar
+dipasang, persis seperti HP):
+
+```
+SCRIPT ERROR: Parse Error: Identifier "Diorama" not declared in the current scope.
+          at: GDScript::reload (res://game/Main.gd:121)
+ERROR: Failed to load script "res://game/Main.gd" with error "Parse error".
+```
+
+`Main.gd` memakai `Diorama.AREA_NAME` — nama kelas **global** dari
+`world/Diorama.gd` (`class_name Diorama`). Nama global hanya dikenal oleh
+*cache kelas* proyek tempat skrip itu didaftarkan. Game kita dimuat ke dalam
+proses launcher, yang cache-nya tidak pernah melihat skrip dari `.pck`. Akibatnya
+`Main.gd` gagal **di-parse** → scene tetap ter-instantiate tapi tanpa skrip →
+tidak ada `_ready()`, tidak ada `boot_ok.json` → layar hitam → watchdog 25 detik
+→ rollback + "versi ditahan". Semua job CI hijau karena semuanya menjalankan
+proyek `game/` langsung, bukan dari paket.
+
+**Aturan yang sekarang berlaku untuk semua skrip game:**
+
+1. **Dilarang memakai `class_name` sebagai tipe atau akses statis di skrip game.**
+   Ketiga `class_name` di paket dunia (`Diorama`, `DioramaCamera`, `WorldArt`)
+   dihapus.
+2. Untuk helper di **paket yang sama**, gunakan `preload` sebagai konstanta:
+   `const ART := preload("res://game/world/WorldArt.gd")`, lalu `ART.tex(...)`.
+   Paketnya sudah ter-mount sebelum skripnya di-parse, jadi ini aman.
+3. Untuk data dari **paket lain** (core ↔ world), jangan `preload` (paket lain
+   boleh tidak ada) dan jangan nama global. Ambil saat runtime:
+   `(node.get_script() as Script).get_script_constant_map()` — dipakai
+   `Main._area_constant()` untuk `AREA_NAME`/`AREA_SUBTITLE`.
+4. Isi paket boleh berubah, jadi `.pck` lama tetap kompatibel: aturan ini hanya
+   soal cara skrip saling menemukan.
+
+Uji regresi: `boot_packs` di `tools/run_launcher_tests.sh` (matrix CI) yang
+memeriksa skrip menempel & terkompilasi, `boot_ok.json` menyebut versi aktif,
+node `Diorama`, `HUD`, dan `Diorama/Characters` benar-benar terbangun, plus
+tangkapan layar `docs/screenshots/14_game_dari_paket.png`.
+
+## 11. Dua bug perangkat dari laporan pemilik (25 Okt 2026)
+
+Laporan: *"tiba-tiba stuck saat dipukul monster, dan objek kayaknya melayang —
+pohon, batu, dan lain-lain"*. Keduanya direproduksi dulu sebagai uji
+`game/tests/PlayTest.tscn` (headless, masuk CI sebagai "Play rules"), **gagal**
+dengan perbaikan belum dipasang, lalu hijau setelahnya.
+
+### 11.1 Ksatria terkunci setelah dipukul (lampu putih berhenti)
+
+Penyebabnya hit-stop. `_process()` menghentikan animasi dengan
+`sprite.speed_scale = 0.0` selama 0,05 s, tetapi **tidak pernah
+mengembalikannya**. Akibatnya animasi `hurt` berhenti di frame pertamanya.
+Frame pertama `hurt` dari pack Ksatria adalah siluet putih — itulah yang terlihat
+di tangkapan layar pemilik. Karena animasi tidak pernah maju,
+`animation_finished` tidak pernah datang, dan `_on_anim_finished()` adalah
+satu-satunya jalan keluar dari state `hurt`:
+
+```
+stuck = hurt (speed_scale 0) -> animasi mati -> tak ada animation_finished
+      -> state tetap HURT -> drive() & try_attack() keduanya menolak
+```
+
+Perbaikan (semua di `Actor.gd`):
+
+1. `_anim_speed` menyimpan kecepatan animasi; ketika hit-stop selesai,
+   `speed_scale` dikembalikan ke nilai itu (bukan dibiarkan 0).
+2. `_play(anim, speed, restart)`: parameter `restart` memaksa `sprite.play()`
+   walau nama animasinya sama. Dulu flinch kedua tidak pernah memutar ulang
+   strip karena `_anim` masih `"hurt"`.
+3. Flinch tidak bisa dirantai: `take_hit()` diabaikan bila masih di `hurt`
+   kurang dari 0,2 s (dua orc yang memukul bersamaan dulu mengunci pemain).
+4. Pengawas `_watch_one_shot()`: kalau `animation_finished` tetap tidak datang
+   (tree dijeda, sinyal hilang), state `hurt`/`attack` dilepas setelah durasi
+   animasi + 0,35 s dan karakter kembali `idle`. Ada `push_warning` supaya
+   kejadiannya terlihat di log, bukan hilang diam-diam.
+5. Semua perpindahan state memakai `_enter_state()` yang juga mereset
+   `_state_time` (dipakai pengawas dan jendela anti-rantai).
+
+### 11.2 Pohon, batu, dan semak melayang
+
+Kuad prop digambar terpusat pada origin node, jadi ia menapak hanya bila
+`position.y = tinggi/2`. Kode lama memakai tinggi **tanpa** skala:
+
+```gdscript
+mi.scale = Vector3(s, s, s)
+mi.position.y = size.y * 0.5        # benar hanya bila s == 1
+```
+
+Semua prop berskala 0,85–1,2, sehingga prop kecil melayang sampai **0,324 m**
+(diukur uji) dan prop besar tenggelam. Sekarang `mi.position.y = size.y * 0.5 * s`.
+
+**Aturan:** setiap kuad yang "berdiri di tanah" harus menghitung tinggi
+**setelah** skala. Uji `PlayTest` mengukur tepi bawah setiap prop di diorama
+sungguhan dan menuntut |y| ≤ 0,02 m, jadi kesalahan seperti ini tidak bisa
+lolos lagi.
+
+## 12. "Masih melayang", kamera, dan stik (25 Okt 2026)
+
+Tiga laporan pemilik setelah paket 0.2.2. Yang pertama ternyata **bukan** skala
+prop (itu bug lain, sudah diperbaiki di §11.2), melainkan cara kuad menghadap
+kamera.
+
+### 12.1 Akar "melayang": billboard yang ikut miring
+
+Semua sprite (karakter dan prop) memakai `BaseMaterial3D.BILLBOARD_ENABLED`.
+Billboard penuh **memiringkan kuad ke belakang sebesar pitch kamera** (−38°) dan
+rotasinya berpusat di **titik tengah kuad** — untuk ksatria itu ±1,85 m di atas
+kaki. Titik kaki karena itu terangkat dan bergeser ke arah kamera:
+
+```
+dy = h/2 (1 - cos 38°) = 1.85 x 0.212 = 0.39 m
+dz = h/2  sin 38°       = 1.85 x 0.616 = 1.14 m
+```
+
+Kaki terlihat 0,39 m di atas rumput sementara blob shadow tetap di y = 0, jadi
+seluruh karakter (dan setiap pohon/batu) tampak melayang dengan "bayangan yang
+tertinggal". Karena pergeserannya bergantung tinggi, orc (1,4 m) tampak lebih
+ringan gejalanya daripada ksatria (1,8 m).
+
+Perbaikan: `BILLBOARD_FIXED_Y` untuk karakter **dan** prop — kuad hanya berputar
+pada sumbu Y dunia, tetap tegak, dan titik kakinya persis di pivot. Ini juga
+menghapus dua sumber kedipan: billboard penuh mengubah tinggi efektif setiap
+kali kamera bergeser.
+
+Uji: `PlayTest` memeriksa `sprite.billboard == FIXED_Y` untuk karakter dan untuk
+**setiap** prop di diorama.
+
+### 12.2 Kamera tidak mengikuti pemain
+
+`DioramaCamera` sudah punya `set_follow_target()`, tetapi `CharacterWorld`
+memanggilnya **sebelum** `_wire_ground()`/spawn selesai pada beberapa jalur, dan
+yang lebih penting: `_pan_screen()` mengunci follow selama 2,5 detik setiap kali
+ada satu jari menggeser layar. Di HP, satu jari di luar stik langsung dianggap
+"pan", jadi kamera praktis tidak pernah mengikuti.
+
+Sekarang:
+
+- follow memakai **deadzone** 0,55 m: kamera diam selama ksatria masih dekat,
+  lalu meluncur dengan laju 5,5 (bukan mengejar tiap milimeter, yang membuat
+  gambar bergetar);
+- `set_follow_target()` langsung **snap** ke posisi aktor, jadi frame pertama
+  sudah benar;
+- pan hanya untuk **dua jari** dan jedanya pendek (1,2 s).
+
+Uji: `PlayTest` memindahkan ksatria 4 m lalu menuntut kamera ikut > 2,5 m dan
+berhenti < 1,2 m dari aktor.
+
+### 12.3 Stik: dinamis, di mana pun ibu jari mendarat
+
+Stik lama dipaku di satu posisi (kiri bawah, 196 px). Pemain harus melihat ke
+bawah untuk menemukannya, dan sentuhan yang meleset di luar lingkarannya
+**menggeser kamera**, bukan menggerakkan ksatria — persis keluhan pemilik.
+
+Sekarang stik **muncul di titik sentuhan** di mana pun dalam zona kiri
+(55% lebar layar, 85% tinggi) dan hilang saat jari diangkat. Satu jari di zona
+itu selalu untuk berjalan, tidak pernah untuk kamera. Tombol kanan tetap
+hit-test normal; kamera memakai daftar `block_rects()` supaya tombol tidak
+dianggap gestur.
+
+Uji: `PlayTest` (6 pemeriksaan) — stik tersembunyi sebelum disentuh, muncul di
+titik sentuh, arah dorongan benar, hilang saat diangkat, dan layar kanan tidak
+memunculkan stik.
+
+---
+
+## 13. Cerita sebagai data + save berversi (0.3.1)
+
+### 13.1 Kenapa cerita keluar dari kode
+
+Percakapan penjaga dulu berupa `const DIALOGUE := [...]` di `CharacterWorld.gd`.
+Menambah karakter berarti menyunting skrip, dan setiap penyuntingan skrip berarti
+membangun ulang satu paket yang juga memuat seluruh mesin permainan.
+
+Sekarang satu karakter = satu berkas data:
+
+```
+game/game/characters/data/bram.json     + spritesheet PNG + entri di def .tres
+```
+
+tanpa satu baris GDScript baru. `DialogueTree.gd` membaca skema berikut:
+
+```json
+{ "schema": 1, "speaker": "Penjaga Bram",
+  "entry": ["setelah_bersih", "pertemuan", "ulangan"],
+  "nodes": {
+    "pertemuan": {
+      "when": { "no_flags": ["bram_kenal"] },
+      "pages": [ { "speaker": "Penjaga Bram", "text": "..." } ],
+      "choices": [ { "label": "...", "set_flags": ["bram_janji"] } ],
+      "set_flags": ["bram_kenal"] } } }
+```
+
+Aturan pemilihan: `entry` dicoba berurutan, node pertama yang **semua** syaratnya
+lolos dipakai; `ulangan` tanpa syarat jadi jaring pengaman. Kondisi yang didukung
+`flags`, `no_flags`, `min_counters`, `max_counters`. `problems()` memeriksa
+skema, titik masuk, node kosong, pilihan tanpa label, dan flag yang dirujuk tapi
+tidak pernah diset di mana pun — validator ini dijalankan di CI, jadi berkas
+cerita yang salah ketik menggagalkan build sebelum sampai ke HP.
+
+Nama pembicara boleh berganti tiap halaman (`{ "speaker": "Ksatria", ... }`),
+sehingga percakapan terasa dua arah tanpa membuat sistem dialog baru.
+
+Tiga cabang Bram: **pertemuan** (4 halaman, 2 pilihan, menandai `bram_kenal`),
+**ulangan** (sudah kenal, belum bersih), **setelah_bersih** (butuh
+`bram_kenal` + `orcs_defeated >= 3` — ceritanya berubah, bukan sekadar diulang).
+
+### 13.2 Save: satu slot, tulis atomik, tidak pernah menghilangkan progres
+
+`user://save/slot1.json` — **di luar** `user://retraveller/` yang dipakai
+peluncur, jadi Periksa Lagi/hapus paket tidak menyentuh progres pemain.
+
+```
+{ "game": "re-traveller", "schema": 1, "saved_at": ..., 
+  "flags": {...}, "counters": {"orcs_defeated": 2},
+  "position": {"x": 3.6, "z": 7.2}, "play_time_s": 91.5, "sha256": "..." }
+```
+
+- **atomik**: tulis `slot1.json.tmp` → baca ulang & verifikasi hash → baru
+  `rename` menimpa slot. Mati listrik di tengah tulis tidak menghasilkan save
+  separuh jadi.
+- **cadangan**: sebelum menimpa, slot lama disalin ke `slot1.json.bak`. Bila
+  slot rusak/terpotong, `load_game()` memakai `.bak` dan melaporkan
+  `save_dipulihkan_dari_cadangan` (bukan diam-diam menganggap permainan baru).
+- **migrasi**: berkas tanpa `schema` dianggap skema 0; dibaca, field yang hilang
+  diisi nilai awal, lalu ditulis ulang sebagai skema 1. Flag lama ikut pindah.
+- **versi lebih baru**: `schema > 1` → `read_only`; `save_now()` menolak menulis.
+  Build lama yang dibuka setelah build baru tidak boleh merusak save pemain.
+- **hash**: semua angka dinormalkan `"%.3f"` sebelum di-hash, karena
+  `JSON.stringify` menulis `2` tapi `JSON.parse_string` mengembalikan `2.0` —
+  tanpa normalisasi, save yang baru ditulis langsung dianggap rusak.
+
+Status yang dilaporkan ke layar: `save_baru`, `save_dibaca`,
+`save_dipulihkan_dari_cadangan`, `save_rusak`.
+
+### 13.3 Progres yang terasa
+
+`CharacterWorld` menyimpan: bendera cerita, `orcs_defeated`, posisi ksatria, dan
+waktu bermain. Autosave tiap 12 s, saat pilihan dialog dibuat, saat dialog
+ditutup, dan saat orc mati. Saat boot, orc dengan indeks < `orcs_defeated`
+**tidak di-spawn** — lembah yang sudah dibersihkan tetap bersih setelah aplikasi
+ditutup, dan ksatria berdiri kembali di tempat ia berhenti.
+
+Untuk pengujian, folder save bisa dialihkan lewat `RT_SAVE_DIR` (dipakai
+`SaveTest`/`PlayTest` dan QA di perangkat); build normal tidak menyetelnya.
+
+---
+
+## 14. Taruhan dan tujuan (0.3.2)
+
+Fase 3 membuat progres bisa disimpan; fase ini membuat progres **terasa**.
+Sebelumnya orc memukul dan ksatria hanya berkedip — tidak ada yang dipertaruhkan.
+
+### 14.1 Tiga hati
+
+| Angka | Nilai | Alasan |
+| --- | --- | --- |
+| `MAX_HEARTS` | 3 | satu kesalahan masih termaafkan, dua orc serentak tidak |
+| `INVULN_SEC` | 0,9 s | lebih panjang dari flinch guard 0,2 s bawaan `Actor`, supaya dua pukulan dalam detik yang sama = satu hati |
+
+Kehilangan hati terjadi di **dunia**, bukan di `Actor`: `Actor` tetap hanya tahu
+"aku dipukul" (sinyal `hurt`), sedangkan `CharacterWorld` yang memutuskan
+harganya. Dengan begitu seluruh perbaikan fase 2 (hit-stop, re-flinch, watchdog)
+tidak disentuh sama sekali.
+
+### 14.2 Perisai yang benar-benar menahan
+
+Sebelumnya tombol **Tahan** hanya memutar animasi `block`; pukulan tetap
+dihitung. Sekarang `Actor.take_hit()` keluar lebih awal bila state = `block`:
+kilau singkat, sinyal `hurt` tetap dikirim (dunia perlu tahu ada pukulan), tetapi
+ksatria tidak terlempar ke animasi `hurt` dan tidak kehilangan hati. Jadi menahan
+memang pilihan, bukan hiasan.
+
+### 14.3 Terjatuh, lalu bangun — tanpa kehilangan apa pun
+
+Hati habis → animasi `death` ksatria dimainkan, kontrol disembunyikan, pesan
+"Kau terjatuh" muncul, lalu setelah 2,6 s ia bangun di awal jalan dengan tiga
+hati. Counter `deaths` disimpan, tetapi **tidak ada** yang dihapus: orc yang sudah
+dikalahkan tetap mati, flag cerita tetap ada, dan save ditulis ulang saat bangun.
+Alasannya sederhana: hukuman yang menghapus progres membuat pemain berhenti
+bermain, dan itu bukan jenis kesulitan yang diinginkan brief.
+
+### 14.4 Panel tujuan
+
+HUD kiri atas kini punya blok **TUJUAN** + **Nyawa x / 3**. Teks tujuan
+diturunkan dari save, bukan dari variabel sesi:
+
+| Kondisi save | Yang dibaca pemain |
+| --- | --- |
+| `orcs_defeated < 3` | "Bersihkan jalur — n dari 3 orc" |
+| `orcs_defeated = 3`, flag `bram_ucap_terima_kasih` belum ada | "Kembali ke Penjaga Bram" |
+| flag itu ada | "Jalur aman — teruskan perjalanan" |
+
+Karena sumbernya save, menutup aplikasi di tengah jalan tidak menghilangkan
+petunjuk berikutnya.
+
+### 14.5 Jeda dan simpan manual
+
+Tombol **Jeda** membuka lembar perkamen: *Lanjutkan*, *Simpan sekarang*,
+*Peluncur*. Selama jeda `get_tree().paused = true`, tetapi lembar itu sendiri
+memakai `PROCESS_MODE_WHEN_PAUSED`, jadi tombolnya tetap hidup sementara dunia
+berhenti. "Simpan sekarang" memanggil jalur yang sama dengan autosave
+(`save_progress()`); tidak ada penulis save kedua yang bisa menyimpang.
+
+Catatan kecil: teks lama "Orc menghadang — pertempuran menyusul." dihapus. Itu
+janji fitur yang tidak ada, dan sekarang orc memang menghadang.
+
+Satu bug ditemukan justru lewat tangkapan layar ini: pukulan terakhir memanggil
+`take_hit()` → sinyal `hurt` → dunia memanggil `die()` → **lalu** `take_hit()`
+melanjutkan barisnya dan memutar animasi `hurt`, menimpa animasi `death`. Hasilnya
+ksatria "mati sambil berdiri". Perbaikannya: `take_hit()` berhenti setelah sinyal
+bila aktornya sudah mati. Pelajarannya: uji status saja tidak cukup, animasi yang
+sedang diputar juga harus diperiksa.
+
+---
+
+## 15. Siklus hari dan atmosfer (0.4.0)
+
+### 15.1 Satu angka, empat fase
+
+Sebelum fase ini "waktu" hanyalah boolean: `set_time_of_day(true/false)` menukar
+matahari ke satu malam tetap. Sekarang `WorldClock.gd` memegang satu angka 0–1
+yang berjalan **480 detik per hari penuh** dan menurunkan semua yang berhubungan
+dengan cahaya dari angka itu:
+
+| Fase | Matahari | Ambien | Kabut | Lampu pondok |
+| --- | --- | --- | --- | --- |
+| pagi | 0,78 · putih kebiruan | 0,50 · biru lembut | **paling tebal (0,0090)** | 0,10 |
+| siang | 1,15 · putih | 0,46 · netral | paling tipis (0,0034) | 0,00 |
+| sore | 1,10 · emas | 0,47 · hangat | 0,0048 | 0,45 |
+| malam | 0,30 · biru pucat | 0,34 · biru tua | 0,0048 | **1,25** |
+
+Transisi memakai `smoothstep(0.62, 1.0, frac)`: cahaya duduk tenang di sebagian
+besar fase lalu bergeser halus di sepertiga terakhir, jadi pemain membaca "sore"
+sebagai sore, bukan sebagai slider yang terus bergerak.
+
+`set_time_of_day(bool)` lama tetap ada dan hanya melompat ke fase; `VisualTest`
+dan paket dunia lama tidak perlu diubah.
+
+### 15.2 Atmosfer: empat sistem, bukan empat node yang lahir-mati
+
+| Sistem | Muncul saat | Isi |
+| --- | --- | --- |
+| `dust` | pagi & siang | serbuk sari 4×4 px, melayang pelan |
+| `petals` | sore | daun 12×7 px, jatuh miring |
+| `fireflies` | malam | kunang-kunang 11×11 px, aditif (cahaya, bukan cat) |
+| `fog` | pagi & malam | kabut tanah, kuad 7×4 m, alpha rendah |
+
+Semua memakai `CPUParticles3D`, bukan GPU: renderer Compatibility di Android
+kelas menengah tidak perlu membayar particle GPU untuk empat puluh butir debu.
+`amount` tetap; yang berubah hanya alpha dan `emitting`, jadi tidak ada alokasi
+saat jam berputar dan tidak ada "ledakan" partikel di pergantian fase.
+
+Tekstur dibuat `tools/gen_atmosphere.py` (PNG sungguhan, skrip disimpan bersama
+hasilnya, sama seperti `gen_ui_kit.py`).
+
+### 15.3 Pelajaran mahal: dither pada kabut = kotak-kotak
+
+Versi pertama memberi alpha ber-dither Bayer pada keempat tekstur, karena aturan
+proyek melarang anti-aliasing. Tangkapan layar pertama fase ini memperlihatkan
+akibatnya: **seluruh layar penuh kotak-kotak abu-abu**. Kuad kabut lebarnya 7 m,
+jadi satu pola dither 2 px membesar menjadi ±7 px di layar dan mata membacanya
+sebagai papan catur, bukan kabut.
+
+Aturan yang sekarang dipegang:
+
+* **cahaya dan kabut** (firefly, fog, dust) memakai alpha halus — cahaya memang
+  kontinu, dan di ukuran itu dither terbaca sebagai artefak;
+* **benda** (daun, sprite karakter, prop) tetap piksel keras tanpa anti-alias.
+
+Daun juga diperbesar dari 6×4 ke 12×7: pada 6×4, saat diperbesar menjadi 20 px di
+layar, bentuknya jadi kotak oranye yang tidak terbaca sebagai daun.
+
+### 15.4 Yang bisa dilihat pemain
+
+`docs/screenshots/17_pagi.png`, `18_sore.png`, `10_visual_siang.png`,
+`11_visual_malam.png` — empat fase, satu diorama. Lampu jendela pondok menyala
+sendiri saat sore dan menerangi ambang pintu sepanjang malam; kunang-kunang hanya
+muncul setelah gelap.
+
+---
+
+## 16. Keputusan ukuran kanvas karakter (25 Okt 2026)
+
+Brief §3 meminta kanvas **48×64**; aset yang sudah diverifikasi di Fase 2–3
+adalah ksatria **112×96** dan penjaga/orc **100×100**. Pemilik memilih:
+**48×64 untuk semua karakter baru** (FASE 4 dan seterusnya).
+
+Konsekuensi yang dicatat:
+
+* karakter yang ada **tidak** digambar ulang diam-diam; mereka tetap dipakai
+  sampai ada aset 48×64 dari pemilik. Mengubahnya tanpa aset berarti mengarang
+  sprite, dan itu dilarang;
+* `world_pixel_size` 0,05 m tetap satu angka global; karakter 48×64 akan memakai
+  `pixel_scale` per karakter supaya tingginya tetap ±1,6–1,8 m (dicatat di
+  `characters/data/*.tres`, bukan ditebak di kode);
+* uji `ValidateCharacters` + `CharacterTest` akan melaporkan ukuran frame
+  sebenarnya, jadi kalau ada aset baru yang ukurannya beda, build gagal sebelum
+  terlihat aneh di HP.
+
+---
+
+## 17. UI lengkap: kit, pengaturan, menu, jarak aman (0.5.0)
+
+### 17.1 Satu kit, bukan dua salinan
+
+`Main.gd` dan `DialogueBox.gd` masing-masing punya `_font`, `_tex`, `_nine`
+sendiri. Dua salinan pasti melenceng (margin 20 px di satu tempat, 22 px di
+tempat lain), dan parchment mulai terlihat seperti dua bahan berbeda.
+
+Sekarang `game/ui/UiKit.gd` memegang: font (dengan tracking), pembacaan PNG dari
+paket, nine-patch parchment, ikon 24×24, label, dan tombol. Aturannya: **UI baru
+wajib lewat kit**; `DialogueBox.gd` yang sudah stabil dibiarkan dan dimigrasikan
+saat ia disentuh lagi (migrasi besar tanpa alasan = risiko regresi).
+
+Warna juga dipusatkan: `INK`, `INK_SOFT`, `BRASS`, `CREAM`, `DANGER`.
+
+### 17.2 Ikon 24×24 dari skrip
+
+`tools/gen_game_ui.py` menghasilkan 7 ikon: `heart_full`, `heart_empty`, `sun`,
+`moon`, `gear`, `save`, `arrow_left`. Semua digambar sekali oleh skrip (PNG
+sungguhan, NEAREST), palet hangat yang sama, outline 1 px.
+
+Catatan desain dari percobaan pertama: matahari yang ditulis sebagai ASCII
+terbaca seperti **koin**, dan gear sebagai ASCII terbaca seperti **bintang**.
+Keduanya lalu digambar sebagai bentuk (cakram + 8 sinar, cincin + 8 gigi) dan
+barulah keduanya terbaca. Hati dan scroll tetap ASCII karena bentuknya sederhana.
+
+### 17.3 Pengaturan perangkat, terpisah dari save
+
+`game/ui/Settings.gd` → `user://settings.json`, skema 1, tiga nilai:
+
+| Kunci | Nilai | Efek |
+| --- | --- | --- |
+| `tilt_shift` | nyala/mati | `blur_pixels` 0 atau sesuai kualitas |
+| `shake` | nyala/mati | `CharacterWorld.set_shake_scale(0/1)` |
+| `quality` | rendah / sedang / tinggi | bayangan matahari, skala partikel atmosfer, blur, vignette |
+
+Aturan yang sama dengan save: kunci yang hilang diisi bawaan, berkas rusak
+kembali ke bawaan (dengan peringatan, bukan crash), dan **skema lebih baru tidak
+ditimpa** — build lama tidak boleh merusak pilihan pemain dari build baru.
+
+Kenapa terpisah dari save: menghapus progres tidak boleh mengembalikan blur, dan
+mengubah grafik tidak boleh menyentuh cerita.
+
+### 17.4 Menu dua halaman
+
+Tombol **Jeda** membuka satu lembar parchment dengan dua halaman:
+
+* **Jeda** — Lanjutkan · Simpan sekarang · Pengaturan · Peluncur, dengan satu
+  baris status ("Orc 0 / 3 · Nyawa 3 / 3 · Sore") supaya pemain tahu posisinya
+  tanpa menutup menu;
+* **Pengaturan** — Tilt-shift · Getar kamera · Kualitas · Kembali. Setiap tekan
+  langsung ditulis ke disk.
+
+Perpindahan halaman memudar 0,16 s; lembar muncul dengan fade + skala 0,96 → 1,0.
+
+**Bug yang tertangkap tangkapan layar, bukan uji:** tween yang dibuat saat tree
+di-pause tidak pernah berjalan. `_pause_root.visible` sudah `true`, UiTest lulus,
+tetapi alpha tetap 0 → menekan Jeda hanya membekukan dunia tanpa menampilkan
+apa pun. Perbaikannya `Tween.set_pause_mode(TWEEN_PAUSE_PROCESS)` untuk semua
+tween menu, dan UiTest sekarang juga memeriksa `modulate.a > 0,95`, bukan cuma
+`visible`.
+
+### 17.5 HUD: hati sebagai ikon, fase sebagai ikon
+
+"Nyawa 3 / 3" diganti tiga ikon hati (penuh/kosong) — lebih cepat dibaca di layar
+5 inci — dengan teks kecil di sampingnya, dan warna teks berubah merah kecokelatan
+saat nyawa tinggal satu. Tambahan dari fase 6: ikon matahari/bulan + nama fase
+(`Sore`) di panel tujuan.
+
+### 17.6 Jarak aman dari notch
+
+`Main._safe_insets()` membaca `DisplayServer.get_display_safe_area()` dan
+menggeser semua jangkar HUD (plakat area, panel tujuan, tombol Jeda/Peluncur,
+panel catatan, hint) sebesar inset kiri/atas, diskalakan dari piksel layar ke
+kanvas 1280×720. Di desktop inset = 0, jadi tidak ada biaya. Ini yang membuat
+plakat tidak tertutup poni (notch) atau sudut membulat di HP.
+
+### 17.7 Tata letak paket: UI pindah ke `ui.pck`
+
+Sampai fase ini `ui.pck` hampir kosong (dua font) dan `core.pck` membawa
+parchment/crest/font. Sekarang:
+
+* `core.pck` = `Main.tscn`, `Main.gd`, `UiKit.gd`, `Settings.gd` (kode saja);
+* `ui.pck` = font, parchment, crest, divider, bg, dan 7 ikon.
+
+Konsekuensinya update UI tidak lagi memaksa pemain mengunduh paket kode, dan
+sebaliknya.
+
+---
+
+## 18. Optimasi Android (0.6.0)
+
+Target brief: 30–60 FPS, paket sekecil mungkin, preset grafis. Isi fase ini:
+
+### 18.1 Atlas ikon
+
+Tujuh ikon 24×24 menjadi satu `atlas_ui.png` (182×26) + `atlas_ui.json` yang
+dibuat `tools/gen_atlas.py`. `UiKit.icon()` membaca region lewat `AtlasTexture`.
+Alasannya draw call: satu tekstur untuk seluruh HUD berarti satu bind, bukan
+tujuh, dan di GPU HP itulah yang lebih terasa daripada ukuran berkasnya.
+
+Yang dikirim di `ui.pck` hanya atlas; PNG tunggal tetap di repositori sebagai
+sumber (dan fallback saat dijalankan dari editor). Supaya ikon yang lupa
+dimasukkan ke atlas tidak menjadi tombol tak terlihat, `UiTest` memeriksa bahwa
+**setiap** nama di `UiKit.ICONS` punya entri atlas, dan bahwa `icon()` benar-benar
+mengembalikan `AtlasTexture`.
+
+### 18.2 Preset grafis yang benar-benar menghemat
+
+| Preset | Bayangan | Partikel | Blur | Skala 3D | Batas FPS |
+| --- | --- | --- | --- | --- | --- |
+| rendah | mati | ×0,35 | 1,2 | 0,78 | 30 |
+| sedang | nyala | ×1,0 | 2,0 | 0,92 | 60 |
+| tinggi | nyala | ×1,35 | 2,8 | 1,00 | 60 |
+
+`Engine.max_fps` dipasang dari preset — ponsel yang merender 60 fps untuk game
+yang animasinya 8–14 fps hanya menghangatkan kantong. `Viewport.scaling_3d_scale`
+menurunkan resolusi 3D saja: sprite adalah kuad 2D, jadi yang mengendur lebih
+dulu adalah detail tanah, bukan karakternya.
+
+### 18.3 Alat ukur di perangkat, bukan di desktop
+
+Menambahkan toggle **Tampilkan FPS** (bawaan mati) dan satu baris log tiap 5
+detik:
+
+```
+[PERF] fps=52 kualitas=sedang skala3d=0.92 partikel=116 bayangan=true
+```
+
+Dengan begitu pemilik bisa membaca angka dari `adb logcat` di HP, bukan menebak
+dari tangkapan layar CI yang memakai renderer software.
+
+### 18.4 Audit paket: 1,7 MB sampah ditemukan
+
+`tools/pack_audit.py` membaca daftar paket dari `FixtureBuilder.gd`, lalu:
+
+* memastikan setiap path benar-benar ada (galat);
+* memastikan setiap aset **disebut** di kode/resource — aset yang hanya muncul di
+  daftar paket berarti tidak ada yang memuatnya (galat);
+* melaporkan path yang dipakai dua paket dan total byte per paket.
+
+Hasil pertama: `bg.png` 1,17 MB terpaket di **dua** paket tanpa satu baris kode
+memuatnya (dibuang di 0.5.0), dan `arrow_100.png`/`arrow_32.png` terpaket untuk
+pemanah yang belum ada (dikeluarkan; tetap di `assets_src` sampai job pemanah
+dibuat). Sekarang audit bersih: **6 paket, 0 galat**, dan langkah ini menjadi
+gerbang CI supaya kebiasaan itu tidak kembali.
+
+### 18.5 Yang belum dikerjakan di fase ini
+
+**Kompresi tekstur ETC2/ASTC belum diterapkan.** Alasannya teknis, bukan lupa:
+paket kita adalah arsip `PCKPacker` berisi PNG mentah tanpa `.import`, dan game
+memuatnya sebagai byte (`Image.load_png_from_buffer`) — justru itu yang membuat
+update paket bisa mengganti aset tanpa membangun ulang proyek. Mengompres ke
+ETC2/ASTC berarti salah satu dari dua hal:
+
+1. membangun `.ctex`/`.res` terkompresi di CI (menambah langkah impor Godot dan
+   mengubah cara pack dibuat), atau
+2. memanggil `Image.compress(COMPRESS_ETC2)` saat memuat di perangkat — hemat
+   VRAM, tetapi menambah waktu muad dan berisiko membuat pixel art bertepi keras
+   tampak kabur pada alpha.
+
+Keduanya perlu diukur di HP sungguhan sebelum dipilih, jadi keputusannya saya
+tinggalkan untuk pemilik; angka VRAM sekarang masih kecil (±0,7 MB total paket,
+karakter 100×100 dan 112×96). Ini satu-satunya butir brief FASE 8 yang belum
+selesai, dan saya tidak mau mengklaimnya sudah.
+
+## 19. Lapangan, minimap dan kamera (langkah 1)
+
+Tujuan langkah ini satu kalimat: **layar lapangan harus hampir kosong**. Dunia
+yang jadi bintang; UI hanya muncul saat perlu. Semua yang dulu menetap di layar
+— kotak tujuan, tiga hati, paragraf narasi, angka FPS, tombol Jeda dan Peluncur —
+pindah ke dalam satu menu, atau hilang sama sekali.
+
+### 19.1 Apa yang tersisa di lapangan
+
+| Posisi | Isi | Catatan |
+| --- | --- | --- |
+| kiri atas | minimap 20 % tinggi layar | bingkai kulit + tepi kuningan, bukan kotak perkamen besar |
+| bawah minimap | ikon matahari/bulan + satu kata | tanpa panel: ikonnya menempel di dunia |
+| kanan atas | **satu** tombol Menu (ikon roda gigi + label) | Jeda dan Peluncur ada di dalamnya |
+| kanan bawah | **satu** tombol aksi kontekstual | Bicara / Masuk / Periksa / Ambil; memudar bila tak ada target |
+| kiri bawah | stik jalan | mengambang (bawaan) atau tetap, sesuai Pengaturan |
+| tengah atas | banner nama lokasi | 3 detik, geser masuk lalu pudar |
+| tepi layar | panah tujuan + jarak meter | hanya bila tujuan di luar pandangan |
+
+Yang **tidak** ada lagi: kotak "Tujuan", hati "Nyawa", paragraf narasi kiri
+bawah, teks FPS permanen, tombol Jeda/Peluncur terpisah, dan tombol Serang/Tahan.
+
+### 19.2 Minimap dari data, bukan kamera kedua
+
+`game/world/WorldMap.gd` menyimpan tanah sebagai grid: 26×20 ubin, 1 m per ubin,
+enam jenis (rumput, tanah, air, batu, hutan, bangunan) dengan palet hangat yang
+sama dengan perkamen dan rumput diorama. `Diorama.gd` mengecat grid itu dari
+`LAYOUT` dan `PATH` yang **sudah** dipakai untuk menaruh prop, jadi peta tidak
+mungkin melenceng dari dunia yang digambarnya.
+
+Kenapa data: kamera kedua berarti satu render pass penuh tambahan di HP, untuk
+gambar yang isinya kotak warna. Grid beberapa ratus bit jauh lebih murah.
+
+Biaya dijaga di tiga tempat:
+
+* jendela minimap **tetap** 14 ubin (dekat) atau 34 ubin (jauh) — peta 10× lebih
+  besar tidak menambah satu piksel pun tekstur minimap (diuji F19–F21);
+* tekstur dibangun ulang hanya saat pemain **pindah ubin** atau ada ubin fog yang
+  baru terbuka (`fog_revision`), bukan tiap frame;
+* peta penuh (tab Peta / ketuk minimap) adalah satu-satunya tempat yang
+  membangun gambar seluruh peta, dan itu tindakan pemain, bukan tiap frame.
+
+Interaksi: satu ketukan = peta penuh, dua ketukan = dua tingkat zoom minimap.
+
+**Fog of war** disimpan sebagai string bit 520 karakter (satu karakter per ubin)
+di dalam `fog` pada save, lengkap dengan `schema`, ukuran peta dan ukuran ubin.
+Save skema 1 mendapat `fog: {}` lewat rantai migrasi — artinya "belum pernah ke
+mana-mana", bukan "peta rusak". Fog dari peta berukuran lain atau dari skema yang
+lebih baru **ditolak utuh** (peta tetap seperti sebelumnya), alasannya dicatat.
+
+### 19.3 Kamera: mengikuti, berhenti di tepi, zoom menempel
+
+| Parameter | Nilai | Kenapa |
+| --- | --- | --- |
+| pitch / yaw | −38° / −22° | sudut diorama; tidak pernah berubah |
+| FOV | 30° | sempit, seperti kamera mainan |
+| zoom | 11 … 32 m, **diturunkan otomatis** oleh ukuran peta | di lembah 26×20 batas nyatanya ±21 |
+| tangga zoom | 11 · 12 · 12,5 · 14 · 16 · 18 · 20 · 22,5 · 25 · 28 · 32 | pinch berhenti di anak tangga, bukan 17,43 |
+| dead zone | 0,55 m | gambar tenang saat pemain berhenti |
+| laju ikut | 4,5 per detik | menyusul tanpa menyentak |
+| jarak fokus dialog | ×0,86 | lensa mendekat saat bicara |
+
+Pan satu jari **dihapus**: satu jari milik stik. Dua jari masih boleh menggeser
+pandangan (dan mencubit untuk zoom), lalu kamera mengambil alih lagi setelah 1,2
+detik. `recentre()` (tombol di menu / nanti ketuk ganda) mengembalikan lensa ke
+pemain.
+
+Batas gerak dihitung dari apa yang **benar-benar terlihat** lensa pada zoom saat
+itu: separuh lebar dan separuh kedalaman frame, dikali 0,9, dibatasi 45 % dari
+separuh peta. Konsekuensinya, di peta kecil pemain boleh bergeser dari tengah
+layar saat mendekati tepi — memang itu yang diminta — dan di peta besar batas itu
+tidak pernah terasa.
+
+**Yang belum sempurna, dan saya tidak menyembunyikannya:** pada lembah 26×20 m,
+zoom 19° menampilkan tanah lebih luas daripada petanya, jadi di pojok selatan
+kadang masih terlihat "rok" tanah gelap di luar batas. Itu bukan void (tidak ada
+lubang hitam), tetapi juga bukan jawaban final. Jawaban finalnya peta yang lebih
+besar — langkah 2. Batas zoom otomatis di atas sudah dibuat supaya begitu peta
+membesar, masalah ini hilang tanpa mengubah satu angka pun.
+
+### 19.4 Ukuran sentuh, notch, dan satu tombol "ukuran UI"
+
+Kanvas desain 1280×720 di-*stretch* mengikuti tinggi layar. Di HP 2340×1080
+(±400 dpi) satu piksel desain = 1,5 piksel perangkat ≈ 0,6 dp, jadi:
+
+* 48 dp ≈ **80 piksel desain** → `UiKit.TOUCH_MIN = 80`
+* 72 dp ≈ **120 piksel desain** → tombol aksi `TOUCH_BIG = 132`
+
+Safe area diambil dari `DisplayServer.get_display_safe_area()`; inset kiri/atas
+dipakai juga untuk kanan/bawah (di landscape, notch dan sudut membulat saling
+berdekatan, dan empat angka terpisah hanya menambah cara untuk salah).
+
+**Ukuran UI** satu knop: `Settings.ui_scale()` mengembalikan 0,86 / 1,0 / 1,14 dan
+`UiKit.apply_layer_scale()` mengalikan transform CanvasLayer HUD dan menu. Tidak
+ada daftar ukuran font kedua yang bisa basi saat ada tombol baru.
+
+Ikon baru (satu keluarga, grid 24×24, palet yang sama): `talk`, `door`,
+`inspect`, `take`, `map`, `close`, `book`. Atlas ikon kini 14 sel (364×26 px).
+
+### 19.5 Satu menu
+
+Tombol Menu membuka **satu** lembar perkamen dengan tujuh tab: **Lanjut, Jurnal,
+Peta, Inventori, Pengaturan, Simpan, Peluncur**. Dunia berhenti selama panel
+terbuka (tween panel memakai `TWEEN_PAUSE_PROCESS`, jadi panelnya tetap hidup —
+bug yang sama pernah terjadi pada menu fase 7).
+
+* Jurnal memuat tujuan aktif, progres orc, nyawa, waktu bermain, dan paragraf
+  narasi area yang dulu menetap di layar;
+* Inventori: 16 kotak tertata dengan teks "Belum ada isi." — bukan kotak rusak;
+* Pengaturan: grafis, ukuran UI, sensitivitas stik, stik mengambang/tetap, mode
+  debug, tampilkan FPS (hanya muncul saat mode debug), tilt-shift, getar;
+* Peluncur minta **dua** ketukan.
+
+### 19.6 Papan nama penjaga
+
+Satu tambahan kecil yang muncul saat bermain sungguhan: kalau ksatria berdiri
+dalam jangkauan bicara, `DialogueBox` menampilkan **papan nama** — potret
+penjaga, namanya, dan satu kalimat ("Orc masih berkeliaran di tepi hutan…").
+Alasannya jujur: tanpa itu, satu-satunya cara memberi tahu "orang ini bisa
+diajak bicara" adalah teks bantu melayang tepat di atas kepalanya — dan teks
+melayang di atas kepala adalah hal pertama yang membuat layar terasa ramai.
+Papan nama memakai wadah yang sama dengan dialog (jadi tetap satu gaya), hilang
+sendiri saat pemain melangkah pergi, dan tidak pernah muncul bersamaan dengan
+tombol Bicara di layar yang sama saat dialog berjalan.
+
+### 19.7 Dialog
+
+Ringkas, di bawah layar, satu strip: potret berbingkai, nama, teks mengetik, dan
+"ketuk untuk lanjut" di pojok. Tombol Lanjut dihapus — seluruh layar adalah
+tombolnya. **Potret diambil dari strip idle karakter itu sendiri** (bingkai
+pertama, dipangkas, diisi ke kanvas 3:4). Tidak ada wajah yang digambar lewat
+kode, dan tidak ada potret placeholder. Kalau nanti pemilik mengirim
+`portrait.png` di folder karakter, berkas itu yang dipakai lebih dulu.
+
+### 19.8 Uji dan tangkapan layar
+
+Gate headless baru `FieldTest` (23 pemeriksaan): data peta untuk beberapa ukuran,
+fog yang berpindah lewat save, jendela minimap yang tidak tumbuh, kamera yang
+tidak bisa keluar peta di tiga arah pada dua ukuran peta, tangga zoom, minimap
+pada peta 26×20 dan 160×120, tombol aksi yang muncul/memudar menurut jarak, dan
+dialog yang tidak menimpa minimap/tombol menu.
+
+Tangkapan layar CI bertambah: `22_lapangan`, `22b_lapangan_kosong`, `22c_stik`,
+`23_banner`, `24_dialog`,
+`25_jurnal`, `26_peta`, `27_fog`, `28_rasio_20x9`, `29_rasio_4x3`, plus
+`20_menu`/`21_pengaturan` yang digambar ulang.
+
+### 19.9 Batas langkah ini
+
+* Peta besar bertingkat **belum ada** (itu langkah 2). Semua antarmuka yang
+  dibutuhkan sudah bekerja pada ukuran peta berapa pun, tetapi isi dunia masih
+  satu lembah.
+* Pertarungan **belum ada**. Karena tombol Serang/Tahan dihapus, orc tidak lagi
+  memukul: mereka berpatroli, menghadang, dan memicu pemberitahuan. Kerusakan
+  real-time dimatikan lewat `CharacterWorld._combat_live` (bawaan mati) —
+  bukan karena lupa, tetapi karena damage tanpa cara menjawab itu tidak adil.
+  `_strike_orcs()` disimpan untuk layar pertarungan nanti.
+* `KIND_WATER` sudah ada di data dan palet, tetapi diorama belum punya kolam.
+  Saya tidak menambahkan air yang tidak ada di dunia hanya agar legendanya genap.
+* FPS di HP tetap belum diukur dari sandbox ini.
+
+### 19.10 Dua perbaikan kecil dari tangkapan layar
+
+**Label tombol aksi ditulis kapital.** Pada 20 px, huruf kecil "c" di Pixelify
+Sans punya ekor bawah yang membuat **"Bicara"** terbaca **"Bigara"** — terlihat
+di tangkapan layar `22_lapangan` versi 1280×720. Alih-alih menebak ukuran font
+yang lebih besar (yang bisa mendorong label keluar dari lingkaran 132 px),
+label sekarang memakai huruf kapital pada 18 px: perbedaan huruf besar/kecil
+selalu terbaca, berapa pun kerapatan pikselnya. Semua label tombol
+(`BICARA`/`MASUK`/`PERIKSA`/`AMBIL`) lewat satu jalur `to_upper()`.
+
+**Stik difoto dalam keadaan didorong.** Stik mengambang hanya muncul saat ibu
+jari menyentuh layar, jadi tangkapan layar HUD kosong selalu tampak "tanpa
+stik". Harness tangkapan memanggil `TouchControls.preview_stick(true)`, yang
+menggambar pangkalan + kenop pada posisi dorong **tanpa** menggerakkan ksatria
+(tidak menyentuh `stick_vector`). Hanya dipakai CI; permainan tidak pernah
+memanggilnya. Sekalian opasitas stik dinaikkan tipis (cincin 0,22 → 0,30; kenop
+0,36 → 0,50) karena di tangkapan layar pertama cincinnya nyaris hilang di atas
+rumput terang — ibu jari harus bisa menemukannya tanpa melihat ke bawah.
+
+## 20. Dunia Yaros: peta bertingkat 192×192 (langkah 2, 0.8.0)
+
+Langkah 2 mengganti diorama 26×20 yang ditulis tangan dengan **region** yang
+seluruhnya data. Tidak ada lagi satu pohon pun yang koordinatnya tertulis di
+GDScript.
+
+### 20.1 Tiga kisi, satu berkas
+
+`game/game/world/regions/yaros.json` (197 KB) berisi:
+
+| kunci | isi |
+| --- | --- |
+| `grid_height` | 36 864 bita, tinggi 0–5 per ubin, base64 |
+| `grid_terrain` | 0 rumput, 1 rumput tinggi, 2 tanah/jalan, 3 batu, 4 pasir, 5 lumpur, 6 salju, 7 air dangkal, 8 air dalam, 9 lantai kayu, 10 lantai batu |
+| `grid_structure` | nibble bawah = kode (0 tidak ada, 1 tangga, 2 jembatan, 3 pagar, 4 dinding, 5 gerbang, 6 pintu, 7 ramp), nibble atas = arah 0–3 (+x, +y, −x, −y) |
+| `decor` | 2 947 prop, dikelompokkan per jenis; koordinat dalam persepuluh meter |
+| `markers` | 33 titik: `player_start`, `home_plot`, `npc_spawn` ×5, `enemy_camp` ×4, `landmark` ×6, `region_gate`, `cave_entrance`, `bridge_broken`, `fast_travel`, `chest` ×6, `resource_node` ×8 |
+| `zones` | 10 zona bernama + `subtitle`, `weather`, `music` per zona |
+| `routes` | jalur utama 460 ubin + empat cabang (70/14/11/20) |
+
+Kisi disimpan base64, bukan array JSON: 36 864 angka sebagai array menghabiskan
+±150 KB teks, sedangkan base64 1 bita/ubin hanya 49 KB per kisi. `RegionData.gd`
+mendekode lewat `Marshalls.base64_to_raw`.
+
+**Kenapa data terpisah dari mesh:** mesh bisa dibuang dan dibangun ulang kapan
+saja; data tidak. Semua aturan permainan (boleh berdiri, tinggi, zona, jalur)
+membaca kisi ini, bukan geometri.
+
+### 20.2 Aturan tinggi yang resmi
+
+| selisih tinggi | boleh dilangkahi? |
+| --- | --- |
+| 0 | ya |
+| 1 | ya — digambar sebagai lereng, bukan tebing |
+| 2 | hanya lewat ubin `STAIR` |
+| ≥3 | tidak (tebing mati) |
+
+- `T_DEEP` tidak bisa dijalankan; `T_SHALLOW` hanya lewat `RAMP`.
+- `FENCE`, `WALL`, `GATE`, `DOOR` menghalangi; `BRIDGE` menimpa air.
+- Tinggi ≥ 5 (puncak) tidak bisa dijalankan, jadi tepi dunia selalu tertutup.
+
+Penyusun peta memakai aturan yang sama saat memvalidasi, jadi tidak mungkin
+merilis peta yang lolos validasi tapi tidak bisa ditembus di permainan.
+
+### 20.3 Penyusun peta (`tools/build_region.py`)
+
+```
+python3 tools/gen_region_tiles.py     # 9 tekstur + atlas 1024x512
+python3 tools/gen_world_props.py      # 6 prop baru + prop_atlas.png + .json
+python3 tools/build_region.py         # baca tools/region/yaros_spec.json
+python3 tools/build_region.py --report  # laporan saja, tanpa menulis
+python3 tools/build_region.py --seed 7  # variasi noise, tata letak sama
+```
+
+Alur: terasering dari spesifikasi → noise seed tetap → pembersihan (tidak ada
+lonjakan 1 ubin) → jalur A* antar landmark + pelebaran bervariasi → tangga di
+titik yang dideklarasikan → jembatan → tepi dunia ditutup → permukaan biome
+(batu jadi ROCK, ladang jadi baris DIRT, puncak jadi SNOW) → bahu jalan
+ditinggikan maksimal 1 level → dekorasi kluster → validasi → ekspor.
+
+Validasi yang **menggagalkan build**: kantong walkable yang tidak tersambung,
+marker yang tidak terjangkau (kecuali blokir sengaja: gerbang terkunci dan
+jembatan rusak), jalur utama < 450 ubin, tepi dunia bocor, tangga di luar
+jangkauan. Yang hanya **dilaporkan**: langkah tinggi maksimum antar-ubin
+berjalan (kini 4 level) — tebing tinggi sah secara visual selama tidak memutus
+jalan.
+
+Deterministik: seed sama → berkas sama byte demi byte.
+
+### 20.4 Render: satu mesh per chunk, satu draw call per bahan
+
+`RegionMesh.gd` mengubah satu chunk 32×32 menjadi *array* murni (tanpa node,
+tanpa RenderingServer) sehingga bisa jalan di `WorkerThreadPool`.
+`RegionView.gd` yang mengunggahnya ke `ArrayMesh` di thread utama.
+
+- **Permukaan**: patch bilinear dari empat tinggi sudut; satu level menjadi
+  lereng mulus tanpa garis grid. Warna verteks membawa bobot tekstur, jadi
+  rumput→tanah→batu membaur di sudut, bukan berganti kotak.
+- **Tebing**: hanya untuk selisih ≥2 level; UV batu + AO palsu di kaki (0,66 →
+  1,0).
+- **Tangga**: empat anak tangga sungguhan dengan riser; profilnya dipakai
+  bersama oleh `RegionData.stair_profile` sehingga kaki pemain dan batu tidak
+  pernah berbeda.
+- **Jembatan**: dek 12 cm di atas jalan dengan pagar di sisi air.
+- **Air**: quad 14 cm di bawah tinggi ubin, warna kedalaman di verteks, tepi
+  busa di shader.
+- **Prop**: satu `MultiMesh` per chunk untuk semua prop di chunk itu — atlas
+  prop 768×1034 dengan 14 sel, satu draw call untuk ±80 pohon/batu/rumput.
+- **Atlas medan** 1024×512 (8 sel) berisi rumput, jalan, pasir, batu, salju,
+  lantai batu, kayu.
+
+Streaming: radius 1 chunk tampak (3×3 = 96×96 m, lebih lebar dari pandangan
+kamera) + 1 cincin prefetch; chunk di luar radius+2 dibuang. Emisi task dibatasi
+dua sekaligus supaya frame tidak pernah menunggu lebih dari satu chunk.
+
+**Deviasi yang disengaja:** mesh chunk TIDAK dibakar ke `world.pck`. Array
+mentah 36 chunk ±6 MB; itu empat kali ukuran seluruh paket dunia sekarang.
+Sebagai gantinya array dibangun di worker thread (bukan di frame), dan
+`RegionTest` mengukur hitch terbesar setelah teleport. Bila angka di HP nanti
+menunjukkan hitch, langkah berikutnya adalah menyimpan array terkuantisasi +
+zlib di paket; datanya deterministik jadi bisa dihasilkan ulang kapan saja.
+
+### 20.5 Gerak di dunia bertingkat
+
+`RegionData` adalah satu-satunya pemilik aturan: `can_stand(pos, radius)`,
+`height_at(pos)`, `step_ok(a, b)`, `zone_at(pos)`, `find_path(a, b)`.
+
+`Actor.gd` menyelesaikan langkah dalam dua tahap: dorongan lingkaran terhadap
+prop (seperti sebelumnya), lalu **validasi peta**. Kalau posisi hasil tidak sah,
+gerak dicoba per sumbu — jadi menabrak tebing sambil menyamping tetap
+menghasilkan gerak menyamping, bukan berhenti total. Ketinggian kaki mengikuti
+`height_at`, termasuk di tangga (bertingkat) dan di jembatan (+12 cm).
+Bayangan blob ikut node, jadi otomatis menempel di lereng dan dek.
+
+### 20.6 Peta, fog, dan nama zona
+
+Grid peta (`WorldMap.gd`) dicat dari region saat boot: 36 864 `set_tile`
+(±40 ms), lalu pohon dan bangunan ditimpa hanya di atas rumput supaya jalan
+tidak hilang. Minimap memakai jendela 34×34 seperti sebelumnya; peta penuh
+memakai `render_image` 192×192. Fog tetap per ubin dan tetap tersimpan di save;
+save lama (26×20) ditolak dengan rapi sehingga region baru mulai gelap.
+
+Banner zona: `Diorama` menghitung `zone_at(player)`; saat berubah ia
+memancarkan `zone_changed(nama, subjudul)` dan `Main.gd` menampilkannya. Jadi
+menambah zona cukup menambah satu entri di spesifikasi.
+
+### 20.7 Angka langkah 2
+
+| ukuran | nilai |
+| --- | --- |
+| berkas peta | 197,4 KB |
+| ubin bisa dijalankan | 29 747 |
+| jalur utama | 460 ubin → 131 s jalan (2,2 menit) / 84 s lari |
+| dekorasi | 2 947 |
+| marker | 33 (2 sengaja terhalang) |
+| zona | 10 |
+| draw call saat berdiam (radius 1) | 3 chunk × (tanah + air) + prop ≈ 27 |
+| paket dunia | 710 KB (atlas medan 144 KB, atlas prop 225 KB, peta 197 KB) |
+
+### 20.7 Apa yang ditemukan saat dunia pertama kali dilihat
+
+Empat kegagalan, semuanya lolos dari uji statis dan hanya terlihat di tangkapan
+layar. Dicatat di sini karena ketiganya akan terulang di langkah berikutnya bila
+tidak disebut.
+
+1. **Impor sRGB.** Tekstur yang di-`load()` sebagai resource diimpor sebagai sRGB,
+   sehingga GPU men-decode tiap sampel sebelum shader melihatnya. Sel rumput yang
+   hijau tua tiba hampir hitam, dan seluruh lembah keluar cokelat. Dunia kini
+   membaca PNG sebagai byte mentah (`RegionView._tex`, sama seperti `WorldArt.tex`
+   sejak langkah 1) dan shader tidak memakai hint `source_color`.
+2. **Tonemap.** `TONE_MAPPER_ACES` dengan white point 6,0 dipilih untuk lembah
+   kecil berlampu hangat; pada region 192 m di bawah langit terbuka itu memetakan
+   masukan 1,0 ke sekitar 0,45. Prop yang unshaded (sprite) tidak ikut tonemap,
+   jadi tanah dan sprite berpisah warna. Kini `TONE_MAPPER_LINEAR`, dan tanah
+   punya `ground_gain` sendiri (rumput 2,0) agar sejalan dengan sprite.
+3. **Bobot sudut medan.** Merata-ratakan empat ubin di satu sudut membuat jalur
+   selebar satu ubin larut ke rumput; memakai maksimum membuat 15% ubin tanah
+   mewarnai setengah hutan. Yang dipakai: 55% ubin sendiri + 45% tetangga
+   terkuat.
+4. **Teardown.** `quit()` saat masih ada tugas baker di WorkerThreadPool atau
+   partikel yang memancar = SIGABRT (exit 134) walau semua pemeriksaan lulus.
+   `drain()` berhenti dulu baru menunggu, dan di jalur headless chunk dibakar di
+   satu thread.
+
+Air tetap digambar per ubin pada ketinggiannya sendiri. Satu muka air untuk
+seluruh region sudah dicoba dan dibatalkan: danau Yaros bertangga, jadi satu
+bidang datar di ketinggian terendah tenggelam di bawah dasar danau di terrace
+atas - danau malah hilang.
+
+## 21. Kamera HD-2D seperti Octopath (langkah 3A, 0.9.0)
+
+### 21.1 Bug "kamera zoom sendiri" — penyebabnya, bukan gejalanya
+
+`DioramaCamera.gd` versi langkah 1 punya empat pintu yang mengubah jarak lensa,
+dan yang paling berbahaya bukan yang paling kelihatan:
+
+| Baris (versi lama) | Apa yang terjadi |
+| --- | --- |
+| `_input()` → `InputEventScreenTouch` / `InputEventScreenDrag` | **penyebab utamanya**. Semua sentuhan dikumpulkan di `_touches`, dan begitu ada **dua** jari di layar, kode menganggapnya pinch lalu memanggil `_set_zoom_snapped()`. Di HP, ibu jari kiri menahan stik dan ibu jari kanan menekan tombol aksi = dua jari. Jadi berjalan sambil menekan tombol diam-diam memperkecil jarak. |
+| `_unhandled_input()` → `InputEventMagnifyGesture` | pinch trackpad (desktop) |
+| `_unhandled_input()` → `InputEventMouseButton` roda atas/bawah | scroll mouse = zoom |
+| `_unhandled_input()` → `InputEventPanGesture` | dua jari geser juga menggeser kamera |
+| `focus_pair()` | **mengalikan zoom dengan 0,86 setiap dialog dibuka** |
+| `clear_focus()` dan `recentre()` | mengembalikan zoom ke `start_zoom` saat dialog ditutup, jadi lensa bergerak lagi |
+| `_set_zoom_snapped()` | membulatkan ke `ZOOM_LADDER`, jadi gerakan kecil pun "menempel" ke nilai berikutnya |
+
+Semuanya dihapus. Berkas ini sekarang **tidak punya `_input` maupun
+`_unhandled_input` sama sekali**; `CameraTest` memeriksa itu, lalu menembakkan
+roda mouse, pinch trackpad, pan, dan dua jari sentuh ke rig, dan menuntut lensa
+tidak bergeser lebih dari 5 mm.
+
+### 21.2 Satu berkas untuk sudut pandang
+
+`game/world/camera.json` adalah satu-satunya tempat lensa diatur:
+
+| Nilai | 0.9.0 | Catatan |
+| --- | --- | --- |
+| `pitch_deg` | **30** | derajat menunduk di bawah garis horizontal (90 = tegak lurus ke bawah) |
+| `fov_deg` | **32** | sudut vertikal |
+| `distance_m` | **18** | jarak tetap sepanjang sumbu pandang (kamera 9 m di atas tanah, 15,6 m di belakang titik bidik) |
+| `yaw_deg` | −22 | sedikit miring, supaya dinding dan atap bangunan tidak tampak sejajar layar |
+| `look_ahead_m` | 1,7 | titik bidik 1,7 m di depan ksatria → ia duduk sedikit di bawah tengah layar |
+| `follow.deadzone_m` | 0,32 | kamera mengabaikan 32 cm pertama |
+| `follow.smooth_time_s` | 0,20 | spring kritis |
+| `tilt_shift` | fokus 0,54 / band 0,30 / blur 2,1 | pita tajam mengikuti sudut baru |
+| `occlusion` | radius 1,05 m / jangkauan 2,5 m | koridor dither |
+
+Nilai lama (langkah 2): **pitch 38°, FOV 30°, jarak 11–32 m dengan tangga zoom**.
+Pitch 38 dengan jarak 20 memang sudah perspektif, tetapi kamera menunjuk hampir
+lurus ke bawah pada jarak dekat, jadi tidak ada dinding yang terlihat.
+
+Berkas ini dibaca `DioramaCamera._ready()`; bila hilang, rig memakai nilai
+bawaan yang sama dan menulis satu peringatan, jadi paket world lama tetap jalan.
+
+### 21.3 Gerak: spring kritis, bukan lerp
+
+```
+omega = 2 / smooth_time
+x     = omega * delta
+out   = goal + (change + temp) * 1/(1 + x + 0,48x² + 0,235x³)
+```
+
+Bentuk eksponensial ini dipakai supaya **satu pemanggilan per frame** menghasilkan
+gerak yang sama pada 30 fps dan 120 fps (lerp `delta * rate` tidak: laju
+per detiknya berubah ketika fps turun). Tidak ada overshoot karena redaman kritis,
+dan rig diproses **setelah** `CharacterWorld` (`process_priority = 200`), jadi
+kamera menjawab gerak yang sudah terjadi di frame yang sama, bukan frame
+sebelumnya.
+
+Dead zone diterapkan pada titik bidik, bukan pada pemain: kamera hanya bergerak
+kalau pemain keluar 32 cm dari titik bidiknya. Hasilnya titik bidik bergerak
+seperti gigi gergaji selebar dead zone, dan spring yang menghaluskannya — inilah
+yang membuat gambar diam saat pemain berhenti dan tidak "memompa" saat berjalan.
+
+Di tepi peta batasnya masih keras (titik bidik dijepit ke `map.bounds()`), tetapi
+yang bergerak menuju batas itu adalah spring, jadi kecepatannya melambat sendiri
+(ease-out) dan tidak pernah tersentak.
+
+### 21.4 Horizon: langit bergradien, dua lapis pegunungan, hamparan kabut
+
+Dengan pitch 30° ujung atas layar hanya 14° di bawah garis horizontal, jadi
+horizon masuk gambar dan latar bekas "satu warna" berubah menjadi dinding kelabu.
+`FarScenery.gd` menambahkan tiga hal, semuanya statis dan murah:
+
+1. **Langit gradien** (`ProceduralSkyMaterial`) — warna puncak & kaki langit per
+   fase, diambil `WorldClock` dari tabel `PHASES` (`sky_top` dan `fog`). Kaki
+   langit sengaja sama dengan warna kabut supaya tidak ada jahitan.
+2. **Dua cincin pegunungan** di radius 175 m dan 320 m, 96 segmen, tinggi dari
+   tiga sinus berbeda (jadi tidak terlihat berulang). Shader `far_ridge.gdshader`
+   tanpa cahaya, gradien dari warna kabut di kaki ke warna punggungan di puncak.
+   Cincin mengikuti posisi kamera tiap frame: tidak pernah mendekat, tidak pernah
+   habis.
+3. **Hamparan kabut** 2400×2400 m di y = −0,6, jauh di bawah ubin terendah
+   (0,12 m) dan di bawah permukaan air (−0,14 m), jadi tepi peta tidak lagi
+   menjadi lubang hitam.
+
+`far` kamera naik 160 → 420 m supaya cincin terjauh masuk; `fog_sky_affect`
+0 → 0,35 supaya langit ikut berkabut di kaki langit.
+
+**Yang terukur, bukan yang diharapkan.** Dengan lensa 18 m dan pitch/fov yang
+diuji, ujung atas layar masih menunjuk ke bawah: sinar teratas berpotongan dengan
+tanah pada
+
+```
+jarak = 18 sin(pitch) / tan(pitch - fov/2)
+```
+
+yaitu 34 m (P25 F25), 36 m (P30 F32), 32 m (P40 F40), 18 m (P50 F25). Semuanya
+lebih dekat daripada ujung dunia, jadi **langit dan pegunungan tidak pernah
+masuk gambar pada sudut-sudut ini** - seperti di Octopath, seluruh layar memang
+tanah. Yang menutup tepi peta adalah hamparan kabut (dan fog), dan cincin
+pegunungan tetap ada sebagai jaring pengaman untuk sudut di bawah ~16° atau
+kamera adegan skrip/battle. Ini dicatat supaya tidak ada yang mengira langit
+hilang karena bug: ia memang di luar bingkai.
+
+### 21.5 Occlusion pada sudut rendah
+
+Koridor lama 0,85 m dibuat untuk kamera yang menunjuk hampir lurus ke bawah. Pada
+30° kamera melihat sepanjang koridor, jadi koridornya dilebarkan ke 1,05 m dan
+pemudarannya dibuat bertingkat: pohon yang tepat di garis kamera–pemain turun ke
+**0,25** (dither 8×8 di shader prop), yang menyentuh tepi koridor hampir tidak
+berubah. Keputusan "prop mana yang memudar, seberapa" dipisah ke
+`RegionView.occluders_for()` — fungsi murni tanpa akses node — karena headless
+tidak bisa membaca warna instance MultiMesh kembali (jebakan langkah 2).
+
+### 21.6 Yang belum bisa diverifikasi di sini
+
+- Rasa gerak di HP (60/90/120 Hz, jitter sentuh). Di CI hanya bisa dibuktikan
+  bahwa lensa tidak berubah dan spring-nya sama pada 30 dan 60 fps.
+- `ProceduralSkyMaterial` di GPU HP (Mali/Adreno) — di CI memakai Mesa software.
+- Apakah pitch 30 memang yang dipilih; itu keputusan pemilik setelah melihat
+  `docs/screenshots/camera/sudut_kamera.png` (6 pitch × 3 FOV). Nilai di
+  `camera.json` **belum final** sampai dipilih.
+- Bangunan masih sprite billboard (dinding tampak datar dari sudut rendah);
+  diganti model 3D di langkah 3B.
+
+## 22. Bangunan jadi model 3D low-poly (langkah 3B, 0.10.0)
+
+### 22.1 Kenapa dibangun dari kode, bukan .glb
+
+Rumah di Yaros dulu sprite billboard: dari kamera 30° dindingnya tetap terlihat
+datar, tidak punya sisi, tidak punya bayangan sendiri. Langkah 3B menggantinya
+dengan mesh low-poly bertekstur piksel, dan mesh itu **dirakit saat region dimuat
+dari satu kit modular**, bukan diekspor menjadi `.glb`.
+
+| Pilihan | Kenapa tidak dipakai |
+| --- | --- |
+| `.glb` per rumah | Berkas biner tidak bisa ditinjau di PR, dan setiap perubahan atap harus diekspor ulang di Blender. Sumber kebenarannya jadi dua (kode + berkas) dan cepat atau lambat berbeda. |
+| `.res` ArrayMesh hasil skrip | Lebih cepat saat muat, tapi menambah langkah produksi yang wajib dijalankan sebelum mengepak, dan CI akan gagal kalau lupa. |
+| **Dirakit saat muat (dipakai)** | Satu sumber kebenaran: `BuildingKit.gd`. Tidak ada aset biner baru, tidak ada langkah ekspor, dan kit yang sama dipakai tes, tangkapan layar, dan dunia. |
+
+Biayanya diukur, bukan diabaikan: seluruh desa adalah **11 mesh** (7 jenis, 3
+varian rumah, 2 varian menara, 2 varian papan) yang dibangun sekali, disimpan di
+cache statis, lalu dipakai bersama oleh semua instance. Angka nyata dari
+`BuildingTest` (23 Oktober): rumah **442** segitiga, menara **782**, gerbang
+**194**, sumur **172**, dermaga **150**, papan **64**, obor **24**; seluruh desa
+(22 bangunan) **2.568 segitiga** terburuk — jauh di bawah anggaran 16.000 yang
+dijaga tes.
+
+### 22.2 Satu atlas, satu bahan, satu panggilan gambar per bangunan
+
+`tools/gen_building_kit.py` melukis `building_atlas.png` (512×512, 16 sel 128×128,
+filter **Nearest**) dengan palet yang sama seperti `gen_world_props.py`, dan
+menulis `building_kit.json` (nama sel, rect, UV, berapa meter satu ulangan, jenis
+bangunan, ukuran, radius tabrakan). Teksturnya prosedural dan deterministik
+(seed tetap), jadi membangun ulang menghasilkan PNG yang identik byte demi byte.
+
+Kontrak UV-nya sengaja tidak biasa, dan inilah yang membuat satu rumah cukup satu
+draw call:
+
+| Kanal | Isi |
+| --- | --- |
+| `UV` | ulangan tekstur: meter ÷ ukuran-sel; 0..0,992 untuk decal (sel utuh) |
+| `UV2` | titik asal sel di atlas — **inilah cara memilih sel tanpa array uniform** |
+| `COLOR.rgb` | warna bangunan (putih di mesh, MultiMesh yang membawa warna per rumah) |
+| `COLOR.a` | kelas detail, **bukan transparansi**: 1,0 menyala (jendela, nyala obor), 0,4 detail kecil (pintu, papan, pita besi), 0,0 struktur |
+| `tex.a` | hanya dipakai sel jendela: kaca 0,8 vs kusen 1,0, supaya siang hari **kacanya** yang menjadi gelap dan dingin sementara kusen kayu tetap berwarna |
+
+Jendela siang hari adalah jebakan kecil yang tertangkap dari tangkapan pertama:
+sel jendela dilukis hangat (memang harus, itu lampu malam), jadi tanpa aturan
+khusus setiap jendela di desa menyala kuning di tengah siang. Sekarang kanal
+alpha tekstur membedakan kaca dari kusen: kaca dikalikan 0,20–0,32 dan
+didinginkan, kusen dibiarkan, dan `night` mengembalikan keduanya ke warna hangat.
+
+`COLOR.a` dipakai untuk tiga hal sekaligus, semuanya di `building.gdshader`:
+jendela menyala mengikuti fase malam (`night`), detail kecil dibuang di luar
+`detail_range` (LOD jarak), dan tidak ada yang digambar melewati 2,6×
+`detail_range`. Transparansi sel decal (jendela, pintu, panji) dipotong dengan
+scissor alpha 0,42 — tanpa itu setiap jendela akan punya kotak hitam di sekitarnya.
+
+### 22.3 Kit: bagian yang bisa dirakit
+
+| Jenis | Bagian | Varian |
+| --- | --- | --- |
+| `cottage` | fondasi batu, dinding plester berangka kayu, 4 tiang sudut, pintu, 4 jendela, atap pelana (jerami/papan), balok lis, cerobong | 3 (jerami + serambi, papan + loteng jongkok, jerami dengan cerobong) |
+| `tower` | fondasi, batang batu dua tingkat, 12 konsol kayu, geladak kayu, parapet batu, merlon, atap kerucut batu tulis, tiang + panji, pintu, 3 jendela | 2 (kerucut + panji, atau parapet terbuka) |
+| `gate` | 2 tiang batu bermerlon, balok lintel, 2 daun pintu dua sisi, pita besi, atap sirap | 1 |
+| `well` | kerb batu 8 sisi (cincin luar + dalam + bibir), penutup batu, air gelap, 2 tiang, palang, atap jerami, timba, tali | 1 |
+| `dock` | geladak papan, 8 tiang pancang sampai 1,6 m di bawah air, 3 bollard, tali, cleat besi, peti | 1 |
+| `sign` | tiang, papan dua sisi, palang | 2 (bertopi / tidak) |
+| `torch` | tiang, keranjang besi, nyala dua bidang bersilang (4 bingkai animasi di dalam selnya) | 1 |
+
+Fondasi menjulur **1,1 m ke bawah tanah** di setiap bangunan, jadi tidak pernah
+ada celah di bawah dinding di lereng.
+
+### 22.4 Menaruh di peta: kaki di sudut terendah, bukan di rata-rata
+
+`RegionView._place_buildings()` menaruh satu MultiMesh per (jenis, varian) untuk
+seluruh region, sama seperti prop. Tiga keputusan penting:
+
+1. **Ketinggian = sudut terendah tapak.** Menara penjaga berdiri di tepi tangga
+   setinggi 1,8 m; kalau bangunan diletakkan di ketinggian rata-rata ubin, satu
+   sudutnya melayang dan sudut lainnya terbenam. Empat sudut tapak (setelah
+   rotasi dan skala) dicuplik lewat `height_at`, diambil yang terendah, dan sisa
+   lereng ditutup fondasi. `BuildingTest` menuntut kaki **tidak pernah** di atas
+   tanah dan tidak lebih dari 3,2 m di bawahnya.
+2. **Menghadap pusat zona.** Pintu rumah menghadap pusat zona terkecil yang
+   memuatnya (pusat desa, halaman menara, mulut pos), jadi orang yang berjalan
+   mendekat melihat pintu, bukan dinding belakang.
+3. **Warna per instance, pudar per instance.** Warna dinding (krem, okher, kelabu
+   dingin) masuk lewat warna instance, dan pemudaran occlusion lewat *custom
+   data* instance — karena itulah MultiMesh yang sama bisa memuat seluruh desa
+   dan setiap rumah tetap bisa memudar sendiri saat kamera melewatinya.
+
+Kontrak tabrakan **tidak berubah**: `RegionData.blocker_radius`
+(cottage 2,0 / tower 2,4 / gate 2,2 / well 0,9) dan `building_kit.json`
+menyebut angka yang sama, dan `BuildingTest` gagal kalau salah satunya bergeser.
+Rumah mengambil ruang yang sama di 3D seperti saat masih sprite, jadi berjalan
+menembus desa terasa sama.
+
+**Batas yang jujur dicatat:** tabrakan itu sebuah **lingkaran di titik ubin**,
+dan angkanya lebih kecil daripada bangunannya — rumah selebar 6,4 m (7,8 m
+dengan serambi) tetap hanya mengambil 2,0 m. Jadi ksatria bisa masuk ke sudut
+dinding dan serambi. Ini **bukan kemunduran langkah 3B**: sprite rumah selebar
+5,6 m sejak langkah 2 pun memakai lingkaran 2,0 m yang sama persis. Yang berubah
+sekarang hanya bahwa model 3D punya sudut yang kelihatan, jadi batas itu terlihat.
+Memperbaikinya berarti mengubah kontrak tabrakan (kotak per bangunan, bukan
+lingkaran), dan itu keputusan pemilik — dicatat sebagai kandidat langkah
+berikutnya, bukan dikerjakan diam-diam di sini.
+
+### 22.5 Yang tetap bukan mesh (dan kenapa)
+
+Pagar, dinding batu, gerbang peta, tangga, dan jembatan **sudah** geometri 3D
+sejak langkah 2: semuanya dibangun `RegionMesh` dari grid struktur (`S_FENCE`,
+`S_WALL`, `S_GATE`, tangga), jadi langkah 3B tidak menggandakannya. Yang diganti
+hanya prop dekorasi: `cottage`, `tower`, `gate`, `well`, `dock`, `sign`, `torch`.
+Pohon, batu, semak, bunga, alang-alang, dan tunggul tetap billboard — hutan itu
+dilukis sebagai sprite, dan mesh pinus akan menghilangkan lukisan itu.
+
+Sprite lama masih ada di `prop_atlas.png` (selnya tidak dihapus supaya tangkapan
+dan alat lama tidak pecah), tetapi `RegionView` melewatinya: `BuildingTest`
+memastikan tidak ada satu pun bangunan yang digambar dua kali.
+
+### 22.6 Angka
+
+| Hal | Nilai |
+| --- | --- |
+| Atlas bangunan | 512×512, 16 sel, **123.416 B** (grain 2×2 piksel: per-piksel membuat PNG 274 KB untuk beda yang tak terlihat) |
+| Mesh desa | 11 mesh, 22 instance |
+| Segitiga | rumah 442, menara 782, seluruh desa **2.568** (anggaran tes 16.000; 900 per bangunan) |
+| Verteks | rumah 892, menara 1.572 (anggaran 1.400 per bangunan) |
+| Draw call | +11 (satu per jenis×varian) untuk seluruh desa |
+| Bayangan | rumah **menghasilkan** bayangan (pertama kali di lembah ini); tanah dan prop tetap tidak |
+
+### 22.7 Yang belum bisa diverifikasi di sini
+
+- Tampilan sebenarnya di GPU HP (Mali/Adreno): di CI memakai Mesa software.
+- Rasa 30 FPS di preset Rendah dengan desa 3D penuh — yang bisa dibuktikan di
+  sini hanya anggaran segitiga, jumlah draw call, dan LOD jarak.
+- Pemilihan angka pitch/FOV masih menunggu pemilik (langkah 3A); bangunan ini
+  dibangun untuk lensa 30°/32° yang sekarang ada di `camera.json`.
+
+### 22.8 Dua jebakan yang memakan waktu (dicatat supaya tidak diulang)
+
+1. **`PackedVector3Array` adalah tipe nilai.** Versi pertama perakit mesh menulis
+   `(b["norms"] as PackedVector3Array).append(n)`: itu menambah ke salinan
+   sementara, jadi setiap verteks kehilangan normalnya dan Godot menolak
+   `add_surface_from_arrays` dengan *"Invalid array format for surface"* — seluruh
+   bangunan desa tidak tergambar, sementara uji segitiga tetap lulus (indeksnya
+   benar). Perakitan sekarang memakai `Array` biasa lalu dikonversi **sekali** di
+   akhir. Aturannya: `Packed*` untuk menyimpan dan mengirim, `Array` untuk
+   menumpuk.
+2. **Jalur tangkapan layar melewati `_ready()` normal.** `_stage_shot()` dipanggil
+   sebelum `_load()`, jadi `_kit` masih `null` dan setiap bangunan dilewati
+   dengan "called on a null instance" — delapan tangkapan berisi alas kosong
+   sementara job tes hijau. Sekarang panggung memuat kitnya sendiri dan mencetak
+   `[BUILDING] panggung: N bangunan, M segitiga` supaya tangkapan kosong langsung
+   terbaca dari log.
+
+Dua hal lain yang ikut diperbaiki dari tangkapan pertama: warna latar Environment
+adalah **nilai linear** (0,44,0,55,0,68 yang diketik sebagai "langit biru" keluar
+hampir putih), dan sel decal dipetakan ke 0..0,992 — UV tepat 1,0 jatuh ke
+`fract(1,0) = 0` dan menarik satu baris piksel sel berikutnya.
+
+## 23. Pertarungan turn-based (langkah 3C, 0.11.0)
+
+Pertarungan di langkah ini bukan minigame di atas lapangan: ia **menggantikan**
+lapangan sebentar. Pemain berhenti di tempat orc menghadang, layar pecah seperti
+kaca, arena berdiri di tanah yang sama, dan setelah selesai layar pecah lagi ke
+tempat yang sama. Tidak ada zoom, tidak ada panggung terpisah, tidak ada tombol
+Serang di lapangan (tombol itu sudah dihapus di langkah 1 dan tidak kembali).
+
+### 23.1 Kenapa tabelnya JSON, bukan Resource
+
+`game/battle/battle_data.json` (satu berkas, ±14 KB) memuat senjata, elemen,
+item, skill, stat party, stat musuh, encounter dan angka `balance`. Alasannya
+tiga:
+
+1. **Bisa dibaca mesin tanpa Godot.** `tools/` bisa memeriksa tabel, dan PR bisa
+   meninjau perubahan angka sebagai diff teks, bukan sebagai `.tres` biner.
+2. **Satu paket, satu unduhan.** Menyeimbangkan ulang angka hanya mengganti
+   `enemies.pck`; sprite dan APK tidak ikut.
+3. **Bisa berversi.** `schema: 1` di berkas, dan `BattleData._validate()` menolak
+   tabel yang tidak masuk akal (musuh tanpa kelemahan, skill dengan senjata yang
+   tidak dikenal, item dengan elemen asing, Shield di luar 2–8). Kegagalan itu
+   terjadi di CI, bukan di tangan pemain sebagai monster yang tidak bisa
+   dipatahkan.
+
+Berkasnya dibaca dengan `FileAccess.get_file_as_string` + `JSON.parse_string`,
+**bukan** `load()`: game berjalan dari berkas `.pck` buatan `PCKPacker` tanpa
+berkas `.import`, dan `.json` yang tidak diimpor tidak ada sebagai Resource.
+
+### 23.2 Rumus damage, dan mengapa bentuknya begitu
+
+```
+damage = round(ATK x (power/100) x (100/(100+DEF)) x Boost x Break x crit x jitter)
+```
+
+- `ATK`/`DEF` memakai pasangan **fisik** (`atk`/`def`) untuk senjata dan **sihir**
+  (`matk`/`mdef`) untuk elemen. Itu satu-satunya pembeda, jadi tidak ada skill
+  yang perlu menyebut dirinya fisik atau sihir.
+- `100/(100+DEF)` memberi hasil yang menurun tapi tidak pernah nol: DEF 100
+  memotong damage separuh, bukan menolaknya. Ini juga sebabnya memotong DEF
+  separuh saat BREAK terasa, tanpa membuat angka meledak.
+- `Boost = 1 + 0,25 x BP` **di atas** tambahan pukulan. Memakai 3 BP berarti empat
+  pukulan dengan 1,75x per pukulan — mahal, dan itu memang tujuannya.
+- `Break = 1,5x` hanya selama target patah, di atas DEF-nya yang sudah separuh.
+- `jitter` 0,95–1,05 dari RNG ber-seed, sehingga pertarungan bisa diulang persis
+  di tes.
+
+Rumus yang sama juga ditulis di dalam berkas JSON (`formula`), dan `BattleTest`
+menuntut teks itu ada: angka dan dokumentasi tidak boleh berpisah.
+
+### 23.3 Shield, BREAK, BP dan Boost
+
+| Hal | Aturan | Angka |
+| --- | --- | --- |
+| Shield | 2–8 lapis; **hanya pukulan ke tipe kelemahan** yang memotongnya (skill dapat memotong 2) | Orc Prajurit/Pengintai 3, Orc Pemimpin 6 |
+| BREAK | Shield 0 → kehilangan **satu giliran**, DEF x0,5, damage masuk x1,5; setelah pulih Shield penuh lagi | `break_turns` 1 |
+| BP | mulai 1, **+1 tiap giliran sendiri**, maksimum 5, sekali pakai maksimum 3 | `bp_start/bp_per_turn/bp_max/bp_spend_max` |
+| Boost | tiap BP = satu pukulan tambahan +25% per pukulan | 1→2→3→4 pukulan |
+| Kejutan | party menyerang lebih dulu: +1 BP dan −1 Shield musuh pertama | encounter `pos_gunung` |
+| Bertahan | damage masuk x0,5, animasi `block`, hilang di giliran berikutnya | `guard_multiplier` |
+
+Enemy yang sedang "mengumpulkan tenaga" **kehilangan tenaganya** kalau di-BREAK
+saat itu (`charge.cancel_by_break`): satu-satunya cara menjawab serangan besar
+adalah mematahkannya lebih dulu. Itu sebabnya AI party di `suggest_action()`
+memilih target yang sedang charging sebelum yang lain.
+
+### 23.4 "?" adalah progres, bukan hiasan
+
+Tipe kelemahan tidak pernah dicetak. `BattleLogic.observed` menyimpan daftar tipe
+yang **benar-benar** mengenai kelemahan, per `id` musuh. UI hanya menggambar ikon
+untuk yang sudah diketahui dan "?" untuk sisanya; papan 6×6 (enam senjata × enam
+elemen) untuk target terpilih menunjukkan "?" (belum dicoba), "·" (sudah dicoba,
+bukan kelemahan) dan ikon (kelemahan). Jadi tebakan yang salah pun menghasilkan
+informasi — dan itu satu-satunya alasan item `Botol Es`/`Granat Api` ada: alat
+untuk menebak elemen tanpa membuang giliran Knight.
+
+Tabel `observed` ikut tersimpan (`SaveGame` skema 3), jadi pengetahuan pemain
+tidak hilang saat aplikasi ditutup.
+
+### 23.5 Bos dua fase
+
+`orc_pemimpin` punya `phases: [{at_hp: 0,5, add_weak: [petir], atk: 38, spd: 20}]`.
+Saat HP melewati 50%, fase naik, kelemahan **baru** terbuka, dan Shield kembali
+penuh — masalah baru, bukan bos yang sama dengan angka lebih besar. Fase dicek
+di dalam `_strike()`, bukan di UI, supaya urutannya tidak bergantung pada
+kecepatan animasi.
+
+### 23.6 Waktu: engine instan, kontroler yang memperlambat
+
+`BattleLogic` tidak punya node, timer atau animasi. Ia mengembalikan daftar
+**event** (`hit`, `miss`, `resist`, `shield`, `break`, `recover`, `down`, `heal`,
+`buff`, `charge`, `phase`, `flee`, `guard`, `message`, `round`, `turn`, `end`).
+`BattleScene` yang memutuskan berapa lama satu event terlihat: 0,22 s untuk
+ayunan, hit-stop 2–3 frame, angka melayang 0,2 s, BREAK 0,55 s. Tombol 1x/2x/3x
+**membagi waktu tunggu itu**, tidak pernah mengubah angka engine — pada 3x,
+pertarungannya sama persis, hanya dibaca lebih cepat.
+
+Karena itu `submit()` mengembalikan event aksi itu saja (bukan seluruh buffer):
+kontroler bisa menganimasikan tepat satu aksi. `submit()` juga pemaaf: tap yang
+mendarat satu frame sebelum giliran diumumkan akan menyelesaikan antrean dulu,
+dan giliran musuh ditolak (bukan dijalankan) supaya urutan tidak bisa dibajak
+tap yang salah waktu.
+
+Satu bug nyata di sini: versi pertama memanggil `_apply()` dari **signal handler**
+tombol, sehingga `_run()` langsung lanjut ke aktor berikutnya sementara aksi
+pertama masih berayun — dua animasi bertumpuk dan giliran bisa lompat. Sekarang
+handler hanya menyimpan pilihan (`_pending_action`), dan animasinya dimainkan di
+korutin giliran itu sendiri.
+
+### 23.7 Transisi: pecah dan pusar, bukan zoom
+
+`battle_wipe.gdshader` memotong layar menjadi 16×10 pecahan yang bergeser ke luar
+masing-masing, sambil seluruh bingkai berputar dan menyusut. `t = 0` adalah
+"salinan layar apa adanya" (tidak terlihat), `t = 1` adalah "pecahan sudah
+terbang" (layar tembus ke arena). Kontroler memainkan 0→1 untuk membuka dan
+1→0 untuk menutup. Tidak ada zoom sama sekali: kamera medan tidak digerakkan,
+kamera arena hanya di-`make_current` setelah transisi selesai.
+
+### 23.8 Antarmuka
+
+- **Bar giliran** 8 entri dari `logic.turn_preview()`, urutan Speed, dipadatkan
+  dari ronde berikutnya kalau ronde ini lebih pendek.
+- **Plate di atas tiap musuh**: nama, pip Shield, baris kelemahan "?"; posisinya
+  mengikuti `BattleView.unit_screen()` setiap frame (`tick_display()`), jadi tetap
+  menempel saat kamera bergetar. Ally **tidak** diberi plate — party punya strip
+  sendiri di bawah; plate dengan tiga "?" di atas ksatria akan berbohong.
+- **Tombol BOOST** 190×76, teks `BOOST xN` (N = jumlah pukulan), paling besar di
+  layar. Siklus 0→1→2→…→maks→0, dibatasi BP yang dimiliki **dan** 3.
+- **Menu** Serang/Skill/Item/Bertahan/Kabur, submenu skill (SP) dan item (jumlah
+  sisa dari inventaris party-wide, bukan dari dictionary unit).
+- **1x/2x/3x + Auto** di kanan atas.
+- Angka damage melayang (putih, jingga untuk kelemahan, emas untuk crit, biru
+  untuk damage yang masuk saat Bertahan).
+
+### 23.9 Hasil, kekalahan, dan simpanan
+
+Menang: EXP, Leaf, drop (peluang per musuh), dan level-up (`level_curve`) yang
+menaikkan HP maksimum dan menyembuhkan penuh. Kalah: **kembali ke simpanan
+terakhir** dan penalti Leaf ringan `min(40, 15%)` — bukan kehilangan jam terbang.
+Yang selalu disimpan: `observed`, `inventory`, `hp`, `sp`, `level`, `exp`, `leaf`,
+`battles_won/lost`. Semua masuk `SaveGame` **skema 3**; simpanan skema 2 tetap
+terbaca dengan `battle: {}` (level 1, tanpa pengetahuan) — migrasinya satu blok di
+`_migrate()`, dan `BattleTest` memuat simpanan lama untuk membuktikannya.
+
+### 23.10 Angka hasil kalibrasi
+
+Simulator headless (policy Auto yang sama dengan tombol Auto) untuk encounter
+`ujian_orc` (2 Orc Prajurit + 1 Orc Pengintai + 1 Orc Pemimpin):
+
+| Ukuran | Hasil |
+| --- | --- |
+| 1000 pertarungan, policy Auto | menang **1000/1000** |
+| ronde rata-rata | **7,41** (median 7, terburuk 20) |
+| BREAK per pertarungan | **1,02** (Shield orc habis tepat sebelum mati, Pemimpin sekali di sekitar setengah HP) |
+| 200 pertarungan tanpa Break/Boost | menang **0** |
+
+Artinya: memakai Break + Boost menyelesaikan pertarungan dalam 5–8 ronde seperti
+yang diminta, dan mengabaikannya berarti kalah. Angka ini diukur ulang setiap
+push oleh `BattleTest` (target: menang ≥95%, rata-rata 4,5–9 ronde, median 5–8,
+terburuk ≤30, BREAK ≥90% pertarungan).
+
+Stat final: Knight HP 370 / SP 44 / ATK 48 / DEF 32 / MATK 16 / MDEF 22 / SPD 26 /
+CRIT 8 / EVA 5; Orc Prajurit HP 160 / ATK 14 / DEF 14 / SPD 14 / Shield 3; Orc
+Pengintai HP 147 / ATK 12 / DEF 12 / SPD 21 / Shield 3; Orc Pemimpin HP 320 /
+ATK 20 / DEF 22 / SPD 17 / Shield 6 (fase 2: ATK 28, SPD 20, kelemahan `petir`).
+
+**Kalibrasi pertama salah, dan tes yang menemukannya.** Dengan angka awal
+(Orc Prajurit HP 88, Knight ATK 48) pertarungan memang selesai 7 ronde — tetapi
+simulator melaporkan **BREAK 0 kali dalam 1000 pertarungan**. Sebabnya aritmetika
+sederhana: Tebas Naik mengenai kelemahan untuk ±51 damage, jadi Orc Prajurit mati
+dalam dua pukulan, sedangkan Shield 3 baru habis di pukulan ketiga. Musuh selalu
+mati sebelum Shield-nya sempat pecah, dan mekanik utama langkah ini tidak pernah
+terlihat sama sekali. Perbaikannya: HP musuh dinaikkan (160/147/320) dan ATK-nya
+diturunkan (14/12/20) supaya jumlah pukulan-per-mati hampir sama dengan jumlah
+pukulan-per-break, dan Knight tetap bisa bertahan 7 ronde. Ini persis alasan
+`BattleTest` mengukur BREAK, bukan hanya kemenangan.
+
+### 23.11 Sepuluh tangkapan, dan apa yang mereka temukan
+
+Screenshot bukan dokumentasi di langkah ini: ia satu-satunya alat yang menemukan
+enam cacat yang lolos dari semua tes logika, dan semuanya lolos hanya karena
+tidak ada satu pun tes headless yang bisa melihat layar. Lima sudah diperbaiki;
+yang keenam - prop yang menutupi petarung - sengaja dicatat apa adanya.
+
+1. **Panel di luar layar.** Menu perintah, strip party, tombol 1x/Auto dan lembar
+   hasil diberi koordinat absolut *setelah* `anchors`-nya dipindah ke pojok
+   kanan bawah. `position` diukur dari pojok kiri atas induk, jadi keempatnya
+   mendarat di luar frame. Sekarang satu `_layout()` menghitung semua pojok dari
+   `size` dan dipanggil ulang setiap resize.
+2. **Kisi gelap di seluruh arena.** Shader transisi menggambar garis tepi setiap
+   pecahan bahkan pada `t = 0`. Pada `t = 0` shader itu menyalin layar apa
+   adanya, jadi garis-garis tersebut menjadi kisi hitam permanen di atas arena -
+   ada di kesepuluh tangkapan, dan tidak terlihat di tes mana pun.
+3. **Cincin bukit jauh yang tidak ikut kamera - akar masalah "arena coklat".**
+   `FarScenery` (dua cincin pegunungan 175 m dan 320 m plus hamparan kabut)
+   hanya digeser mengikuti kamera *setelah* pengecekan pemain di
+   `Diorama._process`. Panggung tangkapan tidak punya pemain, jadi cincin itu
+   tertinggal di titik nol dunia. Kamera pertarungan berdiri 176 m dari titik
+   nol - tepat di radius cincin 175 m - sehingga band setinggi 26 m berwarna
+   kabut menutupi seluruh layar: arena tergambar, lalu ditutup dinding beige.
+   Sekarang `FarScenery` mengikuti kamera setiap frame, sebelum pengecekan
+   pemain.
+4. **Dua baris petarung bertukar tempat.** `z+` adalah arah kamera, jadi pasukan
+   harus di `z` positif. Sebelumnya terbalik: ksatria di tepi atas frame, orc di
+   bagian bawah.
+5. **Bar giliran berbunyi "Orc Pe" delapan kali, dan teksnya menempel di bingkai.**
+   Dua kesalahan kecil yang hanya terlihat setelah gambar diperbesar. Pertama,
+   chip memakai `substr(0, 6)`, jadi "Orc Prajurit", "Orc Pengintai" dan "Orc
+   Pemimpin" semuanya menjadi "Orc Pe" - delapan chip identik, bar yang tidak
+   memberi tahu siapa berjalan berikutnya. Sekarang chip memakai kata pembeda
+   ("Prajurit", "Pengintai", "Pemimpin"); nama panjangnya tetap ada di pelat di
+   atas orc. Kedua, chip dan pelat memakai `parchment(12, 8, 4)`: bingkai kuningan
+   dari 9-slice-nya 12 px, sedangkan margin teks hanya 8 px, jadi huruf terakhir
+   "Orc Prajurit" duduk di atas bingkai. `(12, 16, 6)` belum cukup: setelah
+   tangkapan berikutnya diperbesar 6x, huruf pertama dan terakhir "Pengintai"
+   masih duduk di garis dalam pil - rim dalam 9-slice itu ada di ~20 px, bukan
+   12. Sekarang `UiKit.parchment_small()` = `(12, 24, 12)` - satu tempat, supaya
+   pemanggil berikutnya tidak mengulanginya, dan angkanya ditentukan dari
+   mengukur tangkapan, bukan dari perasaan.
+   Keduanya kini diperiksa dari layar sungguhan (C21): margin horizontal setiap
+   panel harus lebih lebar dari bingkainya, dan setiap chip harus menyebut satu
+   kata utuh dari nama unit.
+
+6. **Pemimpin orc tertutup gerbang batu - belum diperbaiki.** Tangkapan `awal`
+   memperlihatkan pelat "Orc Pemimpin" melayang di atas dinding bata tanpa sprite
+   di bawahnya. Bukan karena ia berdiri di dalam bangunan: ubinnya *bisa* dipijak.
+   Yang menutupinya adalah `gate` di (170,5, 19,5) - jari-jari blok 2,2 m - yang
+   berdiri 1,9 m dari garis kamera (163,1, 32,6) ke pemimpin (170,3, 14,8), jadi
+   badannya persis di belakang batu. Semua pemeriksaan lolos: petarung ada di
+   layar, di ubin yang sah, dan di dalam frustum. Yang gagal hanya mata.
+   `BattleView` sekarang tetap menggeser arena sampai semua slot di tanah yang
+   bisa dipijak (`can_stand`, maksimum 12 m), dan `[CHECK] C22` menegakkannya -
+   tapi di pos_gunung tidak ada yang perlu digeser, jadi cacat ini **masih ada**.
+   Perbaikan yang benar bukan menggeser arena melainkan memudarkan prop yang
+   berdiri di antara mata dan petarung: sistem koridor di `RegionView`
+   (`update_occluders`) hanya menerima SATU titik dan kekuatannya turun linear
+   terhadap jarak lateral, sehingga gerbang 1,9 m dari garis hanya akan memudar
+   ~20-40% pada radius yang wajar - tidak cukup. Butuh koridor per petarung (lima
+   garis), dan itu pekerjaan tersendiri di langkah berikutnya.
+
+Biaya menemukannya besar dan sebagian besar karena satu kesalahan metodologis
+yang layak dicatat: **sembilan percobaan kamera (A-I) dijalankan sambil cincin
+jauh masih menutupi layar.** Semuanya "membuktikan" hal yang salah - bahwa
+kamera pertarungan tidak bisa menggambar tanah, bahwa `look_at()` rusak, bahwa
+sudut Euler memperbaikinya. Yang akhirnya memisahkan "tidak digambar" dari
+"digambar lalu tertutup" bukan percobaan kamera lagi, melainkan tiga angka:
+draw call per frame, piksel tengah, dan `frustum` per chunk. Frustum-nya benar
+(chunk pusat di dalam frustum, 106 draw call), jadi geometrinya ada - dan
+berarti yang salah adalah apa yang menutupinya.
+
+Pelajarannya: kalau sebuah frame "kosong", periksa dulu apakah isinya tertutup
+(ukur warna yang mengisi frame dan cari benda yang warnanya sama) sebelum
+mengubah apa pun yang menggambar.
+
+### 23.12 Kamera pertarungan meminjam rig lapangan
+
+Pertarungan tidak membuat `Camera3D` sendiri lagi. Semua percobaan dengan
+kamera terpisah - pada sudut 27, 45, 75 dan 90 derajat, dengan `look_at()` maupun
+sudut Euler, dari enam posisi - menghasilkan frame tanpa geometri, sementara rig
+kamera lapangan pada ketinggian yang sama selalu menggambar. Terlepas dari sebab
+persisnya (dan sebab persisnya adalah cincin jauh di 23.11 poin 3, tetapi itu
+baru diketahui setelah percobaan-percobaan itu), memakai satu kamera untuk
+seluruh game adalah keputusan yang lebih baik: satu lensa untuk dijaga, satu
+resep untuk ditempelkan di permukaan tanah, dan tidak ada kemungkinan dua kamera
+saling berbeda pendapat tentang apa yang terlihat.
+
+Rig mendapat dua pintu terskrip, sejenis `set_lens()`:
+
+- `battle_frame(aim, ground_y)` - hadap lurus ke tengah kedua baris (yaw -12,
+  pitch 30, fov 34, jarak 16, tanpa look-ahead), dan memarkir target follow
+  supaya ksatria yang berjalan tidak menyeret lensa;
+- `battle_release()` - mengembalikan angka lapangan dan target follow persis
+  seperti sebelum pertarungan.
+
+Input pemain tetap tidak bisa menyentuh lensa: keduanya hanya dipanggil dari
+`BattleScene`, sama seperti cutscene. `CameraTest` masih menegakkan aturan step
+3A di lapangan.
+
+Satu angka yang perlu dicatat: **cincin jauh mengikuti MATA, bukan titik bidik.**
+`DioramaCamera` adalah rig yang *berdiri di titik bidik*; `Camera3D` anaknya
+berada satu panjang lensa di belakangnya - 15,6 m pada pitch 30 dan jarak 18.
+Selama cincin ditempelkan ke rig, kamera sebenarnya selalu 15,6 m lebih dekat ke
+sisi cincin yang satu daripada yang lain. Pada radius 175 m itu tidak terlihat,
+tetapi aturannya salah, dan `CameraTest` menolaknya dengan benar: tes membandingkan
+posisi cincin dengan posisi kamera, dan selisihnya keluar 15,59 m. Sekarang
+`Diorama._view_xz()` mengembalikan posisi `Camera3D`, dengan rig sebagai cadangan
+kalau lensanya tidak ada.
+
+### 23.13 Yang belum bisa diverifikasi di sini
+
+- Rasa 30 FPS di HP dengan lima musuh. Yang diukur di CI hanya waktu simulasi
+  logika (1000 pertarungan dalam beberapa detik) dan anggaran node UI.
+- Apakah komposisi arena enak dilihat: hanya bisa dinilai dari sepuluh tangkapan
+  `docs/screenshots/pertarungan/`.
+- Sound: paket `audio` masih kosong; tidak ada SFX pertarungan di langkah ini.
+- **Okultasi di dalam arena.** Prop yang berdiri di antara kamera dan petarung
+  belum memudar (lihat 23.11 poin 6): di pos_gunung seekor Orc Pemimpin tertutup
+  gerbang batu. Semua aturan otomatis hijau karena geometrinya sah - hanya
+  gambarnya yang bohong.
+
+### 23.14 Jebakan langkah ini (dicatat supaya tidak diulang)
+
+1. **`submit()` dan `play_enemy_turn()` sempat tidak ada.** Seluruh berkas lain
+   memanggilnya lewat `.call()`, sehingga tidak ada yang gagal saat parse; yang
+   akan gagal hanya saat pertarungan pertama dijalankan. Pelajarannya: `call()`
+   memindahkan kesalahan dari waktu parse ke waktu main, jadi setiap nama yang
+   dipanggil lewat string harus dicocokkan dengan daftar `func` sungguhan.
+2. **`BattleView.build()` menimpa region yang diberikan** dengan hasil pencarian
+   ke atas pohon scene. Di lapangan tidak ada leluhur yang punya `region()`, jadi
+   semua petarung berdiri di `y = 0` dan kamera memakai tanah 0. Sekarang region
+   dari kontroler dipakai lebih dulu; pencarian hanya cadangan untuk scene uji.
+3. **`static func` dipanggil lewat instance.** `UiKit` seluruhnya statis; memanggil
+   `_kit().button()` pada variabel bertipe `Script` membuat compiler mencari
+   `button()` di kelas dasar `Script`. Solusinya: variabel tanpa tipe (panggilan
+   dinamis pada objek skrip), sama seperti `const KIT = preload(...)`.
+4. **Item diambil dari dictionary unit.** `_unit_from()` tidak menyimpan daftar
+   item (inventaris itu milik party), jadi submenu Item hanya berisi tombol
+   Tutup. Sekarang submenu membaca inventaris engine.
+5. **Hasil pertarungan tidak pernah tampil.** `show_result()` hanya mengisi teks,
+   tidak menampilkan panelnya. Sekarang ia juga menyembunyikan menu dan plate.
+6. **`tick_display()` mengembalikan apa yang baru disembunyikan.** Pelat musuh
+   dinyalakan setiap frame berdasarkan `unit.alive`, jadi menyembunyikannya sekali
+   di `show_result()` dibatalkan frame berikutnya - pelat "Orc Prajurit" menimpa
+   teks kalah di tangkapan. Sekarang `tick_display()` juga memeriksa apakah lembar
+   hasil sedang tampil.
+7. **Baris pertama sebuah fungsi bisa kehilangan satu TAB** dan tetap lolos dari
+   mata: blok komentar yang saya sisipkan masuk ke dalam loop `for`, sehingga
+   `var` berikutnya berada satu indentasi lebih dangkal dan parser menolak
+   seluruh berkas. `gdparse` menangkapnya; CI juga.
+8. **`rig.get("lens")` pada sebuah METHOD mengembalikan `null`**, dan baris
+   `var before: Dictionary = rig.get("lens")` lalu gagal pada pemeriksaan tipe.
+   Kesalahan itu menghentikan fungsi tes *sebelum* `battle_frame()` dipanggil:
+   enam pemeriksaan serah-terima kamera tidak pernah berjalan, dan yang terlihat
+   di log hanya "SCRIPT ERROR" - bukan "FAIL". Tes yang mati di tengah tampak
+   seperti tes yang tidak punya kabar. Sekarang `rig.call("lens")`, dan pemanggil
+   `_ready` memakai `await` supaya seluruh pemeriksaannya tercatat sebelum
+   ringkasan dicetak. Aturan umumnya: hitung jumlah PASS yang diharapkan per
+   berkas tes; ringkasan yang jumlahnya kurang berarti ada yang tidak dieksekusi.
+9. **Cincin jauh sempat mengikuti titik bidik, bukan mata kamera** (lihat 23.12).
+   Yang menangkapnya adalah tes yang baru ditulis untuk itu, bukan tangkapan
+   layar: selisih 15,6 m pada radius 175 m tidak terlihat di gambar.

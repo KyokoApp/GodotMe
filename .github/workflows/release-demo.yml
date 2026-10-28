@@ -20,10 +20,10 @@ on:
         required: true
       pack_version:
         description: "Version written into version.json"
-        default: "0.1.0"
+        default: "0.6.0"
         required: true
   push:
-    branches: ["arena/5c17933c-godotme"]
+    branches: ["arena/**"]
     paths: ["RELEASE_DEMO"]
 
 permissions:
@@ -60,7 +60,7 @@ jobs:
           rm -rf /tmp/rel && mkdir -p /tmp/rel
           timeout 180 godot --headless --path launcher res://tests/FixtureBuilder.tscn -- \
             --game-dir="$PWD/game" --out=/tmp/rel
-          VERSION="${{ github.event.inputs.pack_version || '0.1.0' }}"
+          VERSION="${{ github.event.inputs.pack_version || '0.11.0' }}"
           python3 - "$VERSION" <<'PY'
           import json, os, shutil, sys
           version = sys.argv[1]
@@ -70,9 +70,76 @@ jobs:
               manifest = json.load(fh)
           manifest["version"] = version
           manifest["changelog"] = [
-              "Rilis demo: enam paket modular (core, characters, enemies, world, ui, audio).",
-              "Dunia contoh dimuat dari paket .pck, bukan dari APK.",
-              "Uji: update karakter hanya mengunduh characters.pck.",
+              "Rumah, menara, gerbang, sumur, dermaga, papan petunjuk dan obor di desa kini MODEL 3D low-poly bertekstur piksel (filter Nearest), bukan lagi sprite yang selalu menghadap kamera.",
+              "Semua bangunan dirakit dari satu kit modular: fondasi batu, dinding plester berangka kayu, tiang sudut, pintu, jendela, atap jerami atau sirap, cerobong, tangga, tiang, pagar, papan, obor, atap kerucut menara, dan merlon.",
+              "Jendela menyala saat malam mengikuti lampu desa, dan nyala obor beranimasi empat bingkai.",
+              "Bangunan menghadap pusat desa, berdiri di sudut terendah tapaknya (tidak melayang di lereng) dengan fondasi 1,1 m ke dalam tanah, dan kini benar-benar melepas bayangan.",
+              "Tiga varian rumah dan dua varian menara, dirakit dari data: mengubah kit mengubah seluruh desa tanpa satu model pun diekspor.",
+              "Kontrak tabrakan tidak berubah: rumah, menara, gerbang dan sumur mengambil ruang yang sama seperti sebelumnya.",
+              "Bila bangunan menghalangi kamera, ia memudar dengan dither seperti pohon; detail kecil (pintu, papan, pita besi) dibuang di luar 120 m supaya ringan di HP.",
+              "Paket yang berubah: world.pck (atlas bangunan + kit + shader + RegionView). Paket lain tidak diunduh ulang, APK tetap.",
+              "Kamera kini miring seperti Octopath: pitch 30 derajat, FOV 32, jarak tetap 18 m, semuanya dari satu berkas game/world/camera.json.",
+              "Zoom hilang sepenuhnya. Penyebab kamera yang zoom sendiri: penangan sentuhan lama menganggap DUA jari di layar (stik + tombol aksi) sebagai pinch. Sekarang rig tidak punya penangan input sama sekali.",
+              "Kamera mengikuti dengan spring kritis: tanpa overshoot, sama pada 30 maupun 60 fps, dead zone 32 cm, dan titik bidik 1,7 m di depan ksatria.",
+              "Latar jauh baru: langit bergradien mengikuti fase hari, dua lapis pegunungan, dan hamparan kabut. Pada sudut ini ujung atas layar masih tanah (seperti Octopath); hamparan kabut yang menutup tepi peta, sedangkan langit dan pegunungan menjadi jaring pengaman untuk kamera adegan yang lebih rendah.",
+              "Tilt-shift disetel ulang untuk sudut baru; pohon dan rumah yang menghalangi memudar dengan dither bertingkat sehingga ksatria tetap terlihat.",
+              "Paket yang berubah: world.pck (camera.json, FarScenery, shader ridge, occlusion) dan core.pck (pita tilt-shift, tangkapan kamera). Paket lain tidak diunduh ulang, APK tetap.",
+              "Dunia baru: region Yaros 192x192 ubin dengan tinggi 0-5 level, dibangun dari data (tools/region/yaros_spec.json).",
+              "Sepuluh zona bernama: Lembah Senja, Ladang Timur, Hutan Pinus, Sungai Sedu, Menara Penjaga, Dataran Batu, Gua Berbisik, Danau Cermin, Pos Gunung, Jalan Tua.",
+              "Jalan utama 460 ubin dari desa ke Pos Gunung: sekitar 2,2 menit berjalan atau 84 detik berlari.",
+              "Tebing bermuka batu dengan bayangan palsu di kaki, tangga batu empat anak tangga, jembatan kayu berpagar, dan satu jembatan rusak yang harus diputar.",
+              "Air bergelombang dengan tepi busa; air dangkal bisa dilalui, air dalam tidak.",
+              "2.959 pohon, batu, semak, bunga dan alang-alang; satu atlas prop membuat satu chunk hanya satu draw call untuk semua prop-nya.",
+              "Dunia dialirkan per chunk 32x32: hanya sekitar 3x3 chunk di sekitar pemain yang ada di memori, sisanya dibuang.",
+              "Bila pohon atau rumah menghalangi pandangan, prop itu memudar dengan pola dither, bukan menghilang mendadak.",
+              "Minimap dan peta penuh digambar dari data region: warna medan, tebing, air, dan ikon menara/gua/gerbang desa; kabut tetap tersimpan di save.",
+              "Banner nama zona muncul saat pemain berjalan ke daerah baru.",
+              "Save lama tetap termuat; posisi dari peta lama yang tidak bisa dipijak diganti ke titik awal peta baru tanpa menghapus progres.",
+              "Paket yang berubah: world.pck (peta, atlas, shader, kode dunia), characters.pck (gerak mengikuti tinggi tanah), core.pck (banner zona). APK tetap.",
+              "Layar lapangan kini hampir kosong: minimap kecil di kiri atas, satu tombol Menu di kanan atas, satu tombol aksi di kanan bawah.",
+              "Minimap digambar dari data peta (bukan kamera kedua): ikon pemain, penjaga, orc dekat, tujuan, dan kabut yang terbuka saat berjalan.",
+              "Ketuk minimap untuk membuka peta penuh; ketuk dua kali untuk dua tingkat zoom.",
+              "Kamera mengikuti ksatria dengan lembut, tidak bisa keluar dari batas peta, dan zoom-nya menempel ke tangga agar sprite tetap tajam.",
+              "Satu menu dengan tujuh tab: Lanjut, Jurnal, Peta, Inventori, Pengaturan, Simpan, Peluncur (peluncur minta konfirmasi).",
+              "Dialog kini ringkas di bawah layar dengan potret pembicara dan ketuk-untuk-lanjut.",
+              "Kotak tujuan, hati, narasi, dan angka FPS hilang dari lapangan; semuanya pindah ke menu Jurnal dan Pengaturan.",
+              "Tombol Serang dan Tahan dihapus dari lapangan: permainan turn-based, dan pertarungan belum ada di versi ini.",
+              "Pengaturan baru: ukuran UI, sensitivitas stik, stik mengambang/tetap, dan FPS hanya tampil dalam mode debug.",
+              "Fog of war (area yang sudah dijelajahi) tersimpan di save; save lama tetap terbaca dan mulai dari peta gelap.",
+              "Paket yang berubah: core.pck, world.pck, characters.pck, ui.pck (ikon baru). Paket lain tidak diunduh ulang, APK tetap.",
+              "Preset grafis kini juga mengatur batas FPS (30/60) dan resolusi 3D: preset rendah jauh lebih ringan di HP.",
+              "Ikon HUD digabung jadi satu atlas, dan semua aset yang tidak dipakai dibuang dari paket (paket total ±707 KB).",
+              "Pengaturan baru: Tampilkan FPS, plus log [PERF] tiap 5 detik untuk mengukur di perangkat lewat adb logcat.",
+              "Paket yang berubah: ui.pck, characters.pck, core.pck. Paket lain tidak diunduh ulang, APK tetap.",
+              "Menu jeda baru: dua halaman (Jeda dan Pengaturan) dengan status progres, simpan manual, dan tombol peluncur.",
+              "Pengaturan tersimpan di perangkat: tilt-shift, getar kamera, dan kualitas (rendah/sedang/tinggi) yang memengaruhi bayangan dan atmosfer.",
+              "HUD baru: tiga ikon hati, ikon matahari/bulan dengan nama fase, dan jarak aman dari poni (notch) di HP.",
+              "Ikon UI 24x24 baru untuk hati, matahari, bulan, pengaturan, simpan, dan kembali.",
+              "Paket yang berubah: ui.pck (font, parchment, crest, ikon) dan core.pck (kode menu). Paket lain tidak diunduh ulang, APK tetap.",
+              "Siklus hari: pagi berkabut, siang terang, sore keemasan, malam biru dengan kunang-kunang.",
+              "Lampu jendela pondok menyala sendiri saat sore dan menerangi ambang pintu sepanjang malam.",
+              "Atmosfer hidup: debu di cahaya pagi, daun jatuh saat sore, kabut tanah saat subuh dan malam.",
+              "Paket yang berubah: world.pck (kode dunia + tekstur atmosfer) dan characters.pck (jam dunia kini dipakai juga oleh penghuni). Paket lain tidak diunduh ulang, APK tetap.",
+              "Ksatria kini punya tiga hati: orc benar-benar berbahaya, dan menahan perisai membuat pukulan tidak memakan hati.",
+              "Hati habis: ksatria terjatuh, lalu bangun di awal jalan tanpa kehilangan progres apa pun.",
+              "Panel tujuan di kiri atas mengikuti progres (bersihkan jalur, kembali ke penjaga, jalur aman) dan menampilkan nyawa.",
+              "Tombol Jeda: lanjutkan, simpan sekarang, atau kembali ke peluncur. Dunia berhenti, tombolnya tetap hidup.",
+              "Perbaikan: pukulan terakhir tidak lagi menimpa animasi mati, jadi ksatria jatuh sungguhan, bukan mati sambil berdiri.",
+              "Paket yang berubah: core.pck dan characters.pck. Paket lain tidak diunduh ulang, APK tetap.",
+              "Cerita penjaga kini berganti sesuai progres: pertemuan pertama, kunjungan ulang, lalu kisah setelah ketiga orc dibersihkan.",
+              "Progres permainan tersimpan: orc yang sudah dikalahkan tidak muncul lagi dan ksatria bangun di tempat ia berhenti.",
+              "Save berversi dengan cadangan otomatis: tulisan atomik, pulih dari .bak bila berkas rusak, dan save dari versi lebih baru tidak pernah ditimpa.",
+              "Cerita kini data (bram.json), bukan kode: menambah karakter baru tidak perlu menyentuh skrip. Paket yang berubah: characters.pck saja.",
+              "Perbaikan: karakter dan prop tidak lagi melayang (kuad tidak ikut miring bersama kamera).",
+              "Kamera kini mengikuti ksatria; geser pandangan dengan dua jari.",
+              "Stik jalan muncul di mana pun ibu jari mendarat di layar kiri.",
+              "Perbaikan: ksatria tidak lagi terkunci setelah dipukul (hit-stop dulu membekukan animasi hurt).",
+              "Perbaikan: pohon, batu, dan semak menapak di tanah (skala prop ikut dihitung).",
+              "Perbaikan penting: game kini benar-benar bisa dimuat dari paket di HP (skrip tidak lagi memakai nama kelas global).",
+              "Tahap sprite: ksatria, penjaga, dan tiga orc hidup di lembah.",
+              "Kontrol sentuh: stik jalan/lari, serang, tahan blok, bicara dengan penjaga.",
+              "Dialog perkamen: 3 halaman + satu cabang dua pilihan.",
+              "Paket yang berubah: characters.pck (sprite + data), world.pck (warna jalur), core.pck. Paket lain tetap dan tidak diunduh ulang.",
           ]
           # GitHub Release assets are flat: the manifest must point at bare file
           # names, so rewrite "packs/<file>" -> "<file>" and copy just the packs

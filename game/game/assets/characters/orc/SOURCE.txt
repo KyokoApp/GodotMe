@@ -1,0 +1,13 @@
+Pack    : Tiny RPG Character Asset Pack 01 v2.0 - Free Soldier & Orc
+Asal    : Sprites.zip dari pemilik proyek (diunggah 24 Okt 2026)
+Lisensi : DIISI PEMILIK (TODO)
+          Zip ini TIDAK memuat LICENSE.txt, jadi ketentuan pemakaian belum
+          terverifikasi. Jangan publikasikan paket ini sebelum kolom di atas
+          diisi; kredit kreator juga belum diketahui.
+
+Catatan :
+- Yang dipakai adalah varian "tanpa bayangan"; varian "with shadows" hanya
+  disimpan di assets_src/characters/<karakter>/_with_shadows sebagai cadangan
+  dan tidak ikut dipaketkan.
+- Arrow01(100x100).png dan Arrow01(32x32).png disimpan untuk pemanah nanti;
+  belum dipakai di tahap ini.

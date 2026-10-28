@@ -1,0 +1,76 @@
+[gd_resource type="Resource" script_class="CharacterDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/characters/CharacterDef.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = "soldier"
+display_name = "Penjaga Bram"
+role = "npc"
+sprite_dir = "res://game/assets/characters/soldier"
+frame_size = Vector2i(100, 100)
+pixel_scale = 1.700
+pivot = Vector2(48.5, 57.0)
+body_width_px = 15
+content_height_px = 19
+world_pixel_size = 0.0500
+walk_stride_m = 0.750
+run_stride_m = 0.000
+body_radius_m = 0.280
+animations = [
+{
+"name": "idle",
+"file": "idle.png",
+"frames": 6,
+"fps": 8.0,
+"loop": true,
+"hold_last": false
+},
+{
+"name": "walk",
+"file": "walk.png",
+"frames": 8,
+"fps": 10.0,
+"loop": true,
+"hold_last": false
+},
+{
+"name": "attack_1",
+"file": "attack_1.png",
+"frames": 6,
+"fps": 13.0,
+"loop": false,
+"hold_last": false
+},
+{
+"name": "attack_2",
+"file": "attack_2.png",
+"frames": 6,
+"fps": 13.0,
+"loop": false,
+"hold_last": false
+},
+{
+"name": "attack_3",
+"file": "attack_3.png",
+"frames": 9,
+"fps": 14.0,
+"loop": false,
+"hold_last": false
+},
+{
+"name": "hurt",
+"file": "hurt.png",
+"frames": 4,
+"fps": 12.0,
+"loop": false,
+"hold_last": false
+},
+{
+"name": "death",
+"file": "death.png",
+"frames": 4,
+"fps": 11.0,
+"loop": false,
+"hold_last": true
+}]

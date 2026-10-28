@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "note": "Satu-satunya tempat sudut pandang dunia diatur. Pemain tidak bisa mengubahnya: tidak ada pinch, tidak ada roda mouse, tidak ada zoom saat dialog. Ubah berkas ini lalu rilis ulang paket world.",
+  "lens": {
+    "pitch_deg": 30.0,
+    "yaw_deg": -22.0,
+    "fov_deg": 32.0,
+    "distance_m": 18.0,
+    "look_ahead_m": 1.7,
+    "near_m": 0.4,
+    "far_m": 420.0
+  },
+  "follow": {
+    "deadzone_m": 0.32,
+    "smooth_time_s": 0.20
+  },
+  "tilt_shift": {
+    "focus_line": 0.54,
+    "sharp_band": 0.30,
+    "blur_pixels": 2.1
+  },
+  "occlusion": {
+    "radius_m": 1.05,
+    "reach_m": 2.5
+  }
+}

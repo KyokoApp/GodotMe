@@ -13,6 +13,15 @@ func load_version(meta: Dictionary) -> Dictionary:
 	var packages: Array = meta.get("packages", [])
 	if packages.is_empty():
 		return {"ok": false, "error": "Versi ini tidak memuat paket apa pun."}
+	# The game runs inside this process, so an environment variable is a channel
+	# that needs no file and no parsing. Without it the game had to *guess* the
+	# installed version from a hardcoded path - and guess a default when that
+	# file lived somewhere else. Both ends now agree by construction. Set here,
+	# in the one function every boot path goes through (boot_version and the
+	# tests both call it).
+	OS.set_environment("RT_ACTIVE_VERSION", String(meta.get("version", "")))
+	OS.set_environment("RT_DATA_ROOT", Cfg.data_root())
+
 	var ordered := packages.duplicate()
 	ordered.sort_custom(func(a, b): return int(a.get("load_order", 0)) < int(b.get("load_order", 0)))
 
@@ -42,6 +51,7 @@ func boot_version(meta: Dictionary) -> Dictionary:
 	var res := load_version(meta)
 	if not res["ok"]:
 		return res
+
 	var tree := Engine.get_main_loop() as SceneTree
 	var err := tree.change_scene_to_file(String(res["main_scene"]))
 	if err != OK:

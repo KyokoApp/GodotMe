@@ -12,44 +12,152 @@ const PACK_FILES := {
 		"files": [
 			"game/Main.tscn",
 			"game/Main.gd",
-			"game/assets/crest.png",
-			"game/assets/PixelifySans-SemiBold.woff2",
-			"game/assets/parchment.png",
+			"game/ui/UiKit.gd",
+			"game/ui/Settings.gd",
+			# step 1's field interface lives with Main: the HUD, the minimap, the
+			# full map and the one menu are all read by Main through `load()`, and
+			# keeping them in the same pack as their caller means no script here
+			# ever has to `preload` across a pack boundary.
+			"game/ui/FieldHud.gd",
+			"game/ui/Minimap.gd",
+			"game/ui/FullMap.gd",
+			"game/ui/Menu.gd",
 		],
 	},
 	"characters": {
 		"order": 20,
-		"files": ["game/assets/parchment.png"],
+		# every character script, definition and strip: this is the package a
+		# sprite update replaces on its own, without touching world or core.
+		"files": [
+			"game/characters/CharacterDef.gd",
+			"game/characters/CharacterAssets.gd",
+			"game/characters/Actor.gd",
+			"game/characters/Enemy.gd",
+			"game/characters/Npc.gd",
+			"game/characters/CharacterWorld.gd",
+			"game/characters/TouchControls.gd",
+			"game/characters/DialogueBox.gd",
+			"game/characters/blob_shadow.gdshader",
+			"game/characters/dust_puff.gdshader",
+			"game/characters/data/knight.tres",
+			"game/characters/data/soldier.tres",
+			"game/characters/data/orc.tres",
+			# the guard's story and the player's save live with the cast: the
+			# story is data (editable without touching code) and the save is the
+			# progress of the characters that story is about.
+			"game/characters/data/bram.json",
+			"game/dialogue/DialogueTree.gd",
+			"game/save/SaveGame.gd",
+			"game/assets/characters/knight/LICENSE.txt",
+			"game/assets/characters/soldier/SOURCE.txt",
+			"game/assets/characters/orc/SOURCE.txt",
+			"game/assets/characters/knight/idle.png",
+			"game/assets/characters/knight/walk.png",
+			"game/assets/characters/knight/run.png",
+			"game/assets/characters/knight/attack_1.png",
+			"game/assets/characters/knight/attack_2.png",
+			"game/assets/characters/knight/attack_3.png",
+			"game/assets/characters/knight/block.png",
+			"game/assets/characters/knight/hurt.png",
+			"game/assets/characters/knight/death.png",
+			"game/assets/characters/knight/jump_start.png",
+			"game/assets/characters/knight/jump_transition.png",
+			"game/assets/characters/knight/jump_fall.png",
+			"game/assets/characters/soldier/idle.png",
+			"game/assets/characters/soldier/walk.png",
+			"game/assets/characters/soldier/attack_1.png",
+			"game/assets/characters/soldier/attack_2.png",
+			"game/assets/characters/soldier/attack_3.png",
+			"game/assets/characters/soldier/hurt.png",
+			"game/assets/characters/soldier/death.png",
+			# arrow_100.png / arrow_32.png stay in assets_src until the archer
+			# job exists: pack_audit fails on assets nothing loads.
+			"game/assets/characters/orc/idle.png",
+			"game/assets/characters/orc/walk.png",
+			"game/assets/characters/orc/attack_1.png",
+			"game/assets/characters/orc/attack_2.png",
+			"game/assets/characters/orc/hurt.png",
+			"game/assets/characters/orc/death.png",
+		],
 	},
 	"enemies": {
 		"order": 30,
-		"files": ["game/assets/divider.png"],
+		# Step 3C filled this package for real: the battle engine, its data file,
+		# the arena, the interface and the shatter transition. It is separate from
+		# `characters` on purpose - a balance change must never force a sprite
+		# download, and the battle pack is the one that grows when encounters do.
+		"files": [
+			"game/battle/battle_data.json",
+			"game/battle/BattleData.gd",
+			"game/battle/BattleLogic.gd",
+			"game/battle/BattleView.gd",
+			"game/battle/BattleUI.gd",
+			"game/battle/BattleScene.gd",
+			"game/battle/battle_wipe.gdshader",
+			# divider.png used to be listed here one-line; the audit's list reader
+			# only sees multi-line lists, so it silently packed nothing. It lives
+			# in `ui` with the rest of the interface art, and this pack needs no
+			# art of its own: the fighters are the characters pack's sprites.
+		],
 	},
 	"world": {
 		"order": 40,
-		# the whole diorama lives in this pack: scene, camera and every texture.
+		# The region lives in this pack: the built map (regions/yaros.json), the
+		# loader, the mesher, the streamer, one terrain atlas, one prop atlas and
+		# the shaders. Step 2 deleted the hand-placed glade's textures from the
+		# pack list: the prop atlas now carries them, and an asset nothing loads
+		# is exactly what pack_audit exists to catch.
 		"files": [
-			"game/assets/bg.png",
 			"game/world/Diorama.tscn",
 			"game/world/Diorama.gd",
+			"game/world/RegionData.gd",
+			"game/world/RegionMesh.gd",
+			"game/world/RegionView.gd",
 			"game/world/DioramaCamera.gd",
+			# step 3A: the one file that defines the lens, and the horizon
+			"game/world/camera.json",
+			"game/world/FarScenery.gd",
+			"game/world/far_ridge.gdshader",
 			"game/world/WorldArt.gd",
+			"game/world/WorldClock.gd",
+			"game/world/Atmosphere.gd",
+			"game/world/WorldMap.gd",
 			"game/world/tiltshift.gdshader",
-			"game/world/path.gdshader",
-			"game/world/textures/tree_pine.png",
-			"game/world/textures/tree_oak.png",
-			"game/world/textures/cottage.png",
-			"game/world/textures/bush.png",
-			"game/world/textures/rock.png",
-			"game/world/textures/grass_tile.png",
-			"game/world/textures/path_tile.png",
+			"game/world/terrain.gdshader",
+			"game/world/cliff.gdshader",
+			"game/world/wood.gdshader",
+			"game/world/prop.gdshader",
+			"game/world/water.gdshader",
+			"game/world/regions/yaros.json",
+			"game/world/prop_atlas.json",
+			# step 3B: the building kit - the code that assembles a house, the
+			# manifest that names its cells, the atlas it paints from and the
+			# shader that draws all of it in one pass per building
+			"game/world/BuildingKit.gd",
+			"game/world/building_kit.json",
+			"game/world/building.gdshader",
+			"game/world/textures/building_atlas.png",
+			"game/world/textures/terrain_atlas.png",
+			"game/world/textures/prop_atlas.png",
+			"game/world/textures/water_tile.png",
+			"game/world/textures/atmosphere/mote_dust.png",
+			"game/world/textures/atmosphere/firefly.png",
+			"game/world/textures/atmosphere/petal.png",
+			"game/world/textures/atmosphere/fog_puff.png",
 		],
 	},
 	"ui": {
 		"order": 50,
 		"files": [
-			"game/assets/Jacquard12.woff2",
+			# every UI asset lives here, so a UI pass never forces a core download
 			"game/assets/PixelifySans.woff2",
+			"game/assets/PixelifySans-SemiBold.woff2",
+			"game/assets/parchment.png",
+			"game/assets/crest.png",
+			"game/assets/divider.png",
+			# one atlas instead of seven textures: fewer binds per HUD frame
+			"game/assets/ui/atlas_ui.png",
+			"game/assets/ui/atlas_ui.json",
 		],
 	},
 	"audio": {

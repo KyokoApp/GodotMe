@@ -2,7 +2,8 @@ name: ci
 
 on:
   push:
-    branches: ["arena/5c17933c-godotme"]
+    # any Arena work branch, plus main, so a merged change keeps being checked
+    branches: ["main", "arena/**"]
   workflow_dispatch:
 
 permissions:
@@ -36,6 +37,10 @@ jobs:
         run: |
           set +e
           : > /tmp/lint.log
+          # cheap first: a duplicated function name costs a 5 minute Godot
+          # round trip to discover otherwise
+          python3 tools/gd_dup_check.py | tee -a /tmp/lint.log
+          DUP_FAILED=${PIPESTATUS[0]}
           godot --headless --path launcher --import >/dev/null 2>&1
           godot --headless --path game --import >/dev/null 2>&1
           for f in $(cd launcher && find . -name "*.gd" | sed 's|^\./||'); do
@@ -54,14 +59,283 @@ jobs:
           if grep -qE "Parse Error|Failed to parse" /tmp/lint.log; then
             echo "LINT FAILED: parse error in a GDScript file"
             grep -nE "Parse Error|Failed to parse" /tmp/lint.log
+            # Annotations are also the only part of this log that can be read
+            # back from the API: the full job log lives on blob storage, which a
+            # phone (and the sandbox) cannot always reach.
+            n=0
+            while IFS= read -r line; do
+              n=$((n + 1))
+              [ "$n" -gt 25 ] && break
+              echo "::error::${line}"
+            done < <(grep -E "Parse Error|Failed to parse" /tmp/lint.log | head -25)
             LINT_FAILED=1
           fi
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ "${DUP_FAILED:-0}" -ne 0 ]; then
+            echo "LINT FAILED: duplicate function definition"
+            LINT_FAILED=1
+          fi
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### parse check"; echo '```'; tail -c 60000 /tmp/lint.log; echo '```'; } > /tmp/lint.md
             gh pr comment "$PR" --body-file /tmp/lint.md --repo "$GITHUB_REPOSITORY" || true
           fi
           exit ${LINT_FAILED:-0}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Play rules (flinch hands control back, props stand on the ground)
+        # Headless, no GPU: these are rules about the state machine and about
+        # geometry, and both of them failed on a real phone while every static
+        # check stayed green.
+        run: |
+          set -o pipefail
+          # keep the transcript visible even when the rules fail: a red step with
+          # no log in the PR is useless on a phone-sized screen
+          set +e
+          godot --headless --path game res://game/tests/PlayTest.tscn 2>&1 | tee /tmp/play.log
+          code=${PIPESTATUS[0]}
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### play rules (exit $code)"; echo '```'; tail -c 20000 /tmp/play.log; echo '```'; } > /tmp/play.md
+            gh pr comment "$PR" --body-file /tmp/play.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Story rules (save versions + dialogue branches)
+        # Headless: saving, migrating and picking the right conversation are all
+        # invisible in a screenshot, and losing a save is the worst bug this
+        # game could ship.
+        run: |
+          set -o pipefail
+          set +e
+          : > /tmp/story.log
+          godot --headless --path game res://game/tests/SaveTest.tscn 2>&1 | tee -a /tmp/story.log
+          save_code=${PIPESTATUS[0]}
+          godot --headless --path game res://game/tests/DialogueTest.tscn 2>&1 | tee -a /tmp/story.log
+          dlg_code=${PIPESTATUS[0]}
+          code=$(( save_code + dlg_code ))
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### story rules (exit $code)"; echo '```'; tail -c 20000 /tmp/story.log; echo '```'; } > /tmp/story.md
+            gh pr comment "$PR" --body-file /tmp/story.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Pack audit (no dead weight in the six packages)
+        # Phase 7 found a 1,17 MB backdrop packed twice and loaded by nothing.
+        # This fails the build when an asset is packed but never referenced, or
+        # when a path in FixtureBuilder no longer exists.
+        run: python3 tools/pack_audit.py
+
+      - name: World rules (day cycle + atmosphere)
+        # Headless: light is exactly what a screenshot cannot check. Noon must be
+        # brighter than midnight, the cottage lamp must be off at noon, and a
+        # firefly in the afternoon is a bug.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/WorldTest.tscn 2>&1 | tee /tmp/world.log
+          code=${PIPESTATUS[0]}
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### world rules (exit $code)"; echo '```'; tail -c 20000 /tmp/world.log; echo '```'; } > /tmp/world.md
+            gh pr comment "$PR" --body-file /tmp/world.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: UI rules (icons, settings, menu)
+        # Headless: a screenshot of the menu proves it looks right, not that its
+        # buttons do anything. These checks press them.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/UiTest.tscn 2>&1 | tee /tmp/ui.log
+          code=${PIPESTATUS[0]}
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### ui rules (exit $code)"; echo '```'; tail -c 20000 /tmp/ui.log; echo '```'; } > /tmp/ui.md
+            gh pr comment "$PR" --body-file /tmp/ui.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Field rules (camera leash, minimap, action button, fog)
+        # Headless: a screenshot shows that the field looks empty, not that the
+        # camera stops at the map edge, that the minimap survives a bigger map,
+        # that the button follows distance, or that fog survives a save.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/FieldTest.tscn 2>&1 | tee /tmp/field.log
+          code=${PIPESTATUS[0]}
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### field rules (exit $code)"; echo '```'; tail -c 20000 /tmp/field.log; echo '```'; } > /tmp/field.md
+            gh pr comment "$PR" --body-file /tmp/field.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Camera rules (fixed lens, smooth follow, occlusion)
+        # Headless: the bug this step fixes was "the camera zooms by itself", and
+        # only a frame-by-frame recording of pitch, FOV and distance can prove it
+        # stopped. A screenshot cannot.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/CameraTest.tscn 2>&1 | tee /tmp/camera.log
+          code=${PIPESTATUS[0]}
+          # Same reason as the battle step: the job log itself is on blob storage,
+          # and the PR-comment relay can stop working without failing the step, so
+          # the failing checks also go up as annotations - the one part of a run
+          # that `gh api .../check-runs/<id>/annotations` can always read back.
+          # Only when the step FAILED: a green run that leaves red annotations
+          # behind is worse than no annotations, because the phone cannot open the
+          # log to see that they are informational.
+          if [ "$code" -ne 0 ]; then
+            {
+              grep -E "\[CAMERA\] FAIL|SCRIPT ERROR|Parse Error|Failed to parse" /tmp/camera.log | head -16
+              tail -6 /tmp/camera.log
+            } | sed 's/^/::error::/' || true
+          fi
+          # And on a GREEN run, the count itself: a test that dies halfway prints
+          # fewer PASS lines than it owns, and that is the failure mode a plain
+          # "success" hides. `::notice::` keeps the number readable afterwards.
+          grep -E "^\[CAMERA\] [0-9]+ pemeriksaan" /tmp/camera.log | tail -1 \
+            | sed 's/^/::notice::/' || true
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### camera rules (exit $code)"; echo '```'; tail -c 20000 /tmp/camera.log; echo '```'; } > /tmp/camera.md
+            gh pr comment "$PR" --body-file /tmp/camera.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Building rules (3B - kit, atlas, footing, collision, occlusion)
+        # Headless: a screenshot shows a village that looks right, not that every
+        # cell name in the kit exists in the atlas, that a house stands on the
+        # lowest corner of its slope instead of floating over it, that a cottage
+        # is still one mesh and one material, or that the village fits a phone's
+        # triangle budget.
+        run: |
+          set -o pipefail
+          set +e
+          : > /tmp/building.log
+          # pillow only for the "is the PNG the size the manifest claims" check
+          python3 -m venv /tmp/kitvenv >/dev/null 2>&1 || true
+          /tmp/kitvenv/bin/pip install --quiet pillow 2>/dev/null \
+            || /tmp/kitvenv/bin/pip install --quiet --break-system-packages pillow
+          /tmp/kitvenv/bin/python tools/kit_audit.py 2>&1 | tee -a /tmp/building.log
+          kit_code=${PIPESTATUS[0]}
+          godot --headless --path game res://game/tests/BuildingTest.tscn 2>&1 | tee -a /tmp/building.log
+          build_code=${PIPESTATUS[0]}
+          code=$(( kit_code + build_code ))
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### building rules (exit $code)"; echo '```'; tail -c 30000 /tmp/building.log; echo '```'; } > /tmp/building.md
+            gh pr comment "$PR" --body-file /tmp/building.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Battle rules (3C - tables, engine, 1000 battles)
+        # Headless, and it has to be: a screenshot of a menu proves the words are
+        # spelled right, not that a shield really runs out, that a broken enemy
+        # loses its turn, that BP is spent exactly once, that a boss's second
+        # phase opens a new weakness, or that a battle using Break + Boost ends in
+        # 5-8 turns while one that ignores them does not.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/BattleTest.tscn 2>&1 | tee /tmp/battle.log
+          code=${PIPESTATUS[0]}
+          # The full job log lives on blob storage, which is not always reachable
+          # from a phone (or from the sandbox that wrote this). Annotations are:
+          # when the step fails, the engine's own errors and the failing checks go
+          # up as `::error::`; when it passes, one `::notice::` carries the count.
+          if [ "$code" -ne 0 ]; then
+            {
+              grep -E "SCRIPT ERROR|ERROR:|WARNING:" /tmp/battle.log | head -14
+              grep -E "\[BATTLE\] (FAIL|simulasi|data:)" /tmp/battle.log | head -14
+              tail -5 /tmp/battle.log
+            } | sed 's/^/::error::/' || true
+          fi
+          grep -E "^\[BATTLE\] [0-9]+ pemeriksaan" /tmp/battle.log | tail -1 \
+            | sed 's/^/::notice::/' || true
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### battle rules (exit $code)"; echo '```'; tail -c 30000 /tmp/battle.log; echo '```'; } > /tmp/battle.md
+            gh pr comment "$PR" --body-file /tmp/battle.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Region rules (Yaros - reachability, seams, streaming, travel)
+        # Headless: a screenshot proves the region looks finished, not that the
+        # mountain gate is reachable, that no terrace is a trap, that two chunks
+        # meet without a crack, that a teleport loads in time, or that the walk
+        # from the village really takes two minutes.
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --path game res://game/tests/RegionTest.tscn 2>&1 | tee /tmp/region.log
+          code=${PIPESTATUS[0]}
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### region rules (exit $code)"; echo '```'; tail -c 20000 /tmp/region.log; echo '```'; } > /tmp/region.md
+            gh pr comment "$PR" --body-file /tmp/region.md --repo "$GITHUB_REPOSITORY" || true
+          fi
+          exit $code
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Character sprite contract (strips + SpriteFrames)
+        # Fails the build, it does not guess: a strip whose width is not
+        # frames x frame_width, a stale pivot or an empty animation stops here.
+        run: |
+          set -o pipefail
+          python3 -m venv /tmp/venv >/dev/null
+          /tmp/venv/bin/pip install --quiet pillow
+          /tmp/venv/bin/python tools/import_character_sprites.py --check 2>&1 | tee /tmp/chars_py.log
+          godot --headless --path game res://game/tests/ValidateCharacters.tscn 2>&1 | tee /tmp/chars_gd.log
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$PR" ]; then
+            { echo "### character contract"; echo '```'; tail -c 20000 /tmp/chars_py.log; echo; tail -c 20000 /tmp/chars_gd.log; echo '```'; } > /tmp/chars.md
+            gh pr comment "$PR" --body-file /tmp/chars.md --repo "$GITHUB_REPOSITORY" || true
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -85,6 +359,7 @@ jobs:
           - signed_ok
           - signed_bad
           - ui_input
+          - boot_packs
           - crash
     steps:
       - uses: actions/checkout@v4
@@ -121,7 +396,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ ! -f /tmp/case.log ]; then echo "no log produced"; exit 0; fi
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -z "$PR" ]; then echo "no PR for $GITHUB_REF_NAME"; exit 0; fi
           {
             echo "### CI log — case \`${{ matrix.case }}\`"
@@ -143,6 +420,9 @@ jobs:
   screenshots:
     name: screenshots
     runs-on: ubuntu-latest
+    # A capture run that hangs used to hold this job for the default six hours.
+    # Forty minutes is many times the real cost (~12) and still bounded.
+    timeout-minutes: 40
     needs: [launcher-tests]
     if: always()
     steps:
@@ -183,12 +463,200 @@ jobs:
             res://tests/TestRunner.tscn -- --scenario=capture --data-root=user://t_capture \
             --budget=120 --manifest=http://127.0.0.1:$PORT/slow.json \
             --captures="$GITHUB_WORKSPACE/docs/screenshots" 2>&1 | tee /tmp/capture.log | tail -40
+          # --- the phone's own path: the real game loaded out of the six packs --
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path launcher --resolution 1280x720 \
+            res://tests/TestRunner.tscn -- --scenario=boot_packs --budget=120 \
+            --data-root=user://t_bootshot --manifest=http://127.0.0.1:$PORT/v100.json \
+            --captures="$GITHUB_WORKSPACE/docs/screenshots" \
+            2>&1 | tee -a /tmp/capture.log | tail -30
           kill $SRV 2>/dev/null || true
           # the screen the player actually lands on after tapping MAIN
           xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
             "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
             -- --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=08_diorama \
             2>&1 | tee -a /tmp/capture.log | tail -20
+          # --- step 1: the field, the banner, the dialogue, the menu, the map,
+          # --- the fog, and the same field at three screen ratios -------------
+          # Each run goes through the real game (Main.tscn) and the same doors a
+          # thumb uses; nothing is drawn by a test-only path.
+          for variant in "menu:lanjut 20_menu" "menu:pengaturan 21_pengaturan" \
+                         "field 22_lapangan" "field_only 22b_lapangan_kosong" "stick 22c_stik" \
+                         "banner 23_banner" \
+                         "dialogue 24_dialog" "menu:jurnal 25_jurnal" \
+                         "map 26_peta" "fog 27_fog"; do
+            arg="${variant% *}"; name="${variant#* }"
+            case "$arg" in
+              menu:*) extra="--menu=${arg#menu:}" ;;
+              *) extra="--hud=$arg" ;;
+            esac
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              -- $extra --walk=1.2 --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$name" 2>&1 | tee -a /tmp/capture.log | tail -12
+          done
+          # the same HUD at 20:9 and 4:3, to prove nothing drifts or overlaps
+          for variant in "1440x648 28_rasio_20x9" "960x720 29_rasio_4x3"; do
+            set -- $variant
+            screen="${1%x*}"
+            xvfb-run -a -s "-screen 0 ${1}x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution "$1" \
+              -- --hud=field --walk=1.2 \
+              --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -12
+            echo "ratio capture $1 -> $2 (screen width $screen)"
+          done
+          # --- character stage: three-up test sheet --------------------------
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            res://game/tests/CharacterTest.tscn -- \
+            --capture="$GITHUB_WORKSPACE/docs/screenshots" --capture-name=09_karakter \
+            2>&1 | tee -a /tmp/capture.log | tail -20
+          # --- character stage: the cast inside the diorama, day and night ---
+          for variant in "dawn 17_pagi" "day 10_visual_siang" "dusk 18_sore" "night 11_visual_malam"; do
+            set -- $variant
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              res://game/tests/VisualTest.tscn -- \
+              --time="$1" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
+          done
+          # --- character stage: the guard's parchment dialogue, and its fork --
+          for variant in "page 12_dialog" "choices 13_pilihan" "after 15_dialog_setelah" "down 16_terjatuh"; do
+            set -- $variant
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              res://game/tests/VisualTest.tscn -- \
+              --dialog="$1" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$2" 2>&1 | tee -a /tmp/capture.log | tail -20
+          done
+          # --- step 2: the nine named zones. Each shot teleports by MAP MARKER
+          # NAME, so a rebuilt map cannot quietly point the camera at grass.
+          for variant in \
+            "Lembah Senja|30_zona_lembah" "Ladang Timur|31_zona_ladang" \
+            "Hutan Pinus|32_zona_hutan" "Sungai Sedu|33_zona_sungai" \
+            "Menara Penjaga|34_zona_menara" "Dataran Batu|35_zona_batu" \
+            "Gua Berbisik|36_zona_gua" "Danau Cermin|37_zona_danau" \
+            "Pos Gunung|38_zona_pos"; do
+            key="${variant%%|*}"; name="${variant##*|}"
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              -- --hud=zone --zone="$key" --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$name" 2>&1 | tee -a /tmp/capture.log | tail -8
+          done
+          # --- step 2: the shapes a tiered world has to get right - stairs, a
+          # cliff corner seen from both sides, water, and the same places near
+          # and far, at noon and at dusk.
+          for variant in \
+            "stairs|39_tangga|sore|15" "cliff|40_tebing_luar|sore|18" \
+            "cliff_inner|41_tebing_dalam|sore|18" "water|42_air_dekat|sore|14" \
+            "Danau Cermin|43_danau_jauh|sore|30" "Lembah Senja|44_desa_siang|siang|17" \
+            "Hutan Pinus|45_hutan_senja|sore|27"; do
+            key="${variant%%|*}"; rest="${variant#*|}"
+            name="${rest%%|*}"; rest="${rest#*|}"
+            phase="${rest%%|*}"; zoom="${rest##*|}"
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              -- --hud=zone --zone="$key" --phase="$phase" --zoom="$zoom" \
+              --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+              --capture-name="$name" 2>&1 | tee -a /tmp/capture.log | tail -8
+          done
+          # --- step 2: the full map, opened the way a player opens it
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            -- --hud=map --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+            --capture-name=46_peta_penuh 2>&1 | tee -a /tmp/capture.log | tail -8
+          # --- step 3A: the village at the new octopath angle, and the knight
+          # --- standing behind a tall prop (dither occlusion)
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            -- --hud=zone --zone="Lembah Senja" --phase=siang \
+            --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+            --capture-name=47_kamera_desa 2>&1 | tee -a /tmp/capture.log | tail -8
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+            -- --hud=occlusion --phase=sore \
+            --capture="$GITHUB_WORKSPACE/docs/screenshots" \
+            --capture-name=48_kamera_halangan 2>&1 | tee -a /tmp/capture.log | tail -8
+
+          # --- step 3B: the building kit, four sides x day/night. The stage in
+          # --- BuildingTest puts every kind on one plinth, so the shots are of
+          # --- the kit and not of whatever happens to be behind it.
+          mkdir -p "$GITHUB_WORKSPACE/docs/screenshots/bangunan"
+          for phase in siang malam; do
+            for side in depan kanan belakang kiri; do
+              xvfb-run -a -s "-screen 0 640x360x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+                "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 640x360 \
+                res://game/tests/BuildingTest.tscn -- \
+                --view="$side" --time="$phase" \
+                --capture="$GITHUB_WORKSPACE/docs/screenshots/bangunan" \
+                --capture-name="50_bangunan_${side}_${phase}" \
+                2>&1 | tee -a /tmp/capture.log | tail -4
+            done
+          done
+          python3 -m venv /tmp/bsheetvenv >/dev/null
+          /tmp/bsheetvenv/bin/pip install --quiet pillow
+          /tmp/bsheetvenv/bin/python tools/building_sheet.py \
+            --dir "$GITHUB_WORKSPACE/docs/screenshots/bangunan" \
+            --out "$GITHUB_WORKSPACE/docs/screenshots/bangunan/kit_bangunan.png" \
+            2>&1 | tee -a /tmp/capture.log | tail -3
+
+          # --- step 3C: the battle itself. Ten states, each one a run of the real
+          # --- BattleScene standing on the real region. 1280x720 so the interface
+          # --- is readable in the PR; the arena is the field the fight started on.
+          mkdir -p "$GITHUB_WORKSPACE/docs/screenshots/pertarungan"
+          for state in transisi awal menu kelemahan boost break damage fase2 hasil kalah; do
+            xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+              "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 1280x720 \
+              res://game/tests/BattleShot.tscn -- --state="$state" \
+              --capture="$GITHUB_WORKSPACE/docs/screenshots/pertarungan" \
+              --capture-name="51_pertarungan_${state}" \
+              2>&1 | tee -a /tmp/capture.log | tail -4
+            # The frame is the evidence, but "no world / no fighters / wrong
+            # camera" all look like the same grey rectangle. This line is what
+            # the run reports when a shot comes out wrong.
+            grep -h "^\[SHOT\]" /tmp/capture.log | tail -1 | sed 's/^/::warning::/' || true
+            grep -h "^\[PROBE\]" /tmp/capture.log | tail -3 | sed 's/^/::notice::/' || true
+            # Annotations are capped and deduplicated, which hid most of the
+            # probe lines. The battle captures keep their own log next to the
+            # PNGs, so the numbers survive the summary.
+            grep -h -E "^\[(PROBE|DIAG|SHOT|CHECK|BATTLE)\]" /tmp/capture.log | tail -n +1 \
+              > "$GITHUB_WORKSPACE/docs/screenshots/pertarungan/probe.log" || true
+          done
+          # The frame rules of step 3C - every fighter inside the picture, the
+          # command menu inside the edge - are asserted by the capture scene. A
+          # screenshot cannot fail a build on its own; this line makes it able to.
+          if grep -q "^\[CHECK\] FAIL" /tmp/capture.log; then
+            echo "bingkai pertarungan tidak lolos pemeriksaan:"
+            grep "^\[CHECK\] FAIL" /tmp/capture.log | sed 's/^/::error::/'
+            exit 1
+          fi
+          grep "^\[CHECK\] " /tmp/capture.log | tail -12 || true
+
+          # --- step 3A: pitch x FOV, the grid the owner picks the angle from.
+          # --- 560x315 keeps eighteen shots small enough to live in the repo;
+          # --- the lens values come from the command line, never from
+          # --- camera.json, so no cell of this grid is a "setting".
+          mkdir -p "$GITHUB_WORKSPACE/docs/screenshots/camera"
+          for pitch in 25 30 35 40 50 38; do
+            for fov in 25 32 40; do
+              name=$(printf "p%02df%02d" "$pitch" "$fov")
+              xvfb-run -a -s "-screen 0 560x315x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+                "$GITHUB_WORKSPACE/.tools/godot" --path game --resolution 560x315 \
+                -- --hud=zone --zone="Lembah Senja" --phase=siang \
+                --pitch="$pitch" --fov="$fov" \
+                --capture="$GITHUB_WORKSPACE/docs/screenshots/camera" \
+                --capture-name="$name" 2>&1 | tee -a /tmp/capture.log | tail -3
+            done
+          done
+          python3 -m venv /tmp/sheetvenv >/dev/null
+          /tmp/sheetvenv/bin/pip install --quiet pillow
+          /tmp/sheetvenv/bin/python tools/camera_sheet.py \
+            --dir docs/screenshots/camera \
+            --out docs/screenshots/camera/sudut_kamera.png \
+            --pitches 25,30,35,40,50,38 --fovs 25,32,40 \
+            --recommend 30,32 --current 38,30 2>&1 | tee -a /tmp/capture.log | tail -3
+
           ls -la docs/screenshots
 
       - name: Publish capture log to the PR
@@ -196,7 +664,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           [ -z "$PR" ] && exit 0
           { echo "### capture log"; echo '```'; tail -c 20000 /tmp/capture.log 2>/dev/null || echo "(empty)"; echo '```'; } > /tmp/cap.md
           gh pr comment "$PR" --body-file /tmp/cap.md --repo "$GITHUB_REPOSITORY" || true
@@ -227,7 +697,7 @@ jobs:
         if: always()
         with:
           name: launcher-screenshots
-          path: docs/screenshots/*.png
+          path: docs/screenshots/**/*.png
           if-no-files-found: warn
 
   # ----------------------------------------------------------------- apk ----
@@ -367,7 +837,9 @@ jobs:
           PYEOF
           [ ${PIPESTATUS[0]} -ne 0 ] && code=1
 
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           if [ -n "$PR" ]; then
             { echo "### APK export log (exit $code)"; echo '```'; tail -c 60000 /tmp/apk.log; echo '```'; } > /tmp/apk.md
             gh pr comment "$PR" --body-file /tmp/apk.md --repo "$GITHUB_REPOSITORY" || true
@@ -379,7 +851,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR=$(gh pr list --head "$GITHUB_REF_NAME" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
+          # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
+          PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
           [ -z "$PR" ] && exit 0
           { echo "### APK job log"; echo '```'; tail -c 40000 /tmp/apk.log 2>/dev/null || echo "(no export log)"; echo '```'; } > /tmp/apk2.md
           gh pr comment "$PR" --body-file /tmp/apk2.md --repo "$GITHUB_REPOSITORY" || true

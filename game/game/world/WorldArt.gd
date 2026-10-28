@@ -1,4 +1,6 @@
-class_name WorldArt
+## No `class_name`: the game never knows the launcher's global class cache, and
+## a script loaded out of a .pck cannot use class names that cache never saw.
+## Refer to this file with `ART = preload(...)` from its own pack instead.
 extends RefCounted
 ## Runtime texture loading for world content.
 ##
@@ -34,7 +36,11 @@ static func sprite_material(texture: Texture2D, tint: Color = Color.WHITE,
 	var m := StandardMaterial3D.new()
 	m.albedo_texture = texture
 	m.albedo_color = tint
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	# Yaw-only billboard: a full billboard is tilted by the camera pitch, which
+	# lifted every prop off its own base (the same bug that made the characters
+	# float - see Actor.gd). Yaw-only keeps the quad upright, so a prop whose
+	# quad bottom sits on y = 0 really stands on the ground.
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
 	m.billboard_keep_scale = true
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 	m.alpha_scissor_threshold = 0.45

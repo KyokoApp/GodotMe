@@ -1,0 +1,116 @@
+[gd_resource type="Resource" script_class="CharacterDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/characters/CharacterDef.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = "knight"
+display_name = "Ksatria"
+role = "player"
+sprite_dir = "res://game/assets/characters/knight"
+frame_size = Vector2i(112, 96)
+pixel_scale = 1.000
+pivot = Vector2(53.0, 85.0)
+body_width_px = 34
+content_height_px = 36
+world_pixel_size = 0.0500
+walk_stride_m = 0.900
+run_stride_m = 1.900
+body_radius_m = 0.340
+animations = [
+{
+"name": "idle",
+"file": "idle.png",
+"frames": 14,
+"fps": 9.0,
+"loop": true,
+"hold_last": false
+},
+{
+"name": "walk",
+"file": "walk.png",
+"frames": 8,
+"fps": 11.0,
+"loop": true,
+"hold_last": false
+},
+{
+"name": "run",
+"file": "run.png",
+"frames": 8,
+"fps": 13.0,
+"loop": true,
+"hold_last": false
+},
+{
+"name": "attack_1",
+"file": "attack_1.png",
+"frames": 8,
+"fps": 14.0,
+"loop": false,
+"hold_last": false
+},
+{
+"name": "attack_2",
+"file": "attack_2.png",
+"frames": 9,
+"fps": 14.0,
+"loop": false,
+"hold_last": false
+},
+{
+"name": "attack_3",
+"file": "attack_3.png",
+"frames": 11,
+"fps": 15.0,
+"loop": false,
+"hold_last": false
+},
+{
+"name": "block",
+"file": "block.png",
+"frames": 6,
+"fps": 10.0,
+"loop": false,
+"hold_last": true
+},
+{
+"name": "hurt",
+"file": "hurt.png",
+"frames": 8,
+"fps": 12.0,
+"loop": false,
+"hold_last": false
+},
+{
+"name": "death",
+"file": "death.png",
+"frames": 15,
+"fps": 11.0,
+"loop": false,
+"hold_last": true
+},
+{
+"name": "jump_start",
+"file": "jump_start.png",
+"frames": 3,
+"fps": 12.0,
+"loop": false,
+"hold_last": true
+},
+{
+"name": "jump_transition",
+"file": "jump_transition.png",
+"frames": 3,
+"fps": 12.0,
+"loop": false,
+"hold_last": true
+},
+{
+"name": "jump_fall",
+"file": "jump_fall.png",
+"frames": 3,
+"fps": 12.0,
+"loop": true,
+"hold_last": false
+}]
