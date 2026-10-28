@@ -183,7 +183,6 @@ func _frame_with_rig() -> void:
 	if region != null:
 		ground = float(region.call("height_at", centre))
 	_rig_lens = rig.call("lens") if rig.has_method("lens") else {}
-	rig.call("set_follow_target", null)
 	rig.call("set_ground_height", ground)
 	# the fight frames itself: the party on the near side, the orcs beyond, both
 	# lines inside the frame - so the aim point is the middle of the arena

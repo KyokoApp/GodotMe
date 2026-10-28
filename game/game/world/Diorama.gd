@@ -418,6 +418,16 @@ func _build_camera() -> void:
 func _process(delta: float) -> void:
 	if _region == null:
 		return
+	# The far scenery must follow the CAMERA, not the player. It used to be moved
+	# only after the player check below, so a frame with no player in it - the
+	# battle capture stage, or any camera that is not following a knight - left
+	# the two ridge rings and the haze plain parked at the world origin. The rings
+	# are 175 m and 320 m across and only a few metres tall, so a camera that moves
+	# near that radius ends up INSIDE the near ring, and its haze-coloured band
+	# covers the whole screen: the arena renders, and a beige wall is drawn over
+	# it. That was the flat brown frame in every battle screenshot.
+	if _far != null and _camera != null:
+		_far.call("follow", _camera_xz())
 	var player: Variant = _player_position()
 	if player == null:
 		return
@@ -438,8 +448,6 @@ func _process(delta: float) -> void:
 	if _atmosphere != null:
 		# the pollen belongs to the camera, not to the origin of the world
 		_atmosphere.position = Vector3(pos.x, 0.0, pos.y)
-	if _far != null:
-		_far.call("follow", _camera_xz())
 	_stream_timer += delta
 	if _stream_timer > 0.25:
 		_stream_timer = 0.0

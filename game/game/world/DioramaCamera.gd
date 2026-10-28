@@ -219,6 +219,10 @@ func battle_frame(aim: Vector2, ground_y: float) -> void:
 		"pitch": pitch_deg, "yaw": yaw_deg, "fov": fov_deg,
 		"distance": distance_m, "look_ahead": look_ahead_m,
 	}
+	# the knight keeps walking his own business during the fight; the lens must not
+	# slide back to him, so the follow target is parked and handed back afterwards
+	_saved["follow"] = _follow
+	_follow = null
 	# The numbers are the ones a sweep over this rig proved: five yaws from -22 to
 	# +22 all rendered the arena (draw calls 97-106, mid-pixel green or brown, no
 	# haze), at pitch 30, fov 34 and 16 m. -12 is the three-quarter view that puts
@@ -244,7 +248,11 @@ func battle_release() -> void:
 	fov_deg = float(_saved.get("fov", fov_deg))
 	distance_m = float(_saved.get("distance", distance_m))
 	look_ahead_m = float(_saved.get("look_ahead", look_ahead_m))
+	var who: Variant = _saved.get("follow", null)
+	if who is Node3D and is_instance_valid(who):
+		_follow = who as Node3D
 	_saved = {}
+	_vel = Vector3.ZERO
 	_apply_lens()
 	_apply()
 
