@@ -6,9 +6,9 @@
 [DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(163.0, 14.0, 33.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=16 mesh_tanah=12 aabb=[P: (64.0, 0.0, 96.0), S: (32.0, 1.8, 32.0)] visible=true atlas=ADA
-[DIAG] transisi layer=tampil t=0.25788000226021
+[DIAG] transisi layer=tampil t=0.25232180953026
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
-[DIAG] piksel tengah=(0.1176, 0.1176, 0.0667, 1.0) kiri-atas=(0.4667, 0.4039, 0.2745, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
+[DIAG] piksel tengah=(0.1216, 0.1216, 0.0667, 1.0) kiri-atas=(0.4078, 0.3765, 0.2745, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
 [SHOT] mulai state=awal
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=awal region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
