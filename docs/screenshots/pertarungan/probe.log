@@ -1,4 +1,8 @@
+[BATTLE] kamera memakai rig dunia di (81.0, 124.0)
+[BATTLE] arena: 5 petarung, fokus (81.0, 124.0), bentang 8.7 x 7.6 m (x 76.9..85.6, z 121.6..129.2)
 [SHOT] mulai state=transisi
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=transisi region=ada chunk=16 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -6,10 +10,12 @@
 [DIAG]   kamera /root/BattleShot/Diorama/CameraRig/Camera3D current=true pos=(163.0, 14.0, 33.0)
 [DIAG] env bg_mode=2 warna_bg=(0.44, 0.36, 0.32, 1.0) sky=():<Sky#-9223372008132180519> sky_mat=ProceduralSkyMaterial fog=0.004
 [DIAG] chunk=16 mesh_tanah=12 aabb=[P: (64.0, 0.0, 96.0), S: (32.0, 1.8, 32.0)] visible=true atlas=ADA
-[DIAG] transisi layer=tampil t=0.25232180953026
+[DIAG] transisi layer=tampil t=0.27272728085518
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
-[DIAG] piksel tengah=(0.1216, 0.1216, 0.0667, 1.0) kiri-atas=(0.4078, 0.3765, 0.2745, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
+[DIAG] piksel tengah=(0.1333, 0.1294, 0.0667, 1.0) kiri-atas=(0.3529, 0.3569, 0.2863, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
 [SHOT] mulai state=awal
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=awal region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -20,7 +26,13 @@
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
 [DIAG] piksel tengah=(0.2745, 0.2667, 0.102, 1.0) kiri-atas=(0.5098, 0.5098, 0.549, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
+[CHECK] PASS awal: semua petarung di dalam layar
+[CHECK] PASS awal: kamera arena adalah kamera rig lapangan
+[CHECK] PASS awal: menu perintah muat di layar
+[CHECK] awal: 3 pemeriksaan, 0 gagal
 [SHOT] mulai state=menu
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=menu region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -31,7 +43,13 @@
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
 [DIAG] piksel tengah=(0.2745, 0.2667, 0.102, 1.0) kiri-atas=(0.5098, 0.5098, 0.549, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
+[CHECK] PASS menu: semua petarung di dalam layar
+[CHECK] PASS menu: kamera arena adalah kamera rig lapangan
+[CHECK] PASS menu: menu perintah muat di layar
+[CHECK] menu: 3 pemeriksaan, 0 gagal
 [SHOT] mulai state=kelemahan
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=kelemahan region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -42,7 +60,13 @@
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
 [DIAG] piksel tengah=(0.2745, 0.2667, 0.102, 1.0) kiri-atas=(0.5098, 0.5098, 0.549, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
+[CHECK] PASS kelemahan: semua petarung di dalam layar
+[CHECK] PASS kelemahan: kamera arena adalah kamera rig lapangan
+[CHECK] PASS kelemahan: menu perintah muat di layar
+[CHECK] kelemahan: 3 pemeriksaan, 0 gagal
 [SHOT] mulai state=boost
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=boost region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -53,7 +77,13 @@
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
 [DIAG] piksel tengah=(0.2745, 0.2667, 0.102, 1.0) kiri-atas=(0.5098, 0.5098, 0.549, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
+[CHECK] PASS boost: semua petarung di dalam layar
+[CHECK] PASS boost: kamera arena adalah kamera rig lapangan
+[CHECK] PASS boost: menu perintah muat di layar
+[CHECK] boost: 3 pemeriksaan, 0 gagal
 [SHOT] mulai state=break
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=break region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -64,7 +94,12 @@
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
 [DIAG] piksel tengah=(0.2745, 0.2667, 0.102, 1.0) kiri-atas=(0.5098, 0.5098, 0.549, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
+[CHECK] PASS break: semua petarung di dalam layar
+[CHECK] PASS break: kamera arena adalah kamera rig lapangan
+[CHECK] break: 2 pemeriksaan, 0 gagal
 [SHOT] mulai state=damage
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=damage region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -75,7 +110,12 @@
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
 [DIAG] piksel tengah=(0.2745, 0.2667, 0.102, 1.0) kiri-atas=(0.5098, 0.5098, 0.549, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
+[CHECK] PASS damage: semua petarung di dalam layar
+[CHECK] PASS damage: kamera arena adalah kamera rig lapangan
+[CHECK] damage: 2 pemeriksaan, 0 gagal
 [SHOT] mulai state=fase2
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=fase2 region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -86,7 +126,12 @@
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
 [DIAG] piksel tengah=(0.2745, 0.2667, 0.102, 1.0) kiri-atas=(0.5098, 0.5098, 0.549, 1.0) bawah=(0.1137, 0.1373, 0.0706, 1.0)
+[CHECK] PASS fase2: semua petarung di dalam layar
+[CHECK] PASS fase2: kamera arena adalah kamera rig lapangan
+[CHECK] fase2: 2 pemeriksaan, 0 gagal
 [SHOT] mulai state=hasil
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=hasil region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -97,7 +142,13 @@
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
 [DIAG] piksel tengah=(0.8706, 0.7765, 0.5961, 1.0) kiri-atas=(0.2588, 0.251, 0.2627, 1.0) bawah=(0.0784, 0.0824, 0.0471, 1.0)
+[CHECK] PASS hasil: semua petarung di dalam layar
+[CHECK] PASS hasil: kamera arena adalah kamera rig lapangan
+[CHECK] PASS hasil: lembar hasil terpusat
+[CHECK] hasil: 3 pemeriksaan, 0 gagal
 [SHOT] mulai state=kalah
+[BATTLE] kamera memakai rig dunia di (166.0, 19.0)
+[BATTLE] arena: 5 petarung, fokus (166.0, 19.0), bentang 8.7 x 7.6 m (x 162.1..170.8, z 17.1..24.7)
 [SHOT] layar: Knig@(551,339) Orc @(295,222) Orc @(513,171) Orc @(714,156) Orc @(937,171)
 [SHOT] state=kalah region=ada chunk=28 sprite=5 kamera=ya pos=(163.0, 14.0, 33.0) ui=(1280.0, 720.0)
 [DIAG] viewport (1280.0, 720.0) renderer=llvmpipe (LLVM 20.1.2, 256 bits)
@@ -108,3 +159,7 @@
 [DIAG] transisi layer=parkir t=0.0
 [DIAG] sprite uid=0 visible=true pos=(164.0, 8.0, 25.0) frames=true teks=true
 [DIAG] piksel tengah=(0.8706, 0.7765, 0.5961, 1.0) kiri-atas=(0.2588, 0.251, 0.2627, 1.0) bawah=(0.0784, 0.0824, 0.0471, 1.0)
+[CHECK] PASS kalah: semua petarung di dalam layar
+[CHECK] PASS kalah: kamera arena adalah kamera rig lapangan
+[CHECK] PASS kalah: lembar hasil terpusat
+[CHECK] kalah: 3 pemeriksaan, 0 gagal
