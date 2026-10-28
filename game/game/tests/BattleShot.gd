@@ -290,6 +290,23 @@ func _check_frame(state: String) -> void:
 		var mid := sheet.position.x + sheet.size.x * 0.5
 		_check(absf(mid - vp.x * 0.5) < 2.0, "%s: lembar hasil terpusat" % state,
 			"tengah %.0f" % mid)
+	# C22: nobody stands inside a wall. The first captures of the "Pos Gunung" fight
+	# staged the leader inside a cottage: his plate floated over the brickwork and
+	# his sprite was never drawn. Judged by the region's own walkability, so a pond
+	# or a cliff counts too.
+	var region: RefCounted = world.call("region") if world != null else null
+	if region != null and region.has_method("walkable_tile"):
+		var buried: Array = []
+		for raw in _logic().get("units"):
+			var unit: Dictionary = raw
+			if not bool(unit["alive"]):
+				continue
+			var top: Vector3 = view.call("unit_world_top", int(unit["uid"]))
+			var tile: Vector2i = region.call("world_to_tile", Vector2(top.x, top.z))
+			if not bool(region.call("walkable_tile", tile.x, tile.y)):
+				buried.append(String(unit["name"]))
+		_check(buried.is_empty(), "%s: tidak ada petarung di dalam bangunan" % state,
+			" tertanam: %s" % ", ".join(buried))
 	# C21: the words have to sit INSIDE the brass frame, and the turn bar has to
 	# say which unit comes next. Both are invisible to a headless test that only
 	# knows rectangles: `parchment(12, 8, 4)` draws the text on the border, and

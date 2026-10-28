@@ -864,6 +864,12 @@ aturan C21 yang ikut menggagalkan build kalau kembali. Angka 24 berasal dari
 mengukur tangkapan yang diperbesar 6x, bukan dari perkiraan: pada 16 px huruf
 pertama dan terakhir masih menyentuh rim dalam pil.
 
+Cacat ketiga yang hanya terlihat dari gambar: pelat **Orc Pemimpin** melayang di
+atas dinding rumah tanpa sprite di bawahnya - titik `pos_gunung` berdiri di depan
+sebuah pondok dan slot musuh terjauh (7 m) jatuh di dalamnya. `BattleView` kini
+menggeser arena (maksimum 12 m) sampai semua slot bisa dipijak, dan `[CHECK] C22`
+menegakkannya.
+
 Sepuluh tangkapan itu bukan pelengkap: empat cacat di langkah ini hanya
 terlihat dari gambar (panel di luar layar, kisi shader transisi, cincin bukit
 jauh yang menutupi arena, dan dua baris petarung yang bertukar tempat). Rincian

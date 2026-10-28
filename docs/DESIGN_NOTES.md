@@ -1759,6 +1759,16 @@ tidak ada satu pun tes headless yang bisa melihat layar.
    panel harus lebih lebar dari bingkainya, dan setiap chip harus menyebut satu
    kata utuh dari nama unit.
 
+6. **Pemimpin orc berdiri di dalam rumah.** Tangkapan `awal` memperlihatkan pelat
+   "Orc Pemimpin" melayang di atas dinding bata, tanpa sprite di bawahnya: titik
+   encounter `pos_gunung` berada tepat di depan sebuah pondok, dan slot musuh
+   paling jauh (7 m dari pusat) jatuh di dalamnya. Tidak ada tes yang menangkap
+   ini karena semuanya lolos secara geometris - petarungnya memang "ada di
+   layar". Sekarang `BattleView.build()` menggeser arena paling jauh 12 m (delapan
+   arah, enam cincin) sampai setiap slot adalah tanah yang bisa dipijak menurut
+   aturan region sendiri (`can_stand`), dan `[CHECK] C22` memastikan tidak ada
+   petarung yang berdiri di ubin tidak-walkable di setiap state.
+
 Biaya menemukannya besar dan sebagian besar karena satu kesalahan metodologis
 yang layak dicatat: **sembilan percobaan kamera (A-I) dijalankan sambil cincin
 jauh masih menutupi layar.** Semuanya "membuktikan" hal yang salah - bahwa

@@ -68,6 +68,18 @@ func build(logic: RefCounted) -> void:
 	# diorama instead of inside it, which put every fighter at y = 0.
 	if region == null:
 		region = _find_region()
+	# Park the arena on open ground BEFORE anybody is placed: the encounter point
+	# comes from the map and can sit against a house. The "Pos Gunung" fight
+	# staged the leader inside a cottage - his plate floated over the brickwork
+	# and his sprite was never drawn - which no headless test could see.
+	var party_n := 0
+	var foe_n := 0
+	for raw in logic.get("units"):
+		if String((raw as Dictionary)["side"]) == "ally":
+			party_n += 1
+		else:
+			foe_n += 1
+	centre = _open_centre(party_n, foe_n)
 	var assets: Script = load(ASSETS)
 	var party_index := 0
 	var foe_index := 0
@@ -101,6 +113,41 @@ func build(logic: RefCounted) -> void:
 		_roots.size(), str(_focus.round()), hi.x - lo.x, hi.y - lo.y,
 		str(snappedf(lo.x, 0.1)), str(snappedf(hi.x, 0.1)),
 		str(snappedf(lo.y, 0.1)), str(snappedf(hi.y, 0.1))])
+
+
+## Slide the arena until every slot is ground a body can stand on. Judged by the
+## region's own rule (`can_stand`: walkable tile, no wall, no cliff step), not by
+## guessing at prop positions - so a cottage, a fence, a pond or a drop all count.
+## Eight directions, six rings of two metres: the fight moves at most 12 m, still
+## inside the same clearing. When nothing is clear the arena stays where it was
+## and the screenshot gate C22 says which fighter is buried.
+func _open_centre(party_n: int, foe_n: int) -> Vector2:
+	if region == null or not region.has_method("can_stand"):
+		return centre
+	if _slots_clear(centre, party_n, foe_n):
+		return centre
+	for ring in range(1, 7):
+		for step in 8:
+			var angle := TAU * float(step) / 8.0
+			var trial: Vector2 = centre + Vector2(cos(angle), sin(angle)) * (float(ring) * 2.0)
+			if _slots_clear(trial, party_n, foe_n):
+				print("[BATTLE] arena digeser %s -> %s: ada petarung yang akan berdiri di dalam bangunan"
+					% [str(centre.round()), str(trial.round())])
+				return trial
+	print("[BATTLE] tidak ada tanah lapang di dekat %s: arena tetap" % str(centre.round()))
+	return centre
+
+
+func _slots_clear(at: Vector2, party_n: int, foe_n: int) -> bool:
+	for i in party_n:
+		var slot: Vector2 = PARTY_SLOTS[i % PARTY_SLOTS.size()]
+		if not bool(region.call("can_stand", at + slot, 0.9)):
+			return false
+	for i in foe_n:
+		var slot: Vector2 = FOE_SLOTS[i % FOE_SLOTS.size()]
+		if not bool(region.call("can_stand", at + slot, 0.9)):
+			return false
+	return true
 
 
 ## Average of where the fighters actually stand.
