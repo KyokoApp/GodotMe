@@ -1749,8 +1749,12 @@ tidak ada satu pun tes headless yang bisa melihat layar.
    ("Prajurit", "Pengintai", "Pemimpin"); nama panjangnya tetap ada di pelat di
    atas orc. Kedua, chip dan pelat memakai `parchment(12, 8, 4)`: bingkai kuningan
    dari 9-slice-nya 12 px, sedangkan margin teks hanya 8 px, jadi huruf terakhir
-   "Orc Prajurit" duduk di atas bingkai. Sekarang `UiKit.parchment_small()`
-   (12, 16, 6) - satu tempat, supaya pemanggil berikutnya tidak mengulanginya.
+   "Orc Prajurit" duduk di atas bingkai. `(12, 16, 6)` belum cukup: setelah
+   tangkapan berikutnya diperbesar 6x, huruf pertama dan terakhir "Pengintai"
+   masih duduk di garis dalam pil - rim dalam 9-slice itu ada di ~20 px, bukan
+   12. Sekarang `UiKit.parchment_small()` = `(12, 24, 12)` - satu tempat, supaya
+   pemanggil berikutnya tidak mengulanginya, dan angkanya ditentukan dari
+   mengukur tangkapan, bukan dari perasaan.
    Keduanya kini diperiksa dari layar sungguhan (C21): margin horizontal setiap
    panel harus lebih lebar dari bingkainya, dan setiap chip harus menyebut satu
    kata utuh dari nama unit.

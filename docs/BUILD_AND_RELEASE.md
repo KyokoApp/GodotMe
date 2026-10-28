@@ -859,8 +859,10 @@ Dua cacat lagi ditemukan setelah run pertama yang hijau, dengan memperbesar
 tangkapan `51_pertarungan_awal.png`: chip bar giliran terpotong menjadi "Orc Pe"
 (delapan chip identik) dan teks pelat menempel di bingkai kuningan
 (`parchment(12, 8, 4)` - margin teks 8 px, bingkai 12 px). Keduanya diperbaiki
-(`UiKit.parchment_small()`, kata pembeda pada chip) dan dijadikan aturan C21 yang
-ikut menggagalkan build kalau kembali.
+(`UiKit.parchment_small()` = 12/24/12, kata pembeda pada chip) dan dijadikan
+aturan C21 yang ikut menggagalkan build kalau kembali. Angka 24 berasal dari
+mengukur tangkapan yang diperbesar 6x, bukan dari perkiraan: pada 16 px huruf
+pertama dan terakhir masih menyentuh rim dalam pil.
 
 Sepuluh tangkapan itu bukan pelengkap: empat cacat di langkah ini hanya
 terlihat dari gambar (panel di luar layar, kisi shader transisi, cincin bukit
