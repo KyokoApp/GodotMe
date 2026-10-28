@@ -848,6 +848,9 @@ Yang terverifikasi sebelum rilis dipicu:
   `probe.log` ikut tersimpan di `docs/screenshots/pertarungan/`.
 - Langkah **Camera rules** sekarang **38 pemeriksaan**: 31 aturan lama, 6
   serah-terima `battle_frame`/`battle_release` (C17), 1 latar jauh (C18).
+  Angkanya dibaca dari anotasi `::notice::` run `40619025766`, bukan dihitung
+  dengan mata: `[CAMERA] 38 pemeriksaan, 0 gagal`, cincin jauh **0,00 m** dari
+  mata kamera.
   Run sebelumnya (`40614726424`) gagal di langkah ini karena tes C18 benar dan
   kodenya salah - cincin jauh menempel pada titik bidik rig, bukan pada mata
   kamera yang berdiri 15,59 m di depannya.

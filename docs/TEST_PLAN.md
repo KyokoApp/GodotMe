@@ -471,7 +471,11 @@ dari log dan keluar dengan kode 1. Ini satu-satunya cara aturan tentang *frame*
 bisa ditegakkan - tes headless tidak punya layar.
 
 Kalau langkah **Camera rules** gagal, alasan tiap `[CAMERA] FAIL` juga dikirim
-sebagai anotasi `::error::`. Itu bukan hiasan: log mentah sebuah job disimpan di
+sebagai anotasi `::error::`; kalau lulus, jumlah pemeriksaannya dikirim sebagai
+anotasi `::notice::` (run `40619025766` membacanya: **38 pemeriksaan, 0 gagal** -
+31 aturan lama, enam serah-terima C17, satu latar jauh C18). Anotasi `::error::`
+tidak pernah dipakai untuk kabar baik, karena HP tidak bisa membuka log untuk
+memeriksa bahwa tanda merahnya cuma informasi. Itu bukan hiasan: log mentah sebuah job disimpan di
 blob storage yang tidak selalu bisa dibaca dari HP, sedangkan
 `gh api repos/<owner>/<repo>/check-runs/<id>/annotations` selalu bisa.
 
