@@ -1741,6 +1741,19 @@ tidak ada satu pun tes headless yang bisa melihat layar.
 4. **Dua baris petarung bertukar tempat.** `z+` adalah arah kamera, jadi pasukan
    harus di `z` positif. Sebelumnya terbalik: ksatria di tepi atas frame, orc di
    bagian bawah.
+5. **Bar giliran berbunyi "Orc Pe" delapan kali, dan teksnya menempel di bingkai.**
+   Dua kesalahan kecil yang hanya terlihat setelah gambar diperbesar. Pertama,
+   chip memakai `substr(0, 6)`, jadi "Orc Prajurit", "Orc Pengintai" dan "Orc
+   Pemimpin" semuanya menjadi "Orc Pe" - delapan chip identik, bar yang tidak
+   memberi tahu siapa berjalan berikutnya. Sekarang chip memakai kata pembeda
+   ("Prajurit", "Pengintai", "Pemimpin"); nama panjangnya tetap ada di pelat di
+   atas orc. Kedua, chip dan pelat memakai `parchment(12, 8, 4)`: bingkai kuningan
+   dari 9-slice-nya 12 px, sedangkan margin teks hanya 8 px, jadi huruf terakhir
+   "Orc Prajurit" duduk di atas bingkai. Sekarang `UiKit.parchment_small()`
+   (12, 16, 6) - satu tempat, supaya pemanggil berikutnya tidak mengulanginya.
+   Keduanya kini diperiksa dari layar sungguhan (C21): margin horizontal setiap
+   panel harus lebih lebar dari bingkainya, dan setiap chip harus menyebut satu
+   kata utuh dari nama unit.
 
 Biaya menemukannya besar dan sebagian besar karena satu kesalahan metodologis
 yang layak dicatat: **sembilan percobaan kamera (A-I) dijalankan sambil cincin

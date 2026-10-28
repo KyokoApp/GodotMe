@@ -144,6 +144,18 @@ static func parchment(margin: int = 20, mx: int = 22, my: int = 12) -> StyleBoxT
 	return sb
 
 
+## The parchment 9-slice at chip size. The brass border is scaled down to 12 px,
+## so the margin the TEXT gets has to be wider than 12 - at (12, 8, 4) the label
+## is drawn on top of the frame, and a screenshot showed "Orc Prajurit" running
+## into the corner of its plate. 16/6 clears the border on every side.
+##
+## `BattleShot._check_frame` reads the styleboxes of the live fight back and
+## fails the build if any panel breaks this rule, so a new caller cannot repeat
+## the mistake quietly.
+static func parchment_small() -> StyleBoxTexture:
+	return parchment(12, 16, 6)
+
+
 ## Scale a whole HUD layer by the player's "ukuran UI" setting, around the
 ## centre of the screen.
 ##

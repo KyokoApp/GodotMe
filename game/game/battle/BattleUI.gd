@@ -300,14 +300,27 @@ func _refresh_turn_bar() -> void:
 	for raw in logic.call("turn_preview"):
 		var unit: Dictionary = raw
 		var chip := PanelContainer.new()
-		var sb : StyleBoxTexture = _kit().parchment(12, 8, 4)
-		chip.add_theme_stylebox_override("panel", sb)
-		var label : Label = _kit().label(String(unit["name"]).substr(0, 6), 13,
+		chip.add_theme_stylebox_override("panel", _kit().parchment_small())
+		# the DISTINGUISHING word, not the first six characters: `substr(0, 6)`
+		# turned "Orc Prajurit", "Orc Pengintai" and "Orc Pemimpin" into eight
+		# identical "Orc Pe" chips, which is a turn bar that says nothing
+		var label : Label = _kit().label(_short_name(String(unit["name"])), 13,
 			INK if String(unit["side"]) == "ally" else Color(0.42, 0.12, 0.09))
 		chip.add_child(label)
 		if bool(unit["broken"]):
 			chip.modulate = Color(0.65, 0.60, 0.75)
 		_turn_bar.add_child(chip)
+
+
+## "Orc Pemimpin" -> "Pemimpin". The full name is on the plate over the enemy,
+## so the bar only has to tell the unit TYPES apart - and a whole word is both
+## shorter and readable, where a fixed-length cut is neither. A name with no
+## space is used as it is.
+func _short_name(full: String) -> String:
+	var cut := full.find(" ")
+	if cut <= 0 or cut + 1 >= full.length():
+		return full
+	return full.substr(cut + 1)
 
 
 func _refresh_marks() -> void:
@@ -344,7 +357,7 @@ func _refresh_marks() -> void:
 func _make_mark(unit: Dictionary) -> Dictionary:
 	var plate := PanelContainer.new()
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.add_theme_stylebox_override("panel", _kit().parchment(12, 8, 4))
+	plate.add_theme_stylebox_override("panel", _kit().parchment_small())
 	plate.modulate = Color(1.0, 1.0, 1.0, 0.94)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)

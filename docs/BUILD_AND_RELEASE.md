@@ -855,6 +855,13 @@ Yang terverifikasi sebelum rilis dipicu:
   kodenya salah - cincin jauh menempel pada titik bidik rig, bukan pada mata
   kamera yang berdiri 15,59 m di depannya.
 
+Dua cacat lagi ditemukan setelah run pertama yang hijau, dengan memperbesar
+tangkapan `51_pertarungan_awal.png`: chip bar giliran terpotong menjadi "Orc Pe"
+(delapan chip identik) dan teks pelat menempel di bingkai kuningan
+(`parchment(12, 8, 4)` - margin teks 8 px, bingkai 12 px). Keduanya diperbaiki
+(`UiKit.parchment_small()`, kata pembeda pada chip) dan dijadikan aturan C21 yang
+ikut menggagalkan build kalau kembali.
+
 Sepuluh tangkapan itu bukan pelengkap: empat cacat di langkah ini hanya
 terlihat dari gambar (panel di luar layar, kisi shader transisi, cincin bukit
 jauh yang menutupi arena, dan dua baris petarung yang bertukar tempat). Rincian

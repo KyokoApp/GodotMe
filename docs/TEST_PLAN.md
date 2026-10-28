@@ -465,8 +465,9 @@ xvfb-run -a godot --path game --resolution 1280x720 \
 | C18 | Latar jauh mengikuti **mata** kamera, bukan pemain dan bukan titik bidik | `CameraTest._test_far_follows_camera` (tanpa pemain) | posisi `RidgeNear` ≤ 0,75 m dari `Camera3D` (bukan dari rig: lensa berdiri 15,6 m di belakang titik bidik); tidak ada cincin yang tertinggal di titik nol |
 | C19 | Semua petarung di dalam frame | `BattleShot._check_frame` → `[CHECK]` | kelima petarung berjarak ≥ 2 px dari tepi 1280×720 pada setiap state |
 | C20 | Panel UI di dalam layar | `BattleShot._check_frame` → `[CHECK]` | menu perintah (termasuk BOOST) tidak melewati tepi kanan/bawah; lembar hasil terpusat |
+| C21 | Teks di dalam bingkai dan nama chip utuh | `BattleShot._check_frame` → `[CHECK]` | margin kiri/kanan setiap `PanelContainer` yang tampil ≥ tebal bingkai 9-slice (teks tidak menempel di kuningan); tiap chip bar giliran adalah satu kata utuh dari nama unit (bukan potongan `substr`); bar giliran tidak menabrak tombol 1x/Auto |
 
-C19 dan C20 **menggagalkan build**: job `screenshots` membaca `[CHECK] FAIL`
+C19, C20 dan C21 **menggagalkan build**: job `screenshots` membaca `[CHECK] FAIL`
 dari log dan keluar dengan kode 1. Ini satu-satunya cara aturan tentang *frame*
 bisa ditegakkan - tes headless tidak punya layar.
 

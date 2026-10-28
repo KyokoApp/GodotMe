@@ -290,9 +290,90 @@ func _check_frame(state: String) -> void:
 		var mid := sheet.position.x + sheet.size.x * 0.5
 		_check(absf(mid - vp.x * 0.5) < 2.0, "%s: lembar hasil terpusat" % state,
 			"tengah %.0f" % mid)
+	# C21: the words have to sit INSIDE the brass frame, and the turn bar has to
+	# say which unit comes next. Both are invisible to a headless test that only
+	# knows rectangles: `parchment(12, 8, 4)` draws the text on the border, and
+	# `substr(0, 6)` named every enemy "Orc Pe" - eight identical chips.
+	var tight := _tight_frames(_ui())
+	_check(tight.is_empty(), "%s: teks tidak menempel di bingkai" % state,
+		" " + ", ".join(tight))
+	var bar: Control = _ui().get("_turn_bar") as Control
+	var tools: Control = _ui().get("_tools") as Control
+	if bar != null and bar.is_visible_in_tree():
+		var names: Array = []
+		for raw in _logic().get("units"):
+			names.append(String((raw as Dictionary)["name"]))
+		var dumb: Array = []
+		for child in bar.get_children():
+			var lbl := _first_label(child)
+			if lbl == null:
+				continue
+			var whole := false
+			for unit_name in names:
+				if unit_name == lbl.text or String(unit_name).ends_with(" " + lbl.text):
+					whole = true
+					break
+			if not whole:
+				dumb.append(lbl.text)
+		_check(dumb.is_empty(), "%s: chip bar giliran menyebut nama utuh" % state,
+			" terpotong: %s" % ", ".join(dumb))
+		if tools != null and tools.is_visible_in_tree():
+			var bar_right := bar.get_global_rect().end.x
+			var tools_left := tools.get_global_rect().position.x
+			_check(bar_right <= tools_left - 4.0,
+				"%s: bar giliran tidak menabrak 1x/Auto" % state,
+				"bar %.0f, tombol %.0f" % [bar_right, tools_left])
 	# The run ends in `HARNESS.capture`, which quits with 0; the summary line is
 	# therefore printed HERE and CI turns any `[CHECK] FAIL` into a red build.
 	print("[CHECK] %s: %d pemeriksaan, %d gagal" % [state, _checked, _failed])
+
+
+## Every visible `PanelContainer` whose text margin is narrower than its own
+## 9-slice border: the label then runs ON TOP of the brass. Walked live, so a new
+## panel is covered by the rule without being listed anywhere.
+##
+## Horizontal only, on purpose. The plate's brass is a thick band on the left and
+## right and a thin strip on top and bottom, so the shipped default
+## `parchment(20, 22, 12)` clears the sides (22 > 20) and deliberately does not
+## clear the top and bottom (12 < 20) - the same frame, tighter where the border
+## is a hairline. The failure that started this check was horizontal: with
+## `parchment(12, 8, 4)` the last letter of "Orc Prajurit" sat in the corner.
+func _tight_frames(root: Node) -> Array:
+	var bad: Array = []
+	if root == null:
+		return bad
+	for child in root.get_children():
+		var panel := child as PanelContainer
+		if panel != null and panel.is_visible_in_tree():
+			var sb := panel.get_theme_stylebox("panel") as StyleBoxTexture
+			if sb != null:
+				for side in [SIDE_LEFT, SIDE_RIGHT]:
+					var border := sb.get_texture_margin(side)
+					var margin := sb.get_content_margin(side)
+					if margin + 0.5 < border:
+						bad.append("%s(%.0f<%.0f)" % [_label_text(panel), margin, border])
+						break
+		bad.append_array(_tight_frames(child))
+	return bad
+
+
+func _first_label(node: Node) -> Label:
+	var lbl := node as Label
+	if lbl != null:
+		return lbl
+	for child in node.get_children():
+		var found := _first_label(child)
+		if found != null:
+			return found
+	return null
+
+
+## What the panel actually says, for the failure message.
+func _label_text(panel: Node) -> String:
+	var lbl := _first_label(panel)
+	if lbl != null and lbl.text.length() > 0:
+		return lbl.text
+	return String(panel.name)
 
 
 var _failed := 0
