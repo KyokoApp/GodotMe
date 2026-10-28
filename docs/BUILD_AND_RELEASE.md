@@ -864,11 +864,14 @@ aturan C21 yang ikut menggagalkan build kalau kembali. Angka 24 berasal dari
 mengukur tangkapan yang diperbesar 6x, bukan dari perkiraan: pada 16 px huruf
 pertama dan terakhir masih menyentuh rim dalam pil.
 
-Cacat ketiga yang hanya terlihat dari gambar: pelat **Orc Pemimpin** melayang di
-atas dinding rumah tanpa sprite di bawahnya - titik `pos_gunung` berdiri di depan
-sebuah pondok dan slot musuh terjauh (7 m) jatuh di dalamnya. `BattleView` kini
-menggeser arena (maksimum 12 m) sampai semua slot bisa dipijak, dan `[CHECK] C22`
-menegakkannya.
+Cacat ketiga yang hanya terlihat dari gambar, dan **belum diperbaiki**: pelat
+**Orc Pemimpin** melayang di atas dinding bata tanpa sprite di bawahnya. Ubinnya
+sah (bisa dipijak), jadi ini okultasi: `gate` di (170,5, 19,5) berdiri 1,9 m dari
+garis kamera-pemimpin. `BattleView` sekarang menggeser arena (maksimum 12 m)
+sampai semua slot di tanah yang bisa dipijak dan `[CHECK] C22` menegakkannya -
+itu menutup kasus "petarung di dalam bangunan", bukan kasus ini (di pos_gunung
+tidak ada yang perlu digeser). Perbaikannya butuh pemudaran prop per petarung;
+tercatat di `DESIGN_NOTES.md` 23.11 poin 6 dan 23.13.
 
 Sepuluh tangkapan itu bukan pelengkap: empat cacat di langkah ini hanya
 terlihat dari gambar (panel di luar layar, kisi shader transisi, cincin bukit

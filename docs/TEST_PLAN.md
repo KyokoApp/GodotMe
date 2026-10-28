@@ -465,6 +465,7 @@ xvfb-run -a godot --path game --resolution 1280x720 \
 | C18 | Latar jauh mengikuti **mata** kamera, bukan pemain dan bukan titik bidik | `CameraTest._test_far_follows_camera` (tanpa pemain) | posisi `RidgeNear` ≤ 0,75 m dari `Camera3D` (bukan dari rig: lensa berdiri 15,6 m di belakang titik bidik); tidak ada cincin yang tertinggal di titik nol |
 | C19 | Semua petarung di dalam frame | `BattleShot._check_frame` → `[CHECK]` | kelima petarung berjarak ≥ 2 px dari tepi 1280×720 pada setiap state |
 | C20 | Panel UI di dalam layar | `BattleShot._check_frame` → `[CHECK]` | menu perintah (termasuk BOOST) tidak melewati tepi kanan/bawah; lembar hasil terpusat |
+| C23 | (belum ada) prop yang menutupi petarung | — | **belum diuji**: `Orc Pemimpin` tertutup gerbang batu di pos_gunung dan semua aturan C19/C22 tetap hijau (DESIGN_NOTES 23.11 poin 6) |
 | C22 | Tidak ada petarung di dalam bangunan | `BattleShot._check_frame` → `[CHECK]` | setiap petarung yang hidup berdiri di ubin `walkable_tile` milik region (bukan di dalam pondok/tebing/air); `BattleView.build()` menggeser arena sampai itu benar |
 | C21 | Teks di dalam bingkai dan nama chip utuh | `BattleShot._check_frame` → `[CHECK]` | margin kiri/kanan setiap `PanelContainer` yang tampil ≥ tebal bingkai 9-slice (teks tidak menempel di kuningan); tiap chip bar giliran adalah satu kata utuh dari nama unit (bukan potongan `substr`); bar giliran tidak menabrak tombol 1x/Auto |
 

@@ -1717,8 +1717,9 @@ pukulan-per-break, dan Knight tetap bisa bertahan 7 ronde. Ini persis alasan
 ### 23.11 Sepuluh tangkapan, dan apa yang mereka temukan
 
 Screenshot bukan dokumentasi di langkah ini: ia satu-satunya alat yang menemukan
-empat bug yang lolos dari semua tes logika, dan semuanya lolos hanya karena
-tidak ada satu pun tes headless yang bisa melihat layar.
+enam cacat yang lolos dari semua tes logika, dan semuanya lolos hanya karena
+tidak ada satu pun tes headless yang bisa melihat layar. Lima sudah diperbaiki;
+yang keenam - prop yang menutupi petarung - sengaja dicatat apa adanya.
 
 1. **Panel di luar layar.** Menu perintah, strip party, tombol 1x/Auto dan lembar
    hasil diberi koordinat absolut *setelah* `anchors`-nya dipindah ke pojok
@@ -1759,15 +1760,22 @@ tidak ada satu pun tes headless yang bisa melihat layar.
    panel harus lebih lebar dari bingkainya, dan setiap chip harus menyebut satu
    kata utuh dari nama unit.
 
-6. **Pemimpin orc berdiri di dalam rumah.** Tangkapan `awal` memperlihatkan pelat
-   "Orc Pemimpin" melayang di atas dinding bata, tanpa sprite di bawahnya: titik
-   encounter `pos_gunung` berada tepat di depan sebuah pondok, dan slot musuh
-   paling jauh (7 m dari pusat) jatuh di dalamnya. Tidak ada tes yang menangkap
-   ini karena semuanya lolos secara geometris - petarungnya memang "ada di
-   layar". Sekarang `BattleView.build()` menggeser arena paling jauh 12 m (delapan
-   arah, enam cincin) sampai setiap slot adalah tanah yang bisa dipijak menurut
-   aturan region sendiri (`can_stand`), dan `[CHECK] C22` memastikan tidak ada
-   petarung yang berdiri di ubin tidak-walkable di setiap state.
+6. **Pemimpin orc tertutup gerbang batu - belum diperbaiki.** Tangkapan `awal`
+   memperlihatkan pelat "Orc Pemimpin" melayang di atas dinding bata tanpa sprite
+   di bawahnya. Bukan karena ia berdiri di dalam bangunan: ubinnya *bisa* dipijak.
+   Yang menutupinya adalah `gate` di (170,5, 19,5) - jari-jari blok 2,2 m - yang
+   berdiri 1,9 m dari garis kamera (163,1, 32,6) ke pemimpin (170,3, 14,8), jadi
+   badannya persis di belakang batu. Semua pemeriksaan lolos: petarung ada di
+   layar, di ubin yang sah, dan di dalam frustum. Yang gagal hanya mata.
+   `BattleView` sekarang tetap menggeser arena sampai semua slot di tanah yang
+   bisa dipijak (`can_stand`, maksimum 12 m), dan `[CHECK] C22` menegakkannya -
+   tapi di pos_gunung tidak ada yang perlu digeser, jadi cacat ini **masih ada**.
+   Perbaikan yang benar bukan menggeser arena melainkan memudarkan prop yang
+   berdiri di antara mata dan petarung: sistem koridor di `RegionView`
+   (`update_occluders`) hanya menerima SATU titik dan kekuatannya turun linear
+   terhadap jarak lateral, sehingga gerbang 1,9 m dari garis hanya akan memudar
+   ~20-40% pada radius yang wajar - tidak cukup. Butuh koridor per petarung (lima
+   garis), dan itu pekerjaan tersendiri di langkah berikutnya.
 
 Biaya menemukannya besar dan sebagian besar karena satu kesalahan metodologis
 yang layak dicatat: **sembilan percobaan kamera (A-I) dijalankan sambil cincin
@@ -1824,6 +1832,10 @@ kalau lensanya tidak ada.
 - Apakah komposisi arena enak dilihat: hanya bisa dinilai dari sepuluh tangkapan
   `docs/screenshots/pertarungan/`.
 - Sound: paket `audio` masih kosong; tidak ada SFX pertarungan di langkah ini.
+- **Okultasi di dalam arena.** Prop yang berdiri di antara kamera dan petarung
+  belum memudar (lihat 23.11 poin 6): di pos_gunung seekor Orc Pemimpin tertutup
+  gerbang batu. Semua aturan otomatis hijau karena geometrinya sah - hanya
+  gambarnya yang bohong.
 
 ### 23.14 Jebakan langkah ini (dicatat supaya tidak diulang)
 
