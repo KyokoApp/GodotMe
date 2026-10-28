@@ -205,6 +205,14 @@ jobs:
           set +e
           godot --headless --path game res://game/tests/CameraTest.tscn 2>&1 | tee /tmp/camera.log
           code=${PIPESTATUS[0]}
+          # Same reason as the battle step: the job log itself is on blob storage,
+          # and the PR-comment relay can stop working without failing the step, so
+          # the failing checks also go up as annotations - the one part of a run
+          # that `gh api .../check-runs/<id>/annotations` can always read back.
+          {
+            grep -E "\[CAMERA\] FAIL|SCRIPT ERROR|Parse Error|Failed to parse" /tmp/camera.log | head -16
+            tail -6 /tmp/camera.log
+          } | sed 's/^/::error::/' || true
           # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
           # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
           PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")

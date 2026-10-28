@@ -47,7 +47,7 @@ func _ready() -> void:
 	await _test_route_holds_the_lens()
 	await _test_follow_is_smooth()
 	_test_occlusion_plan()
-	_test_battle_handover()
+	await _test_battle_handover()
 	await _test_far_follows_camera()
 	print("[CAMERA] %d pemeriksaan, %d gagal" % [checks, failures])
 	OS.set_environment("RT_SETTINGS_DIR", "")
@@ -148,7 +148,7 @@ func _test_battle_handover() -> void:
 	add_child(marker)
 	marker.position = Vector3(12.0, 0.0, -8.0)
 	rig.call("set_follow_target", marker)
-	var before: Dictionary = rig.get("lens")
+	var before: Dictionary = rig.call("lens")
 	var before_look := float(rig.get("look_ahead_m"))
 	rig.call("battle_frame", Vector2(4.0, 9.0), 0.0)
 	_check(absf(float(rig.get("yaw_deg")) + 12.0) < 0.01, "battle_frame memakai yaw pertarungan",
@@ -162,7 +162,7 @@ func _test_battle_handover() -> void:
 		and is_equal_approx(float(rig.get("distance_m")), float(before["distance_m"]))
 		and is_equal_approx(float(rig.get("yaw_deg")), float(before["yaw_deg"])),
 		"battle_release mengembalikan lensa persis",
-		"%s -> %s" % [str(before), str(rig.get("lens"))])
+		"%s -> %s" % [str(before), str(rig.call("lens"))])
 	_check(is_equal_approx(float(rig.get("look_ahead_m")), before_look),
 		"battle_release mengembalikan look-ahead")
 	_check(rig.get("_follow") == marker, "battle_release mengembalikan follow ke ksatria")
@@ -184,14 +184,28 @@ func _test_far_follows_camera() -> void:
 		return
 	# no player in the way: this is the capture stage's situation
 	_cast.set("_ready_ok", false)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var cam := _rig.call("camera") as Camera3D
+	# four frames, not two: the ring is placed from the eye's position at the START
+	# of a frame, so the first frame after a teleport still shows one frame of
+	# camera travel. A settled camera makes that gap zero.
+	for _i in 4:
+		await get_tree().process_frame
+	var cam: Camera3D = null
+	if _rig != null:
+		cam = _rig.call("camera") as Camera3D
 	var ring: MeshInstance3D = far.get_node_or_null("RidgeNear") as MeshInstance3D
-	var gap := Vector2.ZERO
-	if cam != null and ring != null:
-		gap = Vector2(ring.position.x - cam.global_position.x, ring.position.z - cam.global_position.z)
-	_check(cam != null and gap.length() < 0.75,
+	if cam == null or ring == null:
+		_check(false, "kamera dan cincin jauh ada untuk diuji",
+			"kamera %s, RidgeNear %s" % [str(cam), str(ring)])
+		_cast.set("_ready_ok", true)
+		return
+	# WORLD space on both sides: the rings are children of FarScenery, so a local
+	# position would silently cancel out the very offset this test is about.
+	var eye := Vector2(cam.global_position.x, cam.global_position.z)
+	var middle := Vector2(ring.global_position.x, ring.global_position.z)
+	var gap := eye - middle
+	print("[CAMERA] cincin jauh %.2f m dari mata kamera (%s vs %s)"
+		% [gap.length(), str(middle), str(eye)])
+	_check(gap.length() < 0.75,
 		"cincin jauh mengikuti kamera tanpa pemain", "jarak %.2f m" % gap.length())
 	_cast.set("_ready_ok", true)
 

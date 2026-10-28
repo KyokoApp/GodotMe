@@ -427,7 +427,7 @@ func _process(delta: float) -> void:
 	# covers the whole screen: the arena renders, and a beige wall is drawn over
 	# it. That was the flat brown frame in every battle screenshot.
 	if _far != null and _camera != null:
-		_far.call("follow", _camera_xz())
+		_far.call("follow", _view_xz())
 	var player: Variant = _player_position()
 	if player == null:
 		return
@@ -470,6 +470,21 @@ func _camera_xz() -> Vector2:
 	if _camera == null:
 		return Vector2.ZERO
 	return Vector2(_camera.global_position.x, _camera.global_position.z)
+
+
+## The EYE's ground point: the `Camera3D` itself, not the rig it hangs from. The
+## lens sits a lens-length (about 15,6 m at pitch 30 / distance 18) behind the aim
+## point, and the far scenery has to be centred on the eye - otherwise a camera
+## that has walked away from the origin is 15 m nearer one side of the ridge band
+## than it should be, and at the ring radius that is the difference between a
+## horizon and a beige wall across the frame. Falls back to the rig when the lens
+## is missing, so a test rig without a Camera3D still works.
+func _view_xz() -> Vector2:
+	if _camera != null:
+		var eye := _camera.get_node_or_null("Camera3D") as Camera3D
+		if eye != null:
+			return Vector2(eye.global_position.x, eye.global_position.z)
+	return _camera_xz()
 
 
 ## Banner text when the player enters a named zone.

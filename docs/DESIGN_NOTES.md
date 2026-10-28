@@ -1780,6 +1780,16 @@ Input pemain tetap tidak bisa menyentuh lensa: keduanya hanya dipanggil dari
 `BattleScene`, sama seperti cutscene. `CameraTest` masih menegakkan aturan step
 3A di lapangan.
 
+Satu angka yang perlu dicatat: **cincin jauh mengikuti MATA, bukan titik bidik.**
+`DioramaCamera` adalah rig yang *berdiri di titik bidik*; `Camera3D` anaknya
+berada satu panjang lensa di belakangnya - 15,6 m pada pitch 30 dan jarak 18.
+Selama cincin ditempelkan ke rig, kamera sebenarnya selalu 15,6 m lebih dekat ke
+sisi cincin yang satu daripada yang lain. Pada radius 175 m itu tidak terlihat,
+tetapi aturannya salah, dan `CameraTest` menolaknya dengan benar: tes membandingkan
+posisi cincin dengan posisi kamera, dan selisihnya keluar 15,59 m. Sekarang
+`Diorama._view_xz()` mengembalikan posisi `Camera3D`, dengan rig sebagai cadangan
+kalau lensanya tidak ada.
+
 ### 23.13 Yang belum bisa diverifikasi di sini
 
 - Rasa 30 FPS di HP dengan lima musuh. Yang diukur di CI hanya waktu simulasi
@@ -1817,3 +1827,15 @@ Input pemain tetap tidak bisa menyentuh lensa: keduanya hanya dipanggil dari
    mata: blok komentar yang saya sisipkan masuk ke dalam loop `for`, sehingga
    `var` berikutnya berada satu indentasi lebih dangkal dan parser menolak
    seluruh berkas. `gdparse` menangkapnya; CI juga.
+8. **`rig.get("lens")` pada sebuah METHOD mengembalikan `null`**, dan baris
+   `var before: Dictionary = rig.get("lens")` lalu gagal pada pemeriksaan tipe.
+   Kesalahan itu menghentikan fungsi tes *sebelum* `battle_frame()` dipanggil:
+   enam pemeriksaan serah-terima kamera tidak pernah berjalan, dan yang terlihat
+   di log hanya "SCRIPT ERROR" - bukan "FAIL". Tes yang mati di tengah tampak
+   seperti tes yang tidak punya kabar. Sekarang `rig.call("lens")`, dan pemanggil
+   `_ready` memakai `await` supaya seluruh pemeriksaannya tercatat sebelum
+   ringkasan dicetak. Aturan umumnya: hitung jumlah PASS yang diharapkan per
+   berkas tes; ringkasan yang jumlahnya kurang berarti ada yang tidak dieksekusi.
+9. **Cincin jauh sempat mengikuti titik bidik, bukan mata kamera** (lihat 23.12).
+   Yang menangkapnya adalah tes yang baru ditulis untuk itu, bukan tangkapan
+   layar: selisih 15,6 m pada radius 175 m tidak terlihat di gambar.
