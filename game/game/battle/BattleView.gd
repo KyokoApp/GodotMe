@@ -20,10 +20,14 @@ const ASSETS := "res://game/characters/CharacterAssets.gd"
 ## The two lines are 9 m apart, not 5: at this lens the far line sits at the top of
 ## the frame and the near one two thirds down, which is the side-on battle read -
 ## and it keeps the party off the HUD at the bottom of the screen.
-const PARTY_SLOTS := [Vector2(-2.6, -2.2), Vector2(-5.0, -1.2), Vector2(-0.6, -3.4), Vector2(-3.8, -3.8)]
+## z+ is towards the camera, so the party (near side) is at POSITIVE z and the
+## orcs beyond it at negative z. Getting this backwards stood the two lines in
+## the wrong halves of the frame - the knight at the top edge, the enemies at the
+## bottom - which is the sort of thing only a screenshot shows.
+const PARTY_SLOTS := [Vector2(-2.6, 2.2), Vector2(-5.0, 1.2), Vector2(-0.6, 3.4), Vector2(-3.8, 3.8)]
 const FOE_SLOTS := [
-	Vector2(-4.4, 4.2), Vector2(-1.5, 5.4), Vector2(1.4, 5.4), Vector2(4.3, 4.2),
-	Vector2(0.0, 7.0),
+	Vector2(-4.4, -4.2), Vector2(-1.5, -5.4), Vector2(1.4, -5.4), Vector2(4.3, -4.2),
+	Vector2(0.0, -7.0),
 ]
 
 var region: RefCounted = null
