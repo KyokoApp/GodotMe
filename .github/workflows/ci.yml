@@ -213,6 +213,11 @@ jobs:
             grep -E "\[CAMERA\] FAIL|SCRIPT ERROR|Parse Error|Failed to parse" /tmp/camera.log | head -16
             tail -6 /tmp/camera.log
           } | sed 's/^/::error::/' || true
+          # And on a GREEN run, the count itself: a test that dies halfway prints
+          # fewer PASS lines than it owns, and that is the failure mode a plain
+          # "success" hides. `::notice::` keeps the number readable afterwards.
+          grep -E "^\[CAMERA\] [0-9]+ pemeriksaan" /tmp/camera.log | tail -1 \
+            | sed 's/^/::notice::/' || true
           # on a pull_request run GITHUB_REF_NAME is "3319839a/merge", not the branch,
           # so the log comment silently went nowhere; GITHUB_HEAD_REF is the branch
           PR=$(gh pr list --head "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
