@@ -842,13 +842,16 @@ Yang terverifikasi sebelum rilis dipicu:
   `docs/screenshots/pertarungan/51_pertarungan_*.png` (1280×720) dari
   `BattleScene` sungguhan yang berdiri di **Pos Gunung** - tempat encounter
   `pos_gunung` benar-benar dipicu, bukan panggung buatan.
-- **CI run `40616450659` hijau** (commit `fcb0c94`): 15 job, termasuk
-  `parse check` dengan langkah **Camera rules** dan `screenshots`. Log tangkapan
-  mencatat **24 `[CHECK] PASS`, 0 gagal** untuk sepuluh state, dan
-  `probe.log` ikut tersimpan di `docs/screenshots/pertarungan/`.
+- **CI run `40624830689` hijau**: 15 job, termasuk `parse check` dengan langkah
+  **Camera rules** dan `screenshots`. Anotasinya (bisa dibaca dari HP lewat
+  `gh api .../check-runs/<id>/annotations`) mencatat **`[BATTLE] 75 pemeriksaan,
+  0 gagal`** dan **`[CAMERA] 38 pemeriksaan, 0 gagal`**; log tangkapan di
+  `docs/screenshots/pertarungan/probe.log` mencatat **60 `[CHECK] PASS`, 0
+  gagal** untuk kesembilan state yang diperiksa (`transisi` sengaja dilewati -
+  yang harus dinilai di sana adalah bingkai yang sedang pecah).
 - Langkah **Camera rules** sekarang **38 pemeriksaan**: 31 aturan lama, 6
   serah-terima `battle_frame`/`battle_release` (C17), 1 latar jauh (C18).
-  Angkanya dibaca dari anotasi `::notice::` run `40619025766`, bukan dihitung
+  Angkanya dibaca dari anotasi `::notice::` run `40624830689`, bukan dihitung
   dengan mata: `[CAMERA] 38 pemeriksaan, 0 gagal`, cincin jauh **0,00 m** dari
   mata kamera.
   Run sebelumnya (`40614726424`) gagal di langkah ini karena tes C18 benar dan
