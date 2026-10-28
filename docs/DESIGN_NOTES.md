@@ -1714,7 +1714,73 @@ diturunkan (14/12/20) supaya jumlah pukulan-per-mati hampir sama dengan jumlah
 pukulan-per-break, dan Knight tetap bisa bertahan 7 ronde. Ini persis alasan
 `BattleTest` mengukur BREAK, bukan hanya kemenangan.
 
-### 23.11 Yang belum bisa diverifikasi di sini
+### 23.11 Sepuluh tangkapan, dan apa yang mereka temukan
+
+Screenshot bukan dokumentasi di langkah ini: ia satu-satunya alat yang menemukan
+empat bug yang lolos dari semua tes logika, dan semuanya lolos hanya karena
+tidak ada satu pun tes headless yang bisa melihat layar.
+
+1. **Panel di luar layar.** Menu perintah, strip party, tombol 1x/Auto dan lembar
+   hasil diberi koordinat absolut *setelah* `anchors`-nya dipindah ke pojok
+   kanan bawah. `position` diukur dari pojok kiri atas induk, jadi keempatnya
+   mendarat di luar frame. Sekarang satu `_layout()` menghitung semua pojok dari
+   `size` dan dipanggil ulang setiap resize.
+2. **Kisi gelap di seluruh arena.** Shader transisi menggambar garis tepi setiap
+   pecahan bahkan pada `t = 0`. Pada `t = 0` shader itu menyalin layar apa
+   adanya, jadi garis-garis tersebut menjadi kisi hitam permanen di atas arena -
+   ada di kesepuluh tangkapan, dan tidak terlihat di tes mana pun.
+3. **Cincin bukit jauh yang tidak ikut kamera - akar masalah "arena coklat".**
+   `FarScenery` (dua cincin pegunungan 175 m dan 320 m plus hamparan kabut)
+   hanya digeser mengikuti kamera *setelah* pengecekan pemain di
+   `Diorama._process`. Panggung tangkapan tidak punya pemain, jadi cincin itu
+   tertinggal di titik nol dunia. Kamera pertarungan berdiri 176 m dari titik
+   nol - tepat di radius cincin 175 m - sehingga band setinggi 26 m berwarna
+   kabut menutupi seluruh layar: arena tergambar, lalu ditutup dinding beige.
+   Sekarang `FarScenery` mengikuti kamera setiap frame, sebelum pengecekan
+   pemain.
+4. **Dua baris petarung bertukar tempat.** `z+` adalah arah kamera, jadi pasukan
+   harus di `z` positif. Sebelumnya terbalik: ksatria di tepi atas frame, orc di
+   bagian bawah.
+
+Biaya menemukannya besar dan sebagian besar karena satu kesalahan metodologis
+yang layak dicatat: **sembilan percobaan kamera (A-I) dijalankan sambil cincin
+jauh masih menutupi layar.** Semuanya "membuktikan" hal yang salah - bahwa
+kamera pertarungan tidak bisa menggambar tanah, bahwa `look_at()` rusak, bahwa
+sudut Euler memperbaikinya. Yang akhirnya memisahkan "tidak digambar" dari
+"digambar lalu tertutup" bukan percobaan kamera lagi, melainkan tiga angka:
+draw call per frame, piksel tengah, dan `frustum` per chunk. Frustum-nya benar
+(chunk pusat di dalam frustum, 106 draw call), jadi geometrinya ada - dan
+berarti yang salah adalah apa yang menutupinya.
+
+Pelajarannya: kalau sebuah frame "kosong", periksa dulu apakah isinya tertutup
+(ukur warna yang mengisi frame dan cari benda yang warnanya sama) sebelum
+mengubah apa pun yang menggambar.
+
+### 23.12 Kamera pertarungan meminjam rig lapangan
+
+Pertarungan tidak membuat `Camera3D` sendiri lagi. Semua percobaan dengan
+kamera terpisah - pada sudut 27, 45, 75 dan 90 derajat, dengan `look_at()` maupun
+sudut Euler, dari enam posisi - menghasilkan frame tanpa geometri, sementara rig
+kamera lapangan pada ketinggian yang sama selalu menggambar. Terlepas dari sebab
+persisnya (dan sebab persisnya adalah cincin jauh di 23.11 poin 3, tetapi itu
+baru diketahui setelah percobaan-percobaan itu), memakai satu kamera untuk
+seluruh game adalah keputusan yang lebih baik: satu lensa untuk dijaga, satu
+resep untuk ditempelkan di permukaan tanah, dan tidak ada kemungkinan dua kamera
+saling berbeda pendapat tentang apa yang terlihat.
+
+Rig mendapat dua pintu terskrip, sejenis `set_lens()`:
+
+- `battle_frame(aim, ground_y)` - hadap lurus ke tengah kedua baris (yaw -12,
+  pitch 30, fov 34, jarak 16, tanpa look-ahead), dan memarkir target follow
+  supaya ksatria yang berjalan tidak menyeret lensa;
+- `battle_release()` - mengembalikan angka lapangan dan target follow persis
+  seperti sebelum pertarungan.
+
+Input pemain tetap tidak bisa menyentuh lensa: keduanya hanya dipanggil dari
+`BattleScene`, sama seperti cutscene. `CameraTest` masih menegakkan aturan step
+3A di lapangan.
+
+### 23.13 Yang belum bisa diverifikasi di sini
 
 - Rasa 30 FPS di HP dengan lima musuh. Yang diukur di CI hanya waktu simulasi
   logika (1000 pertarungan dalam beberapa detik) dan anggaran node UI.
@@ -1722,7 +1788,7 @@ pukulan-per-break, dan Knight tetap bisa bertahan 7 ronde. Ini persis alasan
   `docs/screenshots/pertarungan/`.
 - Sound: paket `audio` masih kosong; tidak ada SFX pertarungan di langkah ini.
 
-### 23.12 Jebakan langkah ini (dicatat supaya tidak diulang)
+### 23.14 Jebakan langkah ini (dicatat supaya tidak diulang)
 
 1. **`submit()` dan `play_enemy_turn()` sempat tidak ada.** Seluruh berkas lain
    memanggilnya lewat `.call()`, sehingga tidak ada yang gagal saat parse; yang
@@ -1742,3 +1808,12 @@ pukulan-per-break, dan Knight tetap bisa bertahan 7 ronde. Ini persis alasan
    Tutup. Sekarang submenu membaca inventaris engine.
 5. **Hasil pertarungan tidak pernah tampil.** `show_result()` hanya mengisi teks,
    tidak menampilkan panelnya. Sekarang ia juga menyembunyikan menu dan plate.
+6. **`tick_display()` mengembalikan apa yang baru disembunyikan.** Pelat musuh
+   dinyalakan setiap frame berdasarkan `unit.alive`, jadi menyembunyikannya sekali
+   di `show_result()` dibatalkan frame berikutnya - pelat "Orc Prajurit" menimpa
+   teks kalah di tangkapan. Sekarang `tick_display()` juga memeriksa apakah lembar
+   hasil sedang tampil.
+7. **Baris pertama sebuah fungsi bisa kehilangan satu TAB** dan tetap lolos dari
+   mata: blok komentar yang saya sisipkan masuk ke dalam loop `for`, sehingga
+   `var` berikutnya berada satu indentasi lebih dangkal dan parser menolak
+   seluruh berkas. `gdparse` menangkapnya; CI juga.

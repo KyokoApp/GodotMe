@@ -688,7 +688,12 @@ func tick_display() -> void:
 		var screen := Vector2.ZERO
 		if view.has_method("unit_screen"):
 			screen = view.call("unit_screen", uid)
-		var on_screen := screen != Vector2.ZERO and bool(unit["alive"])
+		# while the result sheet is up, no plate and no tap target belongs on screen:
+		# `tick_display` runs every frame, so hiding them once in `show_result` was
+		# undone on the very next frame (the "Orc Prajurit" plate sat on top of the
+		# defeat text in the captured result screen)
+		var sheet_up := _result != null and _result.visible
+		var on_screen := screen != Vector2.ZERO and bool(unit["alive"]) and not sheet_up
 		if not entry.is_empty():
 			var plate: Control = entry["plate"]
 			plate.visible = on_screen

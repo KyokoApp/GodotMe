@@ -790,8 +790,20 @@ unduhan sprite baru:
 | `game/battle/BattleScene.gd` | kontroler: waktu, event, transisi pecah, EXP/Leaf/level |
 | `game/battle/battle_wipe.gdshader` | transisi pecah + pusar |
 
-`pack_audit` setelah perubahan ini: `enemies` **7 berkas, 95.896 B**; total enam
-paket **1.376.340 B (1.344 KB)**, 0 galat, 0 peringatan. (Paket `ui` tetap 7
+`pack_audit` setelah perubahan ini: `enemies` **7 berkas, 105.592 B**; total enam
+paket **1.388.860 B (1.356 KB)**, 0 galat, 0 peringatan. (Kenaikan `enemies`
+sebagian dari `battle_data.json` yang dikalibrasi ulang plus perbaikan kamera dan
+tata letak; `core` dan `world` juga naik sedikit - lihat tabel di bawah.)
+
+| paket | 0.10.0 | 0.11.0 | selisih |
+| --- | --- | --- | --- |
+| `core` | 102.826 B | 103.461 B | +635 B |
+| `characters` | 206.739 B | 206.739 B | 0 |
+| `enemies` | 0 B (kosong) | 105.592 B | +105.592 B |
+| `ui` | 40.985 B | 40.985 B | 0 |
+| `world` | 929.512 B | 932.083 B | +2.571 B |
+| `audio` | 0 B | 0 B | 0 |
+| **total** | **1.280.062 B** | **1.388.860 B** | **+108.798 B** | (Paket `ui` tetap 7
 berkas karena ikon baru masuk ke `atlas_ui.png` yang sudah ada; ikon per-sel
 `game/assets/ui/icons/*.png` tetap disimpan sebagai jatuhan editor dan tidak
 dipaket.)
@@ -818,5 +830,23 @@ Perubahan lain yang ikut di paket lama:
 
 ### Status rilis 0.11.0
 
-Diisi setelah `release-demo` selesai (lihat komentar di `RELEASE_DEMO` dan
-`version.json` pada tag `demo-v0.1.0`).
+Yang terverifikasi sebelum rilis dipicu:
+
+- `BattleTest` **75 pemeriksaan, 0 gagal**: 1000 pertarungan policy Auto →
+  menang **1000/1000**, rata-rata **7,39** giliran, median 7, terburuk 18,
+  Boost dipakai 7.057 BP, **BREAK 985** kali; 200 pertarungan tanpa Break/Boost →
+  menang **0**; save skema 3 dan save lama tetap terbaca.
+- `pack_audit` 6 paket, **1.388.860 B**, 0 galat, 0 peringatan.
+- `python3 tools/gd_dup_check.py` → 63 berkas, 0 masalah.
+- Job `screenshots` menghasilkan sepuluh berkas
+  `docs/screenshots/pertarungan/51_pertarungan_*.png` (1280×720) dari
+  `BattleScene` sungguhan yang berdiri di **Pos Gunung** - tempat encounter
+  `pos_gunung` benar-benar dipicu, bukan panggung buatan.
+
+Sepuluh tangkapan itu bukan pelengkap: empat cacat di langkah ini hanya
+terlihat dari gambar (panel di luar layar, kisi shader transisi, cincin bukit
+jauh yang menutupi arena, dan dua baris petarung yang bertukar tempat). Rincian
+dan akar masalahnya ada di `DESIGN_NOTES.md` §23.11.
+
+Nomor rilis (`release-demo`), ukuran PCK yang dipublikasikan, dan hasil
+"Periksa Lagi" di HP ditulis di bawah setelah `RELEASE_DEMO` dipicu.

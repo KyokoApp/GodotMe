@@ -597,9 +597,18 @@ jobs:
             # Annotations are capped and deduplicated, which hid most of the
             # probe lines. The battle captures keep their own log next to the
             # PNGs, so the numbers survive the summary.
-            grep -h -E "^\[(PROBE|DIAG|SHOT)\]" /tmp/capture.log | tail -n +1 \
+            grep -h -E "^\[(PROBE|DIAG|SHOT|CHECK|BATTLE)\]" /tmp/capture.log | tail -n +1 \
               > "$GITHUB_WORKSPACE/docs/screenshots/pertarungan/probe.log" || true
           done
+          # The frame rules of step 3C - every fighter inside the picture, the
+          # command menu inside the edge - are asserted by the capture scene. A
+          # screenshot cannot fail a build on its own; this line makes it able to.
+          if grep -q "^\[CHECK\] FAIL" /tmp/capture.log; then
+            echo "bingkai pertarungan tidak lolos pemeriksaan:"
+            grep "^\[CHECK\] FAIL" /tmp/capture.log | sed 's/^/::error::/'
+            exit 1
+          fi
+          grep "^\[CHECK\] " /tmp/capture.log | tail -12 || true
 
           # --- step 3A: pitch x FOV, the grid the owner picks the angle from.
           # --- 560x315 keeps eighteen shots small enough to live in the repo;

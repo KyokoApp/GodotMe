@@ -460,6 +460,15 @@ xvfb-run -a godot --path game --resolution 1280x720 \
 | C13 | 1000 pertarungan, policy Auto | `suggest_action()` + `submit()` | menang ≥95%; rata-rata 4,5–9 ronde; median 5–8; terburuk ≤30; BREAK di ≥90% pertarungan; Boost dipakai >1000 BP |
 | C14 | Tanpa Break/Boost lebih buruk | 200 pertarungan `attack` boost 0 | menang < 120 dari 200 |
 | C15 | Simpanan hasil pertarungan | `SaveGame` skema 3: tulis, muat ulang, dan simpanan skema 2 | `battles_won`, `leaf`, `observed` kembali utuh; simpanan lama tetap terbaca dengan `battle` kosong dan progres lama tidak hilang |
+| C16 | Kamera pertarungan memakai rig lapangan | `BattleShot` membaca `view.camera` | kamera arena adalah `CameraRig/Camera3D` milik diorama (bukan `Camera3D` baru) dan `current == true` |
+| C17 | `battle_frame`/`battle_release` simetris | `CameraTest._test_battle_handover` | yaw pertarungan −12; lensa kembali persis (pitch/fov/jarak/yaw/look-ahead); target follow kembali ke aktor |
+| C18 | Latar jauh mengikuti kamera, bukan pemain | `CameraTest._test_far_follows_camera` (tanpa pemain) | posisi `RidgeNear` ≤ 0,75 m dari kamera; tidak ada cincin yang tertinggal di titik nol |
+| C19 | Semua petarung di dalam frame | `BattleShot._check_frame` → `[CHECK]` | kelima petarung berjarak ≥ 2 px dari tepi 1280×720 pada setiap state |
+| C20 | Panel UI di dalam layar | `BattleShot._check_frame` → `[CHECK]` | menu perintah (termasuk BOOST) tidak melewati tepi kanan/bawah; lembar hasil terpusat |
+
+C19 dan C20 **menggagalkan build**: job `screenshots` membaca `[CHECK] FAIL`
+dari log dan keluar dengan kode 1. Ini satu-satunya cara aturan tentang *frame*
+bisa ditegakkan - tes headless tidak punya layar.
 
 Tangkapan layar baru (job `screenshots`, 1280×720), semuanya dari `BattleScene`
 sungguhan yang berdiri di region sungguhan (`Diorama.tscn`):

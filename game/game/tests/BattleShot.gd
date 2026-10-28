@@ -84,6 +84,7 @@ func _ready() -> void:
 	await _reach(state)
 	_describe(state)
 	_diagnostics(state)
+	_check_frame(state)
 	var shot := HARNESS.arg("--capture-name=", "51_pertarungan_%s" % state)
 	# the transition shot must not wait: its whole point is a frame mid-flight
 	await HARNESS.capture(self, shot, 0.0 if state == "transisi" else 0.35)
@@ -245,6 +246,66 @@ func _watchdog(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
 	print("[SHOT] batas waktu %.0f s tercapai, keluar." % seconds)
 	get_tree().quit(3)
+
+
+# --------------------------------------------------------------- checks -----
+## Two rules a screenshot can enforce and a headless test cannot, because they are
+## about the FRAME: every fighter has to be inside it, and the command menu (with
+## the BOOST button, the biggest control in the game) has to fit inside it too.
+## Both were broken at some point in this step, and both were only ever found by
+## looking at a picture - so they are checked here, printed, and turned into an
+## exit code that CI reads.
+func _check_frame(state: String) -> void:
+	if state == "transisi":
+		return
+	var vp := get_viewport().get_visible_rect().size
+	var view: Node3D = battle.get("view")
+	var off: Array = []
+	for raw in _logic().get("units"):
+		var unit: Dictionary = raw
+		if not bool(unit["alive"]):
+			continue
+		var sp: Vector2 = view.call("unit_screen", int(unit["uid"]))
+		if sp.x <= 2.0 or sp.y <= 2.0 or sp.x >= vp.x - 2.0 or sp.y >= vp.y - 2.0:
+			off.append("%s(%d,%d)" % [String(unit["name"]), int(sp.x), int(sp.y)])
+	_check(off.is_empty(), "%s: semua petarung di dalam layar" % state, " di luar: %s" % ", ".join(off))
+	# C16: the arena camera must BE the field rig's camera. A private Camera3D was
+	# the source of the longest bug in this step (DESIGN_NOTES 23.11), so it is a
+	# checked rule now, not a convention.
+	var cam: Camera3D = view.get("camera") as Camera3D
+	var rig: Node3D = world.call("camera_rig")
+	var rig_cam: Camera3D = rig.call("camera") as Camera3D if rig != null else null
+	_check(cam != null and cam == rig_cam,
+		"%s: kamera arena adalah kamera rig lapangan" % state,
+		"arena=%s rig=%s" % [str(cam), str(rig_cam)])
+	# the sheet and the menu are the two panels that must never hang off an edge
+	var menu: Control = _ui().get("_command") as Control
+	if menu != null and menu.visible:
+		var right := menu.position.x + menu.size.x
+		_check(right <= vp.x + 0.5 and menu.position.y + menu.size.y <= vp.y + 0.5,
+			"%s: menu perintah muat di layar" % state,
+			"tepi kanan %.0f dari %.0f" % [right, vp.x])
+	var sheet: Control = _ui().get("_result_panel") as Control
+	if sheet != null and sheet.is_visible_in_tree():
+		var mid := sheet.position.x + sheet.size.x * 0.5
+		_check(absf(mid - vp.x * 0.5) < 2.0, "%s: lembar hasil terpusat" % state,
+			"tengah %.0f" % mid)
+	# The run ends in `HARNESS.capture`, which quits with 0; the summary line is
+	# therefore printed HERE and CI turns any `[CHECK] FAIL` into a red build.
+	print("[CHECK] %s: %d pemeriksaan, %d gagal" % [state, _checked, _failed])
+
+
+var _failed := 0
+var _checked := 0
+
+
+func _check(cond: bool, label: String, extra: String = "") -> void:
+	_checked += 1
+	if cond:
+		print("[CHECK] PASS %s" % label)
+	else:
+		_failed += 1
+		print("[CHECK] FAIL %s%s" % [label, extra])
 
 
 ## A stand-in for the field HUD, shown only for the transition shot.
