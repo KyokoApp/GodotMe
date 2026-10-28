@@ -89,9 +89,10 @@ func build(logic: RefCounted) -> void:
 	var lo := Vector2(1e9, 1e9)
 	var hi := Vector2(-1e9, -1e9)
 	for uid in _roots.keys():
-		var p: Vector2 = _roots[uid].position
-		lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.z))
-		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.z))
+		var root: Node3D = _roots[uid]
+		var p := Vector2(root.position.x, root.position.z)
+		lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
+		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
 	print("[BATTLE] arena: %d petarung, fokus %s, bentang %.1f x %.1f m (x %s..%s, z %s..%s)" % [
 		_roots.size(), str(_focus.round()), hi.x - lo.x, hi.y - lo.y,
 		str(snappedf(lo.x, 0.1)), str(snappedf(hi.x, 0.1)),
