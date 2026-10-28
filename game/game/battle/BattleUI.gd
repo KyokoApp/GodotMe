@@ -222,13 +222,18 @@ func _layout() -> void:
 	if _tools != null:
 		_tools.position = Vector2(w - 200.0, 18.0)
 	if _log != null:
-		_log.position = Vector2(26.0, h - 196.0)
+		_log.position = Vector2(26.0, h - 246.0)
 	if _party_plate != null:
-		_party_plate.position = Vector2(20.0, h - 158.0)
+		_party_plate.position = Vector2(20.0, h - 138.0)
 	if _command != null:
-		_command.position = Vector2(w - 430.0, h - 208.0)
+		# the menu is as wide as its own content (Serang/Skill/Item on one row,
+		# Bertahan/Kabur/BOOST on the next); an earlier version assumed 430 px and
+		# the BOOST button - the biggest control in the game - hung off the edge
+		_command.position = Vector2(w - _command.get_combined_minimum_size().x - 18.0,
+			h - _command.get_combined_minimum_size().y - 18.0)
 	if _sub != null:
-		_sub.position = Vector2(w - 480.0, h - 430.0)
+		var sub_w := 320.0
+		_sub.position = Vector2(w - sub_w - 24.0, h - 470.0)
 	if _result_panel != null:
 		_result_panel.position = Vector2((w - 520.0) * 0.5, (h - 360.0) * 0.5)
 

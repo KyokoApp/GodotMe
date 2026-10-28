@@ -17,10 +17,13 @@ const ASSETS := "res://game/characters/CharacterAssets.gd"
 
 ## Where the two lines stand, relative to the middle of the arena, in metres.
 ## z+ is towards the camera. Five enemy slots so the boss fight fits.
-const PARTY_SLOTS := [Vector2(-2.4, 3.4), Vector2(-4.6, 2.4), Vector2(-1.2, 4.6), Vector2(-3.4, 4.8)]
+## The two lines are 9 m apart, not 5: at this lens the far line sits at the top of
+## the frame and the near one two thirds down, which is the side-on battle read -
+## and it keeps the party off the HUD at the bottom of the screen.
+const PARTY_SLOTS := [Vector2(-2.6, -2.2), Vector2(-5.0, -1.2), Vector2(-0.6, -3.4), Vector2(-3.8, -3.8)]
 const FOE_SLOTS := [
-	Vector2(-4.3, -1.0), Vector2(-1.5, -2.1), Vector2(1.3, -2.1), Vector2(4.1, -1.0),
-	Vector2(-0.1, -3.5),
+	Vector2(-4.4, 4.2), Vector2(-1.5, 5.4), Vector2(1.4, 5.4), Vector2(4.3, 4.2),
+	Vector2(0.0, 7.0),
 ]
 
 var region: RefCounted = null
@@ -81,8 +84,18 @@ func build(logic: RefCounted) -> void:
 	_focus = _mean_spot()
 	_frame_camera()
 	play_idle_all()
-	print("[BATTLE] arena: %d petarung, fokus %s (mulai di %s)" % [
-		_roots.size(), str(_focus.round()), str(centre.round())])
+	# how big is the whole two-line tableau on screen? If it is bigger than the
+	# frame, somebody is standing outside it - and that has happened.
+	var lo := Vector2(1e9, 1e9)
+	var hi := Vector2(-1e9, -1e9)
+	for uid in _roots.keys():
+		var p: Vector2 = _roots[uid].position
+		lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.z))
+		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.z))
+	print("[BATTLE] arena: %d petarung, fokus %s, bentang %.1f x %.1f m (x %s..%s, z %s..%s)" % [
+		_roots.size(), str(_focus.round()), hi.x - lo.x, hi.y - lo.y,
+		str(snappedf(lo.x, 0.1)), str(snappedf(hi.x, 0.1)),
+		str(snappedf(lo.y, 0.1)), str(snappedf(hi.y, 0.1))])
 
 
 ## Average of where the fighters actually stand.
