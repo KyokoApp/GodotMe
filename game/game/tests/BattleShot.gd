@@ -42,6 +42,14 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var region: Variant = world.call("region")
 	var spot: Vector2 = world.call("start_position")
+	# Stand where the game actually fights: the Pos Gunung ambush, the encounter
+	# `Main` starts at this point of the story. The village green is prettier but
+	# it is not where this battle happens, and a screenshot taken somewhere else
+	# is a screenshot of a different fight.
+	if region != null:
+		var m: Dictionary = region.call("marker", "Pos Gunung")
+		if not m.is_empty():
+			spot = region.call("marker_pos", m)
 	# Build the ground under the arena before anything stands on it. The field
 	# does this for the player every time he crosses a tile; here there is no
 	# cast to walk, so the shot asks the world directly (the same call a teleport
