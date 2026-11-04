@@ -324,6 +324,7 @@ input[type=number]:focus{outline:2px solid var(--honey);}
     <button class="dbtn" data-panel="workshop">Bengkel</button>
     <button class="dbtn" data-panel="npcs">Warga</button>
     <button class="dbtn" data-panel="deco">Dekorasi</button>
+    <button class="dbtn" data-panel="album">📖 Buku Panen</button>
     <button class="dbtn" data-panel="profile">Profil</button>
     <button class="dbtn" data-panel="menu">Menu</button>
   </div>
@@ -786,6 +787,40 @@ function panelStand(){
   return html;
 }
 
+
+/* ---------------- PANEL ALBUM KOLEKSI BINTANG ---------------- */
+function panelAlbum(){
+  let html = `
+    <div style="background:linear-gradient(135deg,#FEF3C7,#FDE68A);border:2px solid #F59E0B;border-radius:14px;padding:12px;margin-bottom:12px;color:#92400E;font-size:13px;line-height:1.4;">
+      📖 <b>Buku Rekor & Koleksi Tanaman</b><br>Panen tanaman sebanyak-banyaknya untuk menaikkan bintang masteri kebun!
+    </div>
+    <div class="sec-title">Daftar Tanaman Kebun</div>
+    <div class="grid3">
+  `;
+  
+  CROPS.forEach(c => {
+    const col = state.collection?.[c.id] || {normal:0, bagus:0, sempurna:0};
+    const totalHarvest = (col.normal||0) + (col.bagus||0) + (col.sempurna||0);
+    const star = totalHarvest >= 25 ? 3 : (totalHarvest >= 10 ? 2 : (totalHarvest >= 1 ? 1 : 0));
+    const starIcons = '⭐'.repeat(star) + '☆'.repeat(3 - star);
+    
+    html += `
+      <div class="card" style="border-left:4px solid ${star>0?'#F59E0B':'#CBD5E1'};">
+        <div class="t" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>${c.name}</span>
+          <span style="font-size:11px;color:#D97706;">${starIcons}</span>
+        </div>
+        <div class="d" style="font-size:12px;margin-top:4px;">
+          Total Dipanen: <b>${totalHarvest}x</b><br>
+          Kualitas Sempurna: <b>${col.sempurna||0}x</b>
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+  return html;
+}
+
 /* ---------------- INVENTORY ---------------- */
 function invTotal(){ return state.inv.reduce((a,s)=>a+s.qty,0); }
 function invCount(id){
@@ -1091,6 +1126,96 @@ function applyOfflineGrowth(){
   const s = diffSec % 60;
   const durStr = m > 0 ? `${m} menit ${s} detik` : `${s} detik`;
   toast(`Kamu offline selama ${durStr}. ${matureCount > 0 ? matureCount + ' tanaman telah matang!' : 'Tanamanmu bertumbuh realtime!'}`, 'good');
+}
+
+
+/* =========================================================================
+   WEATHER PARTICLES & TRUCK VISUAL DISPATCH
+   ========================================================================= */
+let rainDrops = [];
+function drawWeatherEffects(){
+  if(!state) return;
+  const isRain = state.weather === 'hujan';
+  if(!isRain) return;
+  
+  if(rainDrops.length < 50){
+    for(let i=rainDrops.length; i<50; i++){
+      rainDrops.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        len: 10 + Math.random()*12,
+        spd: 12 + Math.random()*8
+      });
+    }
+  }
+  ctx.strokeStyle = 'rgba(160, 210, 255, 0.65)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for(const d of rainDrops){
+    ctx.moveTo(d.x, d.y);
+    ctx.lineTo(d.x - 2, d.y + d.len);
+    d.y += d.spd;
+    d.x -= 1.2;
+    if(d.y > canvas.height){
+      d.y = -10;
+      d.x = Math.random() * canvas.width;
+    }
+  }
+  ctx.stroke();
+  
+  // Efek cuaca hujan: otomatis menyiram petak secara bertahap
+  if(Math.random() < 0.04){
+    for(const k in state.tiles){
+      if(Math.random() < 0.3) state.tiles[k].watered = true;
+    }
+  }
+}
+
+let truckAnim = null; // { x, y, destX, speed, active }
+function triggerTruckDelivery(){
+  truckAnim = {
+    x: -60,
+    y: 28,
+    active: true
+  };
+  SFX.plant();
+}
+
+function drawTruckAnimation(o, gw){
+  if(!truckAnim || !truckAnim.active) return;
+  truckAnim.x += 4.5;
+  const tx = o.x + truckAnim.x;
+  const ty = o.y - 34;
+  
+  // Gambar Truk Pengantar Lucu
+  ctx.save();
+  ctx.translate(tx, ty);
+  // Box belakang truk
+  ctx.fillStyle = '#38BDF8';
+  roundRect(ctx, 0, 0, 36, 22, 4);
+  ctx.fill();
+  ctx.strokeStyle = '#0284C7';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // Kepala depan truk
+  ctx.fillStyle = '#0284C7';
+  roundRect(ctx, 36, 6, 18, 16, 3);
+  ctx.fill();
+  // Jendela
+  ctx.fillStyle = '#E0F2FE';
+  ctx.fillRect(44, 9, 8, 7);
+  // Roda
+  ctx.fillStyle = '#1E293B';
+  ctx.beginPath(); ctx.arc(12, 22, 5, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(42, 22, 5, 0, 7); ctx.fill();
+  // Asap knalpot
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.beginPath(); ctx.arc(-4, 18, 3, 0, 7); ctx.fill();
+  ctx.restore();
+  
+  if(truckAnim.x > gw + 100){
+    truckAnim.active = false;
+  }
 }
 
 /* ---------------- FARM ---------------- */
@@ -2112,6 +2237,7 @@ function drawPanel(){
     truck:    {title:'Papan Pesanan Truk', sub:'Kirim pesanan hasil panen untuk koin & EXP', fn:panelTruck},
     stand:    {title:'Roadside Stand Jual-Beli', sub:'Beli barang acak atau pajang kelebihan panen', fn:panelStand},
     profile:  {title:'Profil & Karier Petani', sub:'Tingkat level, statistik, dan pencapaian', fn:panelProfile},
+    album:    {title:'Buku Rekor & Koleksi', sub:'Masteri bintang panen dan koleksi kebun', fn:panelAlbum},
     market:   {title:'Pasar Desa', sub:'Harga berubah tiap hari — jual saat tinggi', fn:panelMarket},
     shop:     {title:'Toko Desa', sub:'Bibit, ternak, mesin, dan keperluan', fn:panelShop},
     bag:      {title:'Tas Kain', sub:'', fn:panelBag},
@@ -2169,7 +2295,7 @@ function handleAction(act, el, ev){
       state.money += ord.money;
       gainExp(ord.exp);
       SFX.coin();
-      toast(`🚚 Truk terkirim! +${ord.money} Koin & +${ord.exp} EXP!`, 'good');
+      toast(`🚚 Truk terkirim! +${ord.money} Koin & +${ord.exp} EXP!`, 'good'); triggerTruckDelivery();
       state.truckOrders = state.truckOrders.filter(o => o.id !== ordId);
       if(state.truckOrders.length === 0) state.truckOrders = genTruckOrders();
       drawPanel();
