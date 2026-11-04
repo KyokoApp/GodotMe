@@ -992,17 +992,21 @@ function openCropModal(x, y){
     return;
   }
   const c = CROP_BY_ID[t.crop.id];
-  const pct = Math.min(100, Math.round((t.crop.growth / c.days) * 100));
-  const sisaHari = Math.max(0, Math.ceil(c.days - t.crop.growth));
-  const statusAir = t.watered ? "<b style='color:#2F7A43'>✓ Sudah Disiram</b>" : "<b style='color:#C2410C'>⚠ Butuh Air Hari Ini</b>";
+  const maxSec = c.sec || 60;
+  const curSec = t.crop.sec !== undefined ? t.crop.sec : (t.crop.growth / (c.days||1)) * maxSec;
+  const pct = Math.min(100, Math.round((curSec / maxSec) * 100));
+  const sisaDetik = Math.max(0, Math.ceil(maxSec - curSec));
+  const sisaMenit = Math.floor(sisaDetik / 60);
+  const sisaStr = sisaDetik <= 0 ? "<span style='color:#2F7A43'>Siap Panen Sekarang!</span>" : (sisaMenit > 0 ? sisaMenit + "m " : "") + (sisaDetik%60) + " detik lagi";
+  const statusAir = t.watered ? "<b style='color:#2F7A43'>✓ Sudah Disiram (Tumbuh 100%)</b>" : "<b style='color:#C2410C'>⚠ Kering (Tumbuh 50%)</b>";
   
   title.textContent = c.name + " (" + (x+1) + "," + (y+1) + ")";
   body.innerHTML = `
     <div class="crop-prog-bar">
       <div class="crop-prog-fill" style="width:${pct}%"></div>
     </div>
-    <div style="text-align:right;font-size:11.5px;color:#785A3C;margin-bottom:8px;">${pct}% Matang</div>
-    <div class="crop-row"><span>Waktu Sisa:</span><b>${sisaHari <= 0 ? "<span style='color:#2F7A43'>Siap Panen!</span>" : sisaHari + " hari kebun lagi"}</b></div>
+    <div style="text-align:right;font-size:11.5px;color:#785A3C;margin-bottom:8px;">${pct}% Matang (${curSec.toFixed(0)}/${maxSec} detik)</div>
+    <div class="crop-row"><span>Waktu Sisa:</span><b>${sisaStr}</b></div>
     <div class="crop-row"><span>Status Air:</span>${statusAir}</div>
     <div class="crop-row"><span>Pupuk:</span><b>${t.fert ? "Aktif (+Kualitas)" : "Tidak ada"}</b></div>
     <div class="crop-row"><span>Musim Ideal:</span><b>${SEASONS[c.season]}</b></div>
@@ -1063,30 +1067,30 @@ function applyOfflineGrowth(){
     state.lastSaveRealTime = now;
     return;
   }
-  const diffMinutes = Math.floor((now - state.lastSaveRealTime) / 60000);
+  const diffSec = Math.floor((now - state.lastSaveRealTime) / 1000);
   state.lastSaveRealTime = now;
+  if(diffSec <= 2) return;
   
-  // 1 hari kebun = 12 menit real time (12 jam siang di game @ 2 menit per detik)
-  const passedDays = Math.min(14, Math.floor(diffMinutes / 12));
-  if(passedDays > 0){
-    let grewCount = 0;
-    for(let d=0; d<passedDays; d++){
-      for(const k in state.tiles){
-        const t = state.tiles[k];
-        if(!t.crop) continue;
-        const c = CROP_BY_ID[t.crop.id];
-        // Offline: jika disiram/hujan atau tanaman tahan banting, maju bertahap
-        t.crop.growth += (c.season === state.season ? 1 : 0.5);
-        grewCount++;
-      }
-      state.day++;
-      if(state.day > 28){
-        state.day = 1;
-        state.season = (state.season + 1) % 4;
-      }
+  let matureCount = 0;
+  for(const k in state.tiles){
+    const t = state.tiles[k];
+    if(!t || !t.crop) continue;
+    const c = CROP_BY_ID[t.crop.id];
+    const maxSec = c.sec || 60;
+    if(t.crop.sec === undefined) t.crop.sec = (t.crop.growth / (c.days||1)) * maxSec;
+    const speed = t.watered ? 1.0 : 0.7; // offline tetap tumbuh cepat
+    t.crop.sec += diffSec * speed;
+    if(t.crop.sec >= maxSec){
+      t.crop.sec = maxSec;
+      matureCount++;
     }
-    toast(`Kamu offline selama ${diffMinutes} menit! Tanamanmu bertumbuh sebanyak ${passedDays} hari kebun.`, "good");
+    t.crop.growth = (t.crop.sec / maxSec) * (c.days || 1);
   }
+  
+  const m = Math.floor(diffSec / 60);
+  const s = diffSec % 60;
+  const durStr = m > 0 ? `${m} menit ${s} detik` : `${s} detik`;
+  toast(`Kamu offline selama ${durStr}. ${matureCount > 0 ? matureCount + ' tanaman telah matang!' : 'Tanamanmu bertumbuh realtime!'}`, 'good');
 }
 
 /* ---------------- FARM ---------------- */
@@ -1098,7 +1102,7 @@ function plant(x,y,cropId){
   if(!t || t.crop) return false;
   if(invCount('bibit_'+cropId) <= 0){ toast('Bibitnya habis.', 'bad'); return false; }
   removeItem('bibit_'+cropId, 1);
-  t.crop = {id:cropId, growth:0, stress:0};
+  const cropDef = CROP_BY_ID[cropId]; t.crop = {id:cropId, growth:0, sec:0, secTotal: cropDef.sec || 60, stress:0};
   if(!state.stats.planted) state.stats.planted = 0;
   state.stats.planted++;
   updateQuestHUD();
@@ -1107,8 +1111,10 @@ function plant(x,y,cropId){
 }
 function stageOf(crop){
   const c = CROP_BY_ID[crop.id];
-  if(crop.growth >= c.days) return 3;
-  return Math.min(2, Math.floor(crop.growth / c.days * 3));
+  const maxSec = c.sec || 60;
+  const currentSec = crop.sec !== undefined ? crop.sec : (crop.growth / c.days) * maxSec;
+  if(currentSec >= maxSec) return 3; // matang sempurna
+  return Math.min(2, Math.floor((currentSec / maxSec) * 3));
 }
 function rollQuality(t){
   let bagus = 26 + t.soil*11 + (t.fert?16:0);
@@ -1122,7 +1128,13 @@ function harvest(x,y){
   const t = getTile(x,y);
   if(!t || !t.crop) return;
   const c = CROP_BY_ID[t.crop.id];
-  if(t.crop.growth < c.days){ toast('Belum siap dipanen.', 'bad'); return; }
+  const maxSec = c.sec || 60;
+  const curSec = t.crop.sec !== undefined ? t.crop.sec : (t.crop.growth / c.days) * maxSec;
+  if(curSec < maxSec){
+    const sisa = Math.ceil(maxSec - curSec);
+    toast(`Belum siap dipanen! Sisa ${sisa} detik lagi.`, 'bad');
+    return;
+  }
   const q = rollQuality(t);
   let yieldN = 1 + (t.soil===2 ? 1 : 0) + (Math.random()<0.18?1:0);
   addItem(c.id, yieldN, q);
@@ -1131,7 +1143,12 @@ function harvest(x,y){
   state.collection[c.id][q] = (state.collection[c.id][q]||0) + yieldN;
   spawnParticles(x, y, c.color, 10); SFX.harvest(); gainExp(15);
   if(c.regrow){
-    t.crop.growth = Math.max(0, c.days - c.regrow);
+    if(c.regrowSec){
+      t.crop.sec = Math.max(0, maxSec - c.regrowSec);
+      t.crop.growth = (t.crop.sec / maxSec) * (c.days || 1);
+    } else {
+      t.crop.sec = 0; t.crop.growth = 0;
+    }
     toast('+'+yieldN+' '+c.name + (q!=='normal'?' ('+QLABEL[q]+')':''), 'good');
   } else {
     t.crop = null;
@@ -2815,11 +2832,28 @@ function loop(ts){
   t_n += dt;
 
   if(state && !state.paused){
-    state.time += dt * 8; // 8 menit game per detik (1 hari ~3 menit)
+    state.time += dt * 8;
     if(state.time >= 26*60){
       state.time = 6*60;
       advanceDay(false);
     }
+
+    // REAL-TIME CROP GROWTH TICK SETIAP DETIK
+    for(const k in state.tiles){
+      const t = state.tiles[k];
+      if(!t || !t.crop) continue;
+      const c = CROP_BY_ID[t.crop.id];
+      const maxSec = c.sec || 60;
+      if(t.crop.sec === undefined) t.crop.sec = 0;
+      if(t.crop.sec < maxSec){
+        // Tanaman tumbuh 1 detik per detik nyata (jika disiram tumbuh 100%, jika kering tumbuh 50%)
+        const speed = t.watered ? 1.0 : 0.5;
+        t.crop.sec += dt * speed;
+        if(t.crop.sec > maxSec) t.crop.sec = maxSec;
+        t.crop.growth = (t.crop.sec / maxSec) * (c.days || 1);
+      }
+    }
+
     // machine readiness
     for(const m of state.machines){
       if(m.busy && !m.ready && absMin() >= m.readyAt) m.ready = true;
