@@ -417,6 +417,7 @@ let particles = [];
 const mouse = {x:-999, y:-999};
 const canvas = $('#game');
 const ctx = canvas.getContext('2d');
+
 function resizeCanvas(){
   const st = document.getElementById("stage");
   if(!st) return;
@@ -424,9 +425,9 @@ function resizeCanvas(){
   const h = st.clientHeight || 500;
   canvas.width = w;
   canvas.height = h;
-  const maxTileW = Math.floor((w - 36) / 8);
-  const maxTileH = Math.floor((h - 180) / 5);
-  TILE = Math.max(36, Math.min(68, maxTileW, maxTileH));
+  const maxW = Math.floor((w - 32) / 8);
+  const maxH = Math.floor((h - 140) / 5);
+  TILE = Math.max(34, Math.min(68, maxW, maxH));
 }
 window.addEventListener("resize", resizeCanvas);
 
@@ -625,11 +626,11 @@ function spawnParticles(gx, gy, color, n){
 }
 
 /* ---------------- GRID ORIGIN ---------------- */
-let TILE = 64;
+let TILE = 48;
 function gridOrigin(){
   if(!canvas.width || canvas.width < 50) resizeCanvas();
   const w = state.gridW*TILE, h = state.gridH*TILE;
-  return { x: Math.max(16, (canvas.width - w)/2), y: Math.max(64, (canvas.height - h)/2 + 10) };
+  return { x: (canvas.width - w)/2, y: Math.max(56, (canvas.height - h)/2 + 20) };
 }
 
 /* ---------------- DAY CYCLE ---------------- */
@@ -1405,30 +1406,7 @@ canvas.addEventListener('mousemove', e=>{
   else st.style.cursor = '';
 });
 canvas.addEventListener('mouseleave', ()=>{ hoverTile = null; });
-canvas.addEventListener("pointerdown", e => {
-  if(!state) return;
-  const p = canvasPos(e);
-  hoverTile = tileAt(p.x, p.y);
-  if(hoverTile) {
-    const x = hoverTile._x, y = hoverTile._y;
-    if(hoverTile.crop) {
-      const cropDef = CROP_BY_ID[hoverTile.crop.id];
-      if(hoverTile.crop.growth >= cropDef.days) {
-        harvest(x, y);
-      } else {
-        if(!hoverTile.watered) water(x, y);
-        else toast(cropDef.name + ": " + Math.round(hoverTile.crop.growth/cropDef.days*100) + "% (sudah disiram)", "good");
-      }
-    } else if(state.selectedSeed) {
-      plant(x, y, state.selectedSeed);
-    } else {
-      water(x, y);
-    }
-  }
-});
-
 canvas.addEventListener('click', e=>{
-  if(e.pointerType === 'touch') return;
   if(!state) return;
   const p = canvasPos(e);
   const t = tileAt(p.x, p.y);
