@@ -71,7 +71,7 @@ button{font-family:inherit;}
   box-shadow:inset 0 0 0 3px #A8866C, 0 8px 0 rgba(0,0,0,.10), 0 14px 26px var(--shadow);
   background:linear-gradient(180deg,#C3D6AE,#B3C99B);
 }
-#game{display:block;width:100%;height:100%;touch-action:none; -webkit-user-select:none;}
+#game{display:block;touch-action:none; -webkit-user-select:none;}
 
 #stageBtns{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:6px;z-index:3;}
 .mini{
@@ -258,7 +258,7 @@ input[type=number]:focus{outline:2px solid var(--honey);}
   </div>
 
   <div id="stage">
-    <canvas id="game" width="1000" height="680"></canvas>
+    <canvas id="game"></canvas>
     <div id="stageBtns">
       <button class="mini" data-quick="water">Siram Semua</button>
       <button class="mini" data-quick="harvest">Panen Semua</button>
@@ -421,15 +421,22 @@ const ctx = canvas.getContext('2d');
 function resizeCanvas(){
   const st = document.getElementById("stage");
   if(!st) return;
-  const w = st.clientWidth || 360;
-  const h = st.clientHeight || 500;
-  canvas.width = w;
-  canvas.height = h;
-  const maxW = Math.floor((w - 32) / 8);
-  const maxH = Math.floor((h - 140) / 5);
-  TILE = Math.max(34, Math.min(68, maxW, maxH));
+  const rect = st.getBoundingClientRect();
+  const w = Math.floor(rect.width);
+  const h = Math.floor(rect.height);
+  if(w < 50 || h < 50) return;
+  if(canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+  }
+  const maxW = Math.floor((w - 24) / 8);
+  const maxH = Math.floor((h - 130) / 5);
+  TILE = Math.max(34, Math.min(64, maxW, maxH));
 }
 window.addEventListener("resize", resizeCanvas);
+window.addEventListener("orientationchange", resizeCanvas);
 
 
 /* grass texture precomputed */
@@ -2106,6 +2113,7 @@ $('#btnSleep').addEventListener('click', ()=>{ sleepNow(); });
 let lastT = 0;
 let acc = 0;
 function loop(ts){
+  if(!canvas.width || canvas.width < 50) resizeCanvas();
   if(!lastT) lastT = ts;
   const dt = Math.min(0.12, (ts - lastT)/1000);
   lastT = ts;
@@ -2135,6 +2143,7 @@ function loop(ts){
    BOOT
    ========================================================================= */
 function boot(){
+  resizeCanvas();
   const loaded = load();
   if(!loaded) newGame();
   if(!state.selectedSeed){
