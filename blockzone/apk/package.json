@@ -1,0 +1,19 @@
+{
+  "name": "blockzone",
+  "version": "1.0.3",
+  "private": true,
+  "description": "BlockZone - Battle Royale. Pembungkus Capacitor untuk membangun ulang APK dari arsip blockzone/www.",
+  "scripts": {
+    "add:android": "cap add android",
+    "sync": "cap sync android",
+    "apk": "cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "8.3.0",
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
+  }
+}
