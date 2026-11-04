@@ -100,7 +100,7 @@ def update_config(base_url: str) -> str:
     return f'window.BZ_UPDATE = {{ url: "{base_url}" }};\n'
 
 
-def build(out: Path, base_url: str) -> None:
+def build(out: Path, base_url: str, flat: bool = False) -> None:
     if not base_url.endswith("/"):
         raise SystemExit("--base-url harus berakhiran '/'")
 
@@ -110,6 +110,17 @@ def build(out: Path, base_url: str) -> None:
         for p in problems:
             print("  - " + p, file=sys.stderr)
         raise SystemExit(1)
+
+    if flat:
+        # untuk repo terpisah (BlockZone): isi www/ langsung di akar situs,
+        # jadi URL-nya https://<user>.github.io/BlockZone/ tanpa subfolder
+        if out.exists():
+            shutil.rmtree(out)
+        shutil.copytree(WWW, out)
+        (out / "update-config.js").write_text(update_config(base_url), encoding="utf-8")
+        print(f"situs siap di {out} (mode datar, akar = www/)")
+        print(f"  update-config.js -> {base_url}")
+        return
 
     dest = out / GAME_DIR
     if dest.exists():
@@ -133,6 +144,8 @@ def main() -> int:
     ap.add_argument("--out", help="folder keluaran situs")
     ap.add_argument("--base-url", help="URL publik situs, mis. https://kyokoapp.github.io/GodotMe/blockzone/")
     ap.add_argument("--check-only", action="store_true", help="hanya periksa keutuhan arsip")
+    ap.add_argument("--flat", action="store_true",
+                    help="isi www/ ditaruh di akar keluaran (untuk repo terpisah, tanpa subfolder)")
     args = ap.parse_args()
 
     if args.check_only:
@@ -147,7 +160,7 @@ def main() -> int:
 
     if not args.out or not args.base_url:
         ap.error("--out dan --base-url wajib (atau pakai --check-only)")
-    build(Path(args.out), args.base_url)
+    build(Path(args.out), args.base_url, flat=args.flat)
     return 0
 
 

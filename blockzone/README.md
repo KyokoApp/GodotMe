@@ -129,7 +129,27 @@ token sesi ini — butuh hak admin):
 
 Selama `BLOCKZONE_PAGES` belum diisi, workflow tetap **hijau**: situs dibangun
 dan diperiksa, hasilnya tersedia sebagai artefak `blockzone-site`, hanya tidak
-diterbitkan. Setelah variabel diisi, setiap perubahan di `blockzone/` otomatis
+diterbitkan.
+Setelah variabel diisi, setiap perubahan di `blockzone/` otomatis terbit ke URL
+di atas — dan updater di APK jadi hidup lagi, karena `update-config.js` di situs
+menunjuk ke alamat itu.
+
+### Kalau mau repo terpisah: `KyokoApp/BlockZone` → `kyokoapp.github.io/BlockZone/`
+
+Sudah disiapkan sebagai satu skrip, tinggal dijalankan sendiri (sesi agent hanya
+boleh push ke satu branch di repo GodotMe, jadi pembuatan repo baru tidak bisa
+dari sini):
+
+```bash
+blockzone/tools/publish_standalone.sh --dry-run    # lihat rencananya, tidak mengirim apa pun
+blockzone/tools/publish_standalone.sh              # buat repo + push + aktifkan Pages
+```
+
+Skrip itu membangun situs mode datar (`www/` di akar repo, jadi URL-nya tanpa
+subfolder), membuat `KyokoApp/BlockZone` kalau belum ada, mengirim `main`, lalu
+mengaktifkan Pages (`source[branch]=main`, `source[path]=/`). Hasil akhir:
+`https://kyokoapp.github.io/BlockZone/`.
+ Setelah variabel diisi, setiap perubahan di `blockzone/` otomatis
 terbit ke URL di atas — dan updater di APK jadi hidup lagi, karena
 `update-config.js` di situs menunjuk ke alamat itu.
 
