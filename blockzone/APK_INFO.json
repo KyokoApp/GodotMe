@@ -4,7 +4,9 @@
     "bytes": 10433482,
     "drive_file_id": "17eyDX9_y3pPBCyP8tLcH1yC8XOaD23C4",
     "recovered_from": "Google Drive pemilik akun (satu-satunya salinan yang tersisa)",
-    "recovered_at": "2026-11-04"
+    "recovered_at": "2026-11-04",
+    "md5": "bdb589afe82f3791f710750e46dff641",
+    "stored_in_repo": "blockzone/BlockZone.apk"
   },
   "app": {
     "name": "BlockZone",
@@ -15,7 +17,9 @@
     "targetSdk": 36,
     "androidGradlePlugin": "8.13.0",
     "wrapper": "Capacitor (WebView)",
-    "plugins": ["@capacitor-community/admob"],
+    "plugins": [
+      "@capacitor-community/admob"
+    ],
     "permissions": [
       "android.permission.ACCESS_ADSERVICES_AD_ID",
       "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",

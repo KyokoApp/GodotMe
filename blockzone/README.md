@@ -5,7 +5,8 @@ dipulihkan **apa adanya (byte-per-byte)** dari APK `BlockZone.apk` yang masih
 tersimpan di Google Drive pemilik akun. Tidak ada satu baris pun yang diubah,
 dirapikan, atau ditambahi — semua `md5` di bawah cocok dengan aslinya.
 
-> Sumber: `BlockZone.apk` (10.433.482 byte, `application/vnd.android.package-archive`)
+> Sumber: [`BlockZone.apk`](BlockZone.apk) (10.433.482 byte,
+> md5 `bdb589afe82f3791f710750e46dff641`) — ikut disimpan di folder ini.
 > Dibongkar: 4 November 2026. Isi game diambil dari `assets/public/` di dalam APK.
 
 ## Identitas build (versi terakhir yang tersisa)
@@ -85,9 +86,10 @@ Lalu buka `http://localhost:8080/` (layar pembuka) atau langsung
   terkompilasi, jadi untuk membangun ulang APK perlu `npx cap add android`
   dengan `capacitor.config.json` yang ada di folder ini (appId & appName sama),
   lalu pasang plugin AdMob.
-- APK aslinya sengaja **tidak** dimasukkan ke Git (`.gitignore` repo ini
-  mengabaikan `*.apk`); salinannya dilampirkan sebagai aset rilis
-  `blockzone-1.0.3`.
+- APK aslinya **ikut disimpan** di [`blockzone/BlockZone.apk`](BlockZone.apk)
+  (10.433.482 byte, md5 `bdb589afe82f3791f710750e46dff641`). `.gitignore` repo ini
+  mengabaikan `*.apk` untuk hasil build, jadi berkas ini diberi pengecualian
+  eksplisit — ini satu-satunya salinan utuh yang tersisa dan tidak boleh hilang.
 
 ## Isi game (ringkas)
 
