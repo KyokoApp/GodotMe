@@ -26,6 +26,9 @@ jobs:
     name: build apk (debug)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # dipakai patch_android.py DAN verify_apk.py, jadi harus satu nilai
+      BLOCKZONE_UPDATE_URL: ${{ github.event.inputs.update_url || 'https://kyokoapp.github.io/GodotMe/blockzone/' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,9 +64,14 @@ jobs:
       - name: Setel appId, versi, SDK, orientasi, updater
         working-directory: blockzone/apk
         env:
-          BLOCKZONE_UPDATE_URL: ${{ github.event.inputs.update_url || 'https://kyokoapp.github.io/GodotMe/blockzone/' }}
           ADMOB_APP_ID: ${{ vars.BLOCKZONE_ADMOB_APP_ID }}
         run: python3 ../tools/patch_android.py --android android --www www
+
+      - name: Salin ulang web assets setelah disetel
+        # `cap add android` menyalin www/ sebelum update-config.js ditulis ulang,
+        # jadi langkah ini wajib: tanpa ini APK masih membawa URL updater yang mati.
+        working-directory: blockzone/apk
+        run: npx --yes cap copy android
 
       - name: Build APK
         working-directory: blockzone/apk/android
@@ -83,8 +91,7 @@ jobs:
       - name: Verifikasi isi APK terhadap arsip
         run: |
           APK=$(ls blockzone/apk/android/app/build/outputs/apk/debug/*.apk | head -1)
-          python3 blockzone/tools/verify_apk.py "$APK" \
-            --expect-url "${BLOCKZONE_UPDATE_URL:-https://kyokoapp.github.io/GodotMe/blockzone/}"
+          python3 blockzone/tools/verify_apk.py "$APK" --expect-url "$BLOCKZONE_UPDATE_URL"
 
       - name: Unggah APK
         uses: actions/upload-artifact@v4
