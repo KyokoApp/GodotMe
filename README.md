@@ -92,6 +92,15 @@ docs/                      DESIGN_NOTES, CREDITS, GAME_CONTRACT, BUILD_AND_RELEA
 
 ---
 
+## Arsip: BlockZone
+
+[`blockzone/`](blockzone/README.md) berisi game lama **BlockZone — Battle Royale**
+(`com.kyoko.squarezone`, v1.0.3) yang dipulihkan byte-per-byte dari APK, karena
+repo GitHub aslinya sudah terhapus. Bukan bagian dari launcher/game Re - Traveller;
+hanya arsip supaya tidak hilang lagi. Jalankan dengan `blockzone/serve.sh`.
+
+---
+
 ## Status fase
 
 * **FASE 1 — Launcher: selesai.** Lihat [`docs/PHASE1_REPORT.md`](docs/PHASE1_REPORT.md).

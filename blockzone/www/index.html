@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>BlockZone</title>
+<link rel="icon" href="icon.jpg">
+<style>
+  html, body {
+    margin: 0; height: 100%; width: 100%; overflow: hidden; background: #000; color: #fff;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+  #launcher {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  }
+  #launcher img {
+    width: 76px; height: 76px; border-radius: 18px;
+    box-shadow: 0 0 34px rgba(255,255,255,0.22);
+  }
+  #msg {
+    min-height: 16px; font-size: 12px; font-weight: 700; letter-spacing: 3px;
+    color: rgba(255,255,255,0.6); text-align: center; padding: 0 24px;
+  }
+  #bar {
+    width: min(240px, 60vw); height: 3px; border-radius: 3px; overflow: hidden;
+    background: rgba(255,255,255,0.14); opacity: 0; transition: opacity .2s;
+  }
+  #bar.on { opacity: 1; }
+  #fill { height: 100%; width: 0; background: #fff; transition: width .15s linear; }
+  #bar.ind #fill { width: 35%; animation: ind 0.9s ease-in-out infinite alternate; }
+  @keyframes ind { from { margin-left: 0; } to { margin-left: 65%; } }
+  #retry {
+    display: none; padding: 12px 26px; font-size: 13px; font-weight: 800; letter-spacing: 2px;
+    background: #fff; color: #000; border: none; border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+<div id="launcher">
+  <img src="icon.jpg" alt="" draggable="false">
+  <div id="msg"></div>
+  <div id="bar"><div id="fill"></div></div>
+  <button id="retry">ULANGI</button>
+</div>
+
+<script src="update-config.js"></script>
+<script src="updater.js"></script>
+<script>
+(function () {
+  var en = /^en/i.test(navigator.language || '');
+  var T = en ? {
+    check: 'CHECKING FOR UPDATES', down: 'DOWNLOADING UPDATE', start: 'STARTING', fail: 'COULD NOT START THE GAME', retry: 'RETRY'
+  } : {
+    check: 'MEMERIKSA PEMBARUAN', down: 'MENGUNDUH PEMBARUAN', start: 'MEMULAI', fail: 'GAME GAGAL DIMULAI', retry: 'ULANGI'
+  };
+  var msg = document.getElementById('msg');
+  var bar = document.getElementById('bar');
+  var fill = document.getElementById('fill');
+  var retry = document.getElementById('retry');
+  retry.textContent = T.retry;
+
+  function say(t) { msg.textContent = t; }
+  function progress(p) {
+    bar.classList.add('on');
+    if (p === null || p === undefined) { bar.classList.add('ind'); return; }
+    bar.classList.remove('ind');
+    fill.style.width = Math.round(p * 100) + '%';
+  }
+
+  function run() {
+    retry.style.display = 'none';
+    say(T.check);
+    var U = window.BZUpdater;
+    var step = Promise.resolve();
+    if (U && U.enabled) {
+      step = U.check().then(function (r) {
+        if (!r.available) return;
+        say(T.down + ' ' + (r.remote.name || ''));
+        progress(0);
+        return U.download(r.remote, progress);
+      }).catch(function () { /* gagal unduh: tetap main dengan versi yang ada */ });
+    }
+    step.then(function () {
+      say(T.start);
+      return U.launch();
+    }).catch(function () {
+      bar.classList.remove('on');
+      say(T.fail);
+      retry.style.display = 'block';
+    });
+  }
+  retry.addEventListener('click', run);
+  run();
+})();
+</script>
+</body>
+</html>
