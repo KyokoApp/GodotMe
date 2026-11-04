@@ -71,7 +71,7 @@ button{font-family:inherit;}
   box-shadow:inset 0 0 0 3px #A8866C, 0 8px 0 rgba(0,0,0,.10), 0 14px 26px var(--shadow);
   background:linear-gradient(180deg,#C3D6AE,#B3C99B);
 }
-#game{display:block;width:100%;height:100%;object-fit:cover;image-rendering:auto;touch-action:none; -webkit-user-select:none;}
+#game{display:block;width:100%;height:100%;touch-action:none; -webkit-user-select:none;}
 
 #stageBtns{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:6px;z-index:3;}
 .mini{
@@ -417,6 +417,19 @@ let particles = [];
 const mouse = {x:-999, y:-999};
 const canvas = $('#game');
 const ctx = canvas.getContext('2d');
+function resizeCanvas(){
+  const st = document.getElementById("stage");
+  if(!st) return;
+  const w = st.clientWidth || 360;
+  const h = st.clientHeight || 500;
+  canvas.width = w;
+  canvas.height = h;
+  const maxTileW = Math.floor((w - 36) / 8);
+  const maxTileH = Math.floor((h - 180) / 5);
+  TILE = Math.max(36, Math.min(68, maxTileW, maxTileH));
+}
+window.addEventListener("resize", resizeCanvas);
+
 
 /* grass texture precomputed */
 const GRASS_DOTS = (()=>{ const a=[]; for(let i=0;i<420;i++) a.push({x:Math.random()*1000,y:Math.random()*680,r:0.7+Math.random()*1.9,c:Math.random()<.5?'#A9C293':'#C2D4AC'}); return a; })();
@@ -612,10 +625,11 @@ function spawnParticles(gx, gy, color, n){
 }
 
 /* ---------------- GRID ORIGIN ---------------- */
-const TILE = 74;
+let TILE = 64;
 function gridOrigin(){
+  if(!canvas.width || canvas.width < 50) resizeCanvas();
   const w = state.gridW*TILE, h = state.gridH*TILE;
-  return { x:(canvas.width - w)/2, y:(canvas.height - h)/2 + 42 };
+  return { x: Math.max(16, (canvas.width - w)/2), y: Math.max(64, (canvas.height - h)/2 + 10) };
 }
 
 /* ---------------- DAY CYCLE ---------------- */
@@ -1365,9 +1379,11 @@ function drawCropIcon(c, crop){
    ========================================================================= */
 function canvasPos(e){
   const r = canvas.getBoundingClientRect();
+  const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+  const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
   return {
-    x:(e.clientX - r.left) * (canvas.width / r.width),
-    y:(e.clientY - r.top) * (canvas.height / r.height)
+    x: (clientX - r.left) * (canvas.width / r.width),
+    y: (clientY - r.top) * (canvas.height / r.height)
   };
 }
 function tileAt(mx, my){
