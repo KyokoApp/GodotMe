@@ -262,6 +262,20 @@ input[type=number]:focus{outline:2px solid var(--honey);}
 #questText{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #questReward{color:#2F7A43;font-weight:800;font-size:11.5px;}
 
+
+#cropModal{
+  position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90;display:none;align-items:center;justify-content:center;padding:16px;
+}
+#cropCard{
+  background:linear-gradient(180deg,#FFF8EC,#F5E6CC);border:3px solid var(--wood-d);border-radius:18px;
+  box-shadow:0 12px 30px rgba(0,0,0,.35);width:100%;max-width:340px;padding:16px;box-sizing:border-box;color:#4A3B32;
+  animation:pop .2s ease;
+}
+#cropCard h3{margin:0 0 10px 0;font-size:17px;display:flex;align-items:center;justify-content:space-between;}
+.crop-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #D2B895;font-size:13.5px;}
+.crop-prog-bar{width:100%;height:10px;background:#E3CEAD;border-radius:999px;overflow:hidden;margin:8px 0 4px 0;}
+.crop-prog-fill{height:100%;background:linear-gradient(90deg,#8BC34A,#4CAF50);width:0%;transition:width .3s ease;}
+
 </style>
 </head>
 <body>
@@ -287,6 +301,7 @@ input[type=number]:focus{outline:2px solid var(--honey);}
   <div id="stage">
     <canvas id="game"></canvas>
     <div id="stageBtns">
+      <button class="mini" data-quick="cropinfo">🌱 Info Tanaman</button>
       <button class="mini" data-quick="water">Siram Semua</button>
       <button class="mini" data-quick="harvest">Panen Semua</button>
       <button class="mini" data-quick="pause">Jeda</button>
@@ -303,6 +318,15 @@ input[type=number]:focus{outline:2px solid var(--honey);}
     <button class="dbtn" data-panel="npcs">Warga</button>
     <button class="dbtn" data-panel="deco">Dekorasi</button>
     <button class="dbtn" data-panel="menu">Menu</button>
+  </div>
+</div>
+
+
+<div id="cropModal">
+  <div id="cropCard">
+    <h3><span id="cropModalTitle">Status Tanaman</span> <span style="cursor:pointer;font-size:20px;" onclick="closeCropModal()">×</span></h3>
+    <div id="cropModalBody"></div>
+    <button class="dbtn" style="width:100%;margin-top:12px;padding:8px 0;" onclick="closeCropModal()">Tutup</button>
   </div>
 </div>
 
@@ -699,6 +723,115 @@ setInterval(() => {
   if(state && !state.paused && Math.random() < 0.65) SFX.birdChirp();
 }, 9000);
 
+
+/* ---------------- CROP INSPECT & OFFLINE IDLE GROWTH ---------------- */
+function openCropModal(x, y){
+  const t = getTile(x, y);
+  const m = document.getElementById("cropModal");
+  const body = document.getElementById("cropModalBody");
+  const title = document.getElementById("cropModalTitle");
+  if(!t || !t.crop){
+    toast("Petak ini belum ditanami.", "bad");
+    return;
+  }
+  const c = CROP_BY_ID[t.crop.id];
+  const pct = Math.min(100, Math.round((t.crop.growth / c.days) * 100));
+  const sisaHari = Math.max(0, Math.ceil(c.days - t.crop.growth));
+  const statusAir = t.watered ? "<b style='color:#2F7A43'>✓ Sudah Disiram</b>" : "<b style='color:#C2410C'>⚠ Butuh Air Hari Ini</b>";
+  
+  title.textContent = c.name + " (" + (x+1) + "," + (y+1) + ")";
+  body.innerHTML = `
+    <div class="crop-prog-bar">
+      <div class="crop-prog-fill" style="width:${pct}%"></div>
+    </div>
+    <div style="text-align:right;font-size:11.5px;color:#785A3C;margin-bottom:8px;">${pct}% Matang</div>
+    <div class="crop-row"><span>Waktu Sisa:</span><b>${sisaHari <= 0 ? "<span style='color:#2F7A43'>Siap Panen!</span>" : sisaHari + " hari kebun lagi"}</b></div>
+    <div class="crop-row"><span>Status Air:</span>${statusAir}</div>
+    <div class="crop-row"><span>Pupuk:</span><b>${t.fert ? "Aktif (+Kualitas)" : "Tidak ada"}</b></div>
+    <div class="crop-row"><span>Musim Ideal:</span><b>${SEASONS[c.season]}</b></div>
+    <div class="crop-row"><span>Hasil Panen:</span><b>${ITEMS[c.item].name}</b></div>
+  `;
+  m.style.display = "flex";
+}
+
+function openAllCropsSummary(){
+  const m = document.getElementById("cropModal");
+  const body = document.getElementById("cropModalBody");
+  const title = document.getElementById("cropModalTitle");
+  title.textContent = "Ringkasan Kebun";
+  
+  const crops = [];
+  for(let y=0; y<state.gridH; y++){
+    for(let x=0; x<state.gridW; x++){
+      const t = getTile(x, y);
+      if(t && t.crop){
+        crops.push({x, y, t, c: CROP_BY_ID[t.crop.id]});
+      }
+    }
+  }
+  if(crops.length === 0){
+    body.innerHTML = "<p style='text-align:center;color:#785A3C;padding:12px 0;'>Belum ada tanaman yang ditanam.<br>Beli bibit di Toko dan tanam sekarang!</p>";
+  } else {
+    let rows = "";
+    crops.forEach(item => {
+      const pct = Math.min(100, Math.round((item.t.crop.growth / item.c.days) * 100));
+      const sisaHari = Math.max(0, Math.ceil(item.c.days - item.t.crop.growth));
+      rows += `
+        <div class="crop-row" style="cursor:pointer;" onclick="openCropModal(${item.x},${item.y})">
+          <span><b>${item.c.name}</b> (${item.x+1},${item.y+1})</span>
+          <span>${sisaHari <= 0 ? "<b style='color:#2F7A43'>Siap Panen!</b>" : pct + "% (" + sisaHari + "h)"}</span>
+        </div>
+      `;
+    });
+    body.innerHTML = `
+      <div style="max-height:220px;overflow-y:auto;padding-right:4px;">
+        ${rows}
+      </div>
+      <p style="font-size:11.5px;color:#785A3C;margin:8px 0 0 0;">Ketuk tanaman di daftar untuk detail lengkap.</p>
+    `;
+  }
+  m.style.display = "flex";
+}
+
+function closeCropModal(){
+  const m = document.getElementById("cropModal");
+  if(m) m.style.display = "none";
+}
+
+// Simulasi pertumbuhan saat offline (Date.now())
+function applyOfflineGrowth(){
+  if(!state) return;
+  const now = Date.now();
+  if(!state.lastSaveRealTime){
+    state.lastSaveRealTime = now;
+    return;
+  }
+  const diffMinutes = Math.floor((now - state.lastSaveRealTime) / 60000);
+  state.lastSaveRealTime = now;
+  
+  // 1 hari kebun = 12 menit real time (12 jam siang di game @ 2 menit per detik)
+  const passedDays = Math.min(14, Math.floor(diffMinutes / 12));
+  if(passedDays > 0){
+    let grewCount = 0;
+    for(let d=0; d<passedDays; d++){
+      for(const k in state.tiles){
+        const t = state.tiles[k];
+        if(!t.crop) continue;
+        const c = CROP_BY_ID[t.crop.id];
+        // Offline: jika disiram/hujan atau tanaman tahan banting, maju bertahap
+        t.crop.growth += (c.season === state.season ? 1 : 0.5);
+        grewCount++;
+      }
+      state.day++;
+      if(state.day > 28){
+        state.day = 1;
+        state.season = (state.season + 1) % 4;
+      }
+    }
+    toast(`Kamu offline selama ${diffMinutes} menit! Tanamanmu bertumbuh sebanyak ${passedDays} hari kebun.`, "good");
+  }
+}
+
 /* ---------------- FARM ---------------- */
 function tileKey(x,y){ return x+','+y; }
 function getTile(x,y){ return state.tiles[tileKey(x,y)]; }
@@ -916,7 +1049,10 @@ function genBarter(){
 /* ---------------- SAVE / LOAD ---------------- */
 const SAVE_KEY = 'tanah_hangat_v1';
 function save(){
-  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){}
+  try{
+    if(state) state.lastSaveRealTime = Date.now();
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  }catch(e){}
 }
 function load(){
   try{
@@ -1643,6 +1779,10 @@ canvas.addEventListener('click', e=>{
 document.querySelectorAll('[data-quick]').forEach(b=>{
   b.addEventListener('click', ()=>{
     const q = b.dataset.quick;
+    if(q==='cropinfo'){
+      openAllCropsSummary();
+      return;
+    }
     if(q==='water'){
       let n=0;
       for(let y=0;y<state.gridH;y++) for(let x=0;x<state.gridW;x++){
@@ -2353,6 +2493,7 @@ function loop(ts){
 function boot(){
   resizeCanvas();
   const loaded = load();
+  if(loaded) applyOfflineGrowth();
   if(!loaded) newGame();
   if(!state.selectedSeed){
     const firstSeed = state.inv.find(s=>ITEMS[s.id] && ITEMS[s.id].cat==='bibit');
