@@ -282,6 +282,11 @@ input[type=number]:focus{outline:2px solid var(--honey);}
 <div id="app">
 
   <div id="hud">
+    <div class="hud-chip" id="hudProfile" style="cursor:pointer;background:linear-gradient(180deg,#FFF1D6,#FFDF9E);border-color:#D4A137;" onclick="openPanel('profile')">
+      <span style="font-size:14px;">⭐</span>
+      <span class="lbl" style="font-weight:700;color:#874E06;">Lv.<b id="hudLevel">1</b></span>
+      <span id="hudExp" style="font-size:11.5px;color:#A06413;">0/100</span>
+    </div>
     <div class="hud-chip"><span class="coin"></span><span id="hudMoney">0</span></div>
     <div class="hud-chip"><span class="gem"></span><span id="hudGems">0</span></div>
     <div class="hud-chip"><span class="lbl">Hari</span><span id="hudDate">1 Semi</span></div>
@@ -310,6 +315,8 @@ input[type=number]:focus{outline:2px solid var(--honey);}
   </div>
 
   <div id="dock">
+    <button class="dbtn" data-panel="truck" style="background:linear-gradient(180deg,#5E9CAE,#447E90);border-color:#2D5A68;">🚚 Truk Pesanan</button>
+    <button class="dbtn" data-panel="stand" style="background:linear-gradient(180deg,#E8A84C,#C28328);border-color:#8F590F;">🏪 Stand Jual-Beli</button>
     <button class="dbtn" data-panel="market">Pasar</button>
     <button class="dbtn" data-panel="shop">Toko</button>
     <button class="dbtn" data-panel="bag">Tas</button>
@@ -317,6 +324,7 @@ input[type=number]:focus{outline:2px solid var(--honey);}
     <button class="dbtn" data-panel="workshop">Bengkel</button>
     <button class="dbtn" data-panel="npcs">Warga</button>
     <button class="dbtn" data-panel="deco">Dekorasi</button>
+    <button class="dbtn" data-panel="profile">Profil</button>
     <button class="dbtn" data-panel="menu">Menu</button>
   </div>
 </div>
@@ -528,6 +536,255 @@ function absMin(){
   return ((state.year-1)*112 + state.season*28 + (state.day-1))*1440 + state.time;
 }
 function dayIndex(){ return (state.year-1)*112 + state.season*28 + (state.day-1); }
+
+
+/* =========================================================================
+   LEVEL, EXP, TRUCK ORDERS, ROADSIDE STAND & PROFILE
+   ========================================================================= */
+
+function expNeeded(lvl){
+  return Math.round(80 * Math.pow(lvl, 1.45));
+}
+
+function gainExp(amount){
+  if(!state.level) state.level = 1;
+  if(!state.exp) state.exp = 0;
+  state.exp += amount;
+  let need = expNeeded(state.level);
+  let leveledUp = false;
+  while(state.exp >= need){
+    state.exp -= need;
+    state.level++;
+    leveledUp = true;
+    need = expNeeded(state.level);
+  }
+  if(leveledUp){
+    SFX.harvest();
+    toast(`🎉 SELAMAT! Naik ke Level ${state.level}! Bibit dan fitur baru terbuka!`, 'good');
+    updateHUD();
+  }
+}
+
+// Inisialisasi data ekspansi di state
+function ensureExpansionState(){
+  if(!state.level) state.level = 1;
+  if(state.exp === undefined) state.exp = 0;
+  if(!state.playerName) state.playerName = 'Petani Elysia';
+  if(!state.truckOrders) state.truckOrders = genTruckOrders();
+  if(!state.standPlayerItems) state.standPlayerItems = []; // barang yang dijual pemain
+  if(!state.standMarketItems || state.standMarketItems.length === 0) refreshRandomStand();
+}
+
+function genTruckOrders(){
+  const pool = CROPS.filter(c => c.lvl <= (state ? state.level : 1));
+  const orders = [];
+  const count = Math.min(6, 3 + Math.floor((state ? state.level : 1)/2));
+  for(let i=0; i<count; i++){
+    const c = pool[Math.floor(Math.random()*pool.length)] || CROPS[0];
+    const qty = Math.floor(Math.random()*3) + 2;
+    const rewardMoney = Math.round(c.base * qty * 1.4);
+    const rewardExp = Math.round(25 + (c.lvl||1)*15 * qty);
+    orders.push({
+      id: 'ord_' + Date.now() + '_' + i,
+      cropId: c.id,
+      item: c.item || c.id,
+      name: c.name,
+      qty: qty,
+      money: rewardMoney,
+      exp: rewardExp,
+      done: false
+    });
+  }
+  return orders;
+}
+
+function refreshRandomStand(){
+  const pool = [
+    {id:'pupuk_super', name:'Pupuk Super', qty:3, price:75},
+    {id:'bibit_stroberi', name:'Bibit Stroberi', qty:2, price:80},
+    {id:'bibit_tomat', name:'Bibit Tomat', qty:3, price:90},
+    {id:'bibit_kentang', name:'Bibit Kentang', qty:4, price:100},
+    {id:'kayu', name:'Kayu Hutan', qty:5, price:50},
+    {id:'batu', name:'Batu Fondasi', qty:5, price:50},
+    {id:'susu', name:'Susu Murni Segar', qty:2, price:120},
+    {id:'keju', name:'Keju Artisan', qty:1, price:180}
+  ];
+  state.standMarketItems = [];
+  for(let i=0; i<4; i++){
+    const pick = pool[Math.floor(Math.random()*pool.length)];
+    state.standMarketItems.push({...pick, uid:'mkt_'+Date.now()+'_'+i});
+  }
+}
+
+/* ---------------- PANEL PROFILE ---------------- */
+function panelProfile(){
+  ensureExpansionState();
+  const need = expNeeded(state.level);
+  const pct = Math.min(100, Math.round((state.exp / need) * 100));
+  let unlockedCrops = CROPS.filter(c => c.lvl <= state.level).map(c=>c.name).join(', ');
+  let nextCrops = CROPS.filter(c => c.lvl === state.level + 1).map(c=>c.name).join(', ');
+  
+  return `
+    <div style="background:linear-gradient(135deg,#FFF7E6,#FCE8BF);border:2px solid #D6A857;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 4px 10px rgba(0,0,0,.08);">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="width:58px;height:58px;border-radius:50%;background:#D48B38;color:#FFF;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 3px 0 #9E5F1A;">🌾</div>
+        <div style="flex:1;">
+          <h3 style="margin:0;font-size:18px;color:#4A3B32;">${state.playerName}</h3>
+          <div style="font-size:12.5px;color:#785A3C;font-weight:600;">Gelar: Petani Mandiri Bintang ${Math.min(5, Math.ceil(state.level/2))}</div>
+          <div style="font-size:12px;color:#D48B38;font-weight:700;margin-top:2px;">Tingkat Kebun: Level ${state.level}</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#5E432D;margin-bottom:4px;">
+          <span>EXP Petani</span>
+          <span>${state.exp} / ${need} (${pct}%)</span>
+        </div>
+        <div style="width:100%;height:12px;background:#E2CEB1;border-radius:999px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#F59E0B,#D97706);transition:width .3s;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-title">Statistik Karir Kebun</div>
+    <div class="grid3">
+      <div class="card"><div class="t">Total Panen</div><div class="d">${state.stats?.harvested||0} tanaman</div></div>
+      <div class="card"><div class="t">Total Penjualan</div><div class="d">${state.stats?.sold||0} transaksi</div></div>
+      <div class="card"><div class="t">Hari di Kebun</div><div class="d">Hari ${state.day} (Tahun ${state.year})</div></div>
+    </div>
+
+    <div class="sec-title" style="margin-top:14px;">Status Bibit Level</div>
+    <div class="card">
+      <div class="t" style="color:#2F7A43;">✓ Bibit Terbuka:</div>
+      <div class="d" style="font-size:12.5px;line-height:1.5;">${unlockedCrops}</div>
+      ${nextCrops ? `<div class="t" style="margin-top:8px;color:#C2410C;">🔒 Terbuka di Level ${state.level+1}:</div><div class="d" style="font-size:12.5px;">${nextCrops}</div>` : ''}
+    </div>
+  `;
+}
+
+/* ---------------- PANEL TRUCK ORDERS ---------------- */
+function panelTruck(){
+  ensureExpansionState();
+  if(!state.truckOrders || state.truckOrders.length === 0){
+    state.truckOrders = genTruckOrders();
+  }
+  let html = `
+    <div style="background:linear-gradient(135deg,#E0F2FE,#BAE6FD);border:2px solid #38BDF8;border-radius:14px;padding:12px;margin-bottom:12px;color:#0369A1;font-size:13px;line-height:1.4;">
+      🚚 <b>Papan Pesanan Truk Desa</b><br>Kirim hasil panen ke pasar kota dengan truk untuk dapat koin berlipat dan bonus EXP melimpah!
+    </div>
+    <div class="sec-title">Pesanan Aktif</div>
+    <div class="grid3">
+  `;
+
+  state.truckOrders.forEach((ord, idx) => {
+    const owned = invCount(ord.item);
+    const ready = owned >= ord.qty;
+    html += `
+      <div class="card" style="border-left:4px solid ${ready?'#22C55E':'#EF4444'};">
+        <div class="t">📦 Pesanan #${idx+1}: ${ord.name}</div>
+        <div class="d" style="font-size:13px;margin:4px 0;">
+          Butuh: <b>${ord.qty}x</b> (Kamu punya: <b style="color:${ready?'#16A34A':'#DC2626'}">${owned}</b>)
+        </div>
+        <div style="font-size:12px;color:#785A3C;margin-bottom:8px;">
+          Hadiah: <b style="color:#D97706;">+${ord.money} Koin</b> · <b style="color:#2563EB;">+${ord.exp} EXP</b>
+        </div>
+        <div class="f">
+          <button class="btn2 ${ready?'gold':''}" data-act="sendtruck" data-ord="${ord.id}" ${ready?'':'disabled'}>
+            ${ready ? '🚚 Kirim Truk' : 'Belum Cukup'}
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>
+    <button class="dbtn" style="width:100%;margin-top:14px;padding:8px 0;background:#78716C;border-color:#57534E;" data-act="refreshtruck">🔄 Buang & Minta Pesanan Baru</button>
+  `;
+  return html;
+}
+
+/* ---------------- PANEL ROADSIDE STAND ---------------- */
+function panelStand(){
+  ensureExpansionState();
+  let html = `
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="dbtn ${(!state._standTab || state._standTab==='market')?'gold':''}" style="flex:1;" data-act="standtab" data-tab="market">🛒 Beli Barang Pedagang</button>
+      <button class="dbtn ${(state._standTab==='sell')?'gold':''}" style="flex:1;" data-act="standtab" data-tab="sell">🏪 Buka Lapak Pribadi</button>
+    </div>
+  `;
+
+  if(!state._standTab || state._standTab === 'market'){
+    html += `
+      <div class="notice">Barang acak dari pedagang keliling. Beli barang yang kamu butuhkan atau bibit langka!</div>
+      <div class="sec-title">Etalase Pedagang Keliling</div>
+      <div class="grid3">
+    `;
+    if(!state.standMarketItems || state.standMarketItems.length === 0){
+      html += `<div class="empty">Etalase kosong. Tekan perbarui etalase!</div>`;
+    } else {
+      state.standMarketItems.forEach(item => {
+        const canBuy = state.money >= item.price;
+        html += `
+          <div class="card">
+            <div class="t">${item.name} (${item.qty}x)</div>
+            <div class="d">Stok pedagang · siap pakai</div>
+            <div class="f">
+              <span class="price">${fmt(item.price)}</span>
+              <button class="btn2 gold" data-act="buystanditem" data-uid="${item.uid}" ${canBuy?'':'disabled'}>Beli</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+    html += `</div>
+      <button class="dbtn" style="width:100%;margin-top:12px;padding:8px 0;background:#64748B;border-color:#475569;" data-act="refreshstandmkt">🔄 Cari Pedagang Baru (50 Koin)</button>
+    `;
+  } else {
+    // Tab Lapak Pribadi
+    html += `
+      <div class="notice">Pajang kelebihan hasil panenmu di etalase stand. Barang otomatis terjual ke pedagang keliling tiap beberapa menit!</div>
+      <div class="sec-title">Barang Yang Sedang Dipajang</div>
+      <div class="grid3">
+    `;
+    if(!state.standPlayerItems || state.standPlayerItems.length === 0){
+      html += `<div class="empty">Kamu belum memajang barang di stand. Pilih barang dari tas di bawah!</div>`;
+    } else {
+      state.standPlayerItems.forEach((it, idx) => {
+        html += `
+          <div class="card" style="border-left:4px solid #F59E0B;">
+            <div class="t">${it.name} (${it.qty}x)</div>
+            <div class="d">Harga Jual: <b style="color:#D97706;">${fmt(it.price)}</b></div>
+            <div class="f">
+              <button class="btn2 gold" data-act="claimstandslot" data-slot="${idx}">💰 Tarik Hasil / Batalkan</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+    html += `</div>
+      <div class="sec-title" style="margin-top:16px;">Pajang Barang Dari Tas:</div>
+      <div class="grid3">
+    `;
+    const sellables = state.inv.filter(s => s.qty > 0 && ITEMS[s.id] && ITEMS[s.id].cat !== 'bibit');
+    if(sellables.length === 0){
+      html += `<div class="empty">Tidak ada hasil panen yang bisa dipajang. Panen kebunmu dulu!</div>`;
+    } else {
+      sellables.slice(0, 9).forEach(s => {
+        const itemDef = ITEMS[s.id];
+        const val = Math.round(itemDef.base * 1.25);
+        html += `
+          <div class="card">
+            <div class="t">${itemDef.name} (${s.qty}x)</div>
+            <div class="d">Harga Stand: ~${fmt(val)}</div>
+            <div class="f">
+              <button class="btn2" data-act="putstand" data-id="${s.id}">Pajang di Stand</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+    html += `</div>`;
+  }
+  return html;
+}
 
 /* ---------------- INVENTORY ---------------- */
 function invTotal(){ return state.inv.reduce((a,s)=>a+s.qty,0); }
@@ -845,7 +1102,7 @@ function plant(x,y,cropId){
   if(!state.stats.planted) state.stats.planted = 0;
   state.stats.planted++;
   updateQuestHUD();
-  spawnParticles(x, y, '#9CAF88', 6); SFX.plant();
+  spawnParticles(x, y, '#9CAF88', 6); SFX.plant(); gainExp(5);
   return true;
 }
 function stageOf(crop){
@@ -872,7 +1129,7 @@ function harvest(x,y){
   state.stats.harvested += yieldN;
   if(!state.collection[c.id]) state.collection[c.id] = {normal:0,bagus:0,sempurna:0};
   state.collection[c.id][q] = (state.collection[c.id][q]||0) + yieldN;
-  spawnParticles(x, y, c.color, 10); SFX.harvest();
+  spawnParticles(x, y, c.color, 10); SFX.harvest(); gainExp(15);
   if(c.regrow){
     t.crop.growth = Math.max(0, c.days - c.regrow);
     toast('+'+yieldN+' '+c.name + (q!=='normal'?' ('+QLABEL[q]+')':''), 'good');
@@ -889,7 +1146,7 @@ function waterTile(x,y){
   if(!state.stats.wateredCount) state.stats.wateredCount = 0;
   state.stats.wateredCount++;
   updateQuestHUD();
-  spawnParticles(x, y, '#8FB3C9', 5); SFX.water();
+  spawnParticles(x, y, '#8FB3C9', 5); SFX.water(); gainExp(3);
   return true;
 }
 
@@ -1636,7 +1893,12 @@ function updateQuestHUD(){
 }
 
 function updateHUD(){
+  ensureExpansionState();
   updateQuestHUD();
+  const lvlEl = document.getElementById('hudLevel');
+  const expEl = document.getElementById('hudExp');
+  if(lvlEl) lvlEl.textContent = state.level || 1;
+  if(expEl) expEl.textContent = (state.exp||0) + '/' + expNeeded(state.level||1);
   $('#hudMoney').textContent = fmt(state.money);
   $('#hudGems').textContent = state.gems;
   $('#hudDate').textContent = state.day + ' ' + SEASONS[state.season];
@@ -1830,6 +2092,9 @@ function drawPanel(){
   const body = $('#panelBody');
   const scrollTop = body.scrollTop;
   const map = {
+    truck:    {title:'Papan Pesanan Truk', sub:'Kirim pesanan hasil panen untuk koin & EXP', fn:panelTruck},
+    stand:    {title:'Roadside Stand Jual-Beli', sub:'Beli barang acak atau pajang kelebihan panen', fn:panelStand},
+    profile:  {title:'Profil & Karier Petani', sub:'Tingkat level, statistik, dan pencapaian', fn:panelProfile},
     market:   {title:'Pasar Desa', sub:'Harga berubah tiap hari — jual saat tinggi', fn:panelMarket},
     shop:     {title:'Toko Desa', sub:'Bibit, ternak, mesin, dan keperluan', fn:panelShop},
     bag:      {title:'Tas Kain', sub:'', fn:panelBag},
@@ -1876,6 +2141,88 @@ function handleAction(act, el, ev){
       drawPanel();
       break;
     }
+    
+    case 'sendtruck': {
+      const ordId = d.ord;
+      const ord = state.truckOrders.find(o => o.id === ordId);
+      if(!ord){ toast('Pesanan tidak ditemukan.', 'bad'); return; }
+      const owned = invCount(ord.item);
+      if(owned < ord.qty){ toast('Hasil panen belum cukup!', 'bad'); return; }
+      removeItem(ord.item, ord.qty);
+      state.money += ord.money;
+      gainExp(ord.exp);
+      SFX.coin();
+      toast(`🚚 Truk terkirim! +${ord.money} Koin & +${ord.exp} EXP!`, 'good');
+      state.truckOrders = state.truckOrders.filter(o => o.id !== ordId);
+      if(state.truckOrders.length === 0) state.truckOrders = genTruckOrders();
+      drawPanel();
+      updateHUD();
+      break;
+    }
+    case 'refreshtruck': {
+      state.truckOrders = genTruckOrders();
+      toast('Papan pesanan truk diperbarui.', 'good');
+      drawPanel();
+      break;
+    }
+    case 'standtab': {
+      state._standTab = d.tab;
+      drawPanel();
+      break;
+    }
+    case 'buystanditem': {
+      const uid = d.uid;
+      const it = state.standMarketItems.find(x => x.uid === uid);
+      if(!it || state.money < it.price){ toast('Uang tidak cukup!', 'bad'); return; }
+      state.money -= it.price;
+      addItem(it.id, it.qty);
+      state.standMarketItems = state.standMarketItems.filter(x => x.uid !== uid);
+      SFX.coin();
+      toast(`Membeli ${it.name} (${it.qty}x)!`, 'good');
+      drawPanel();
+      updateHUD();
+      break;
+    }
+    case 'refreshstandmkt': {
+      if(state.money < 50){ toast('Butuh 50 koin untuk cari pedagang baru.', 'bad'); return; }
+      state.money -= 50;
+      refreshRandomStand();
+      toast('Pedagang keliling baru tiba!', 'good');
+      drawPanel();
+      updateHUD();
+      break;
+    }
+    case 'putstand': {
+      const id = d.id;
+      const count = invCount(id);
+      if(count <= 0){ toast('Barang habis.', 'bad'); return; }
+      const takeQty = Math.min(count, 3);
+      removeItem(id, takeQty);
+      const val = Math.round(ITEMS[id].base * 1.35 * takeQty);
+      state.standPlayerItems.push({
+        id: id,
+        name: ITEMS[id].name,
+        qty: takeQty,
+        price: val
+      });
+      toast(`Memajang ${takeQty}x ${ITEMS[id].name} di stand.`, 'good');
+      drawPanel();
+      break;
+    }
+    case 'claimstandslot': {
+      const slot = parseInt(d.slot, 10);
+      const it = state.standPlayerItems[slot];
+      if(!it) return;
+      state.money += it.price;
+      gainExp(25);
+      SFX.coin();
+      toast(`Barang laku! Mendapatkan ${fmt(it.price)} dan +25 EXP!`, 'good');
+      state.standPlayerItems.splice(slot, 1);
+      drawPanel();
+      updateHUD();
+      break;
+    }
+
     case 'buyseed': {
       const c = CROP_BY_ID[d.crop];
       const outSeason = c.season !== state.season;
@@ -2468,7 +2815,7 @@ function loop(ts){
   t_n += dt;
 
   if(state && !state.paused){
-    state.time += dt * 2; // 2 menit game per detik
+    state.time += dt * 8; // 8 menit game per detik (1 hari ~3 menit)
     if(state.time >= 26*60){
       state.time = 6*60;
       advanceDay(false);
