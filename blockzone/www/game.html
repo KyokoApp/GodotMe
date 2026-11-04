@@ -1951,7 +1951,8 @@
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    const dpr = isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
     W = window.innerWidth; H = window.innerHeight;
     canvas.width  = Math.floor(W * dpr);
     canvas.height = Math.floor(H * dpr);
