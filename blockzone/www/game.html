@@ -279,14 +279,8 @@ input[type=number]:focus{outline:2px solid var(--honey);}
 </style>
 <script>
   // Discord Embedded App SDK Handshake & RPC Sync
-  window.discordUser = null;
   window.initDiscordSdk = async function(){
     try {
-      // Deteksi jika berjalan di dalam Discord iframe (ada query param frame_id atau discord url)
-      const params = new URLSearchParams(window.location.search);
-      const isDiscord = params.has('frame_id') || window.parent !== window || navigator.userAgent.includes('Discord');
-      
-      // Kirim postMessage handshake RPC standar Discord Embedded App
       if(window.parent && window.parent !== window){
         window.parent.postMessage(JSON.stringify({
           cmd: 'DISPATCH',
@@ -294,8 +288,6 @@ input[type=number]:focus{outline:2px solid var(--honey);}
           data: { v: 1 }
         }), '*');
       }
-
-      // Dynamic load Discord Embedded App SDK
       const s = document.createElement('script');
       s.src = 'https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.1.0/output/index.min.js';
       s.onload = async () => {
@@ -304,19 +296,12 @@ input[type=number]:focus{outline:2px solid var(--honey);}
             const sdk = new window.DiscordSDK.DiscordSDK('1527929944272011314');
             await sdk.ready();
             window.discordSdkInstance = sdk;
-            console.log('Discord SDK Ready!');
-            
-            // Push Rich Presence Activity ke Profil Discord
             syncDiscordStats();
           }
-        } catch(err){
-          console.log('Discord SDK handshake skipped / standalone:', err);
-        }
+        } catch(err){}
       };
       document.head.appendChild(s);
-    } catch(e) {
-      console.log('Discord SDK init error:', e);
-    }
+    } catch(e) {}
   };
   
   window.syncDiscordStats = function(){
@@ -328,11 +313,7 @@ input[type=number]:focus{outline:2px solid var(--honey);}
           activity: {
             state: `Petani Level ${state.level} · ${state.day} Hari Kebun`,
             details: `🪙 ${state.money.toLocaleString()} Koin · 🌾 ${state.stats.harvested} Panen`,
-            timestamps: { start: Math.floor(Date.now() / 1000) },
-            assets: {
-              large_image: 'https://raw.githubusercontent.com/KyokoApp/GodotMe/main/blockzone/www/icon.png',
-              large_text: 'Tanah Hangat — Kebun Kecil'
-            }
+            timestamps: { start: Math.floor(Date.now() / 1000) }
           }
         }
       };
@@ -1198,72 +1179,51 @@ function applyOfflineGrowth(){
 /* ---------------- DRAW PETS (ANJING & AYAM) ---------------- */
 function drawPets(o, gw, gh){
   if(!state) return;
-  // Posisi Anjing di kanan atas luar petak kebun
-  const dx = o.x + gw + 8;
-  const dy = o.y + 18;
-  
+  // Anjing di kanan atas
+  const dx = o.x + gw + 10;
+  const dy = o.y + 20;
   ctx.save();
   ctx.translate(dx, dy);
-  
-  // Bayangan
   ctx.fillStyle = 'rgba(0,0,0,0.18)';
   ctx.beginPath(); ctx.ellipse(0, 8, 12, 5, 0, 0, 7); ctx.fill();
-  
-  // Badan anjing shiba/golden
   const tailWag = Math.sin(t_n * 8) * 4;
   ctx.fillStyle = '#EAB308';
   ctx.beginPath(); ctx.ellipse(0, 0, 10, 8, 0, 0, 7); ctx.fill();
-  // Kepala
   ctx.beginPath(); ctx.arc(-6, -6, 7, 0, 7); ctx.fill();
-  // Telinga
   ctx.fillStyle = '#CA8A04';
   ctx.beginPath(); ctx.moveTo(-11, -11); ctx.lineTo(-8, -6); ctx.lineTo(-13, -6); ctx.fill();
   ctx.beginPath(); ctx.moveTo(-3, -11); ctx.lineTo(0, -6); ctx.lineTo(-5, -6); ctx.fill();
-  // Ekor bergoyang
   ctx.strokeStyle = '#EAB308'; ctx.lineWidth = 3; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(14, -8 + tailWag); ctx.stroke();
-  // Moncong & Hidung
   ctx.fillStyle = '#FEF08A';
   ctx.beginPath(); ctx.ellipse(-9, -4, 4, 3, 0, 0, 7); ctx.fill();
   ctx.fillStyle = '#1C1917';
   ctx.beginPath(); ctx.arc(-11, -5, 1.5, 0, 7); ctx.fill();
-  // Mata
   ctx.beginPath(); ctx.arc(-7, -8, 1.2, 0, 7); ctx.fill();
-  
-  // Label Anjing
   ctx.font = 'bold 8.5px sans-serif';
   ctx.fillStyle = '#78350F';
   ctx.textAlign = 'center';
   ctx.fillText('🐕 Mochi', 0, 18);
   ctx.restore();
 
-  // Posisi Kandang Ayam di kiri atas luar petak kebun
-  const cx = o.x - 22;
-  const cy = o.y + 16;
+  // Kandang Ayam di kiri atas
+  const cx = o.x - 24;
+  const cy = o.y + 18;
   ctx.save();
   ctx.translate(cx, cy);
-  // Atap kandang kecil
   ctx.fillStyle = '#B91C1C';
   ctx.beginPath(); ctx.moveTo(-12, -4); ctx.lineTo(0, -14); ctx.lineTo(12, -4); ctx.fill();
-  // Dinding kayu kandang
   ctx.fillStyle = '#78350F';
   ctx.fillRect(-10, -4, 20, 14);
-  // Pintu
   ctx.fillStyle = '#451A03';
   ctx.fillRect(-4, 0, 8, 10);
-  
-  // Ayam kecil di samping kandang
   const chWalk = Math.sin(t_n * 4) * 1.5;
   ctx.fillStyle = '#FFFFFF';
   ctx.beginPath(); ctx.arc(14, 4 + chWalk, 5, 0, 7); ctx.fill();
-  // Jengger merah
   ctx.fillStyle = '#EF4444';
   ctx.beginPath(); ctx.arc(14, -2 + chWalk, 2, 0, 7); ctx.fill();
-  // Paruh
   ctx.fillStyle = '#F59E0B';
   ctx.beginPath(); ctx.moveTo(18, 4 + chWalk); ctx.lineTo(21, 5 + chWalk); ctx.lineTo(18, 6 + chWalk); ctx.fill();
-  
-  // Teks Status Telur
   const eggsCount = state.pets?.eggs || 0;
   ctx.font = 'bold 8.5px sans-serif';
   ctx.fillStyle = eggsCount > 0 ? '#D97706' : '#64748B';
@@ -1593,16 +1553,6 @@ const SAVE_KEY = 'tanah_hangat_v1';
 function save(){
   try{
     if(state) state.lastSaveRealTime = Date.now();
-  // Inisialisasi Hewan Peliharaan
-  if(!state.pets){
-    state.pets = {
-      dog: { name: 'Mochi', happy: 100 },
-      chickens: 2,
-      eggs: 0,
-      eggTimer: 0
-    };
-  }
-
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   }catch(e){}
 }
@@ -3118,14 +3068,14 @@ function loop(ts){
     }
 
     
-    // Pet Tick: Ayam bertelur
+    // Pet Tick: Telur ayam berkala
     if(!state.pets) state.pets = { dog:{name:'Mochi'}, chickens:2, eggs:0, eggTimer:0 };
     state.pets.eggTimer = (state.pets.eggTimer || 0) + dt;
-    if(state.pets.eggTimer >= 180){ // tiap 3 menit
+    if(state.pets.eggTimer >= 180){
       state.pets.eggTimer = 0;
       if(state.pets.eggs < 6){
         state.pets.eggs = (state.pets.eggs || 0) + 1;
-        toast('🐔 Petok! Ayam kebunmu baru saja menghasilkan sebutir telur segar!', 'good');
+        toast('🐔 Petok! Ayam kebunmu menghasilkan telur segar!', 'good');
         SFX.harvest();
       }
     }
