@@ -1,0 +1,49 @@
+{
+  "source_apk": {
+    "file": "BlockZone.apk",
+    "bytes": 10433482,
+    "drive_file_id": "17eyDX9_y3pPBCyP8tLcH1yC8XOaD23C4",
+    "recovered_from": "Google Drive pemilik akun (satu-satunya salinan yang tersisa)",
+    "recovered_at": "2026-11-04"
+  },
+  "app": {
+    "name": "BlockZone",
+    "package": "com.kyoko.squarezone",
+    "versionName": "1.0.3",
+    "versionCode": 3,
+    "minSdk": 24,
+    "targetSdk": 36,
+    "androidGradlePlugin": "8.13.0",
+    "wrapper": "Capacitor (WebView)",
+    "plugins": ["@capacitor-community/admob"],
+    "permissions": [
+      "android.permission.ACCESS_ADSERVICES_AD_ID",
+      "android.permission.ACCESS_ADSERVICES_ATTRIBUTION",
+      "android.permission.ACCESS_ADSERVICES_TOPICS",
+      "android.permission.ACCESS_NETWORK_STATE",
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.INTERNET",
+      "android.permission.WAKE_LOCK",
+      "com.google.android.gms.permission.AD_ID",
+      "com.kyoko.squarezone.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ]
+  },
+  "game_package": {
+    "build": 1789981882,
+    "build_iso_utc": "2026-09-21T09:11:22Z",
+    "name": "20260921.b6ca728",
+    "file": "game.html",
+    "update_url": "https://KyokoApp.github.io/rpg/"
+  },
+  "integrity_md5": {
+    "ads-config.js": "97a926966df2181f04a964f0dbc334be",
+    "cordova.js": "d41d8cd98f00b204e9800998ecf8427e",
+    "cordova_plugins.js": "d41d8cd98f00b204e9800998ecf8427e",
+    "game.html": "a94e4545d2d199ed8f563e1811105240",
+    "icon.jpg": "a903c742229fd72f5901e88428e671dc",
+    "index.html": "450a4e6669fd3eba2c844a9286324066",
+    "update-config.js": "9a5dee8c81447cf7a82d6a668aa798e4",
+    "updater.js": "a538b54c916f95497a647cdd49c272ce",
+    "version.json": "fbf2238e32154497faa1741e258ed9af"
+  }
+}
