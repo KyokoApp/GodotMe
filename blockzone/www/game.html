@@ -44,12 +44,15 @@ button{font-family:inherit;}
 
 /* ---------- HUD ---------- */
 #hud{
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  padding:8px 14px;border-radius:16px;position:relative;z-index:5;
+  display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+  padding:6px 10px;border-radius:16px;position:relative;z-index:5;
   background:var(--noise), linear-gradient(180deg,#A8866C,#8B6F5C 55%,#7E6250);
   border:3px solid var(--wood-d);
-  box-shadow:inset 0 2px 0 rgba(255,255,255,.20), inset 0 -4px 0 rgba(0,0,0,.18), 0 6px 0 rgba(0,0,0,.13), 0 10px 20px var(--shadow);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.20), inset 0 -4px 0 rgba(0,0,0,.18), 0 6px 0 rgba(0,0,0,.13);
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
 }
+#hud::-webkit-scrollbar{display:none;}
+#hud .hud-chip, #hud button{flex-shrink:0;}
 .hud-chip{
   display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;
   background:linear-gradient(180deg,#FBF4E6,#EFE1CC);
@@ -458,10 +461,33 @@ function resizeCanvas(){
   const maxW = Math.floor((w - 24) / 8);
   const maxH = Math.floor((h - 130) / 5);
   TILE = Math.max(34, Math.min(64, maxW, maxH));
+  prepareBgCanvas();
 }
 window.addEventListener("resize", resizeCanvas);
 window.addEventListener("orientationchange", resizeCanvas);
 
+
+
+let bgCanvas = null;
+function prepareBgCanvas(){
+  if(!canvas.width || !canvas.height) return;
+  if(!bgCanvas) bgCanvas = document.createElement("canvas");
+  bgCanvas.width = canvas.width;
+  bgCanvas.height = canvas.height;
+  const bctx = bgCanvas.getContext("2d");
+  const g = bctx.createLinearGradient(0,0,0,bgCanvas.height);
+  g.addColorStop(0,"#C3D6AE");
+  g.addColorStop(1,"#B3C99B");
+  bctx.fillStyle = g;
+  bctx.fillRect(0,0,bgCanvas.width,bgCanvas.height);
+  for(const d of GRASS_DOTS){
+    bctx.globalAlpha = 0.35 + (d.r>1.8?0.3:0);
+    bctx.fillStyle = d.c;
+    bctx.beginPath();
+    bctx.arc((d.x/1000)*bgCanvas.width, (d.y/680)*bgCanvas.height, d.r, 0, 7);
+    bctx.fill();
+  }
+}
 
 /* grass texture precomputed */
 const GRASS_DOTS = (()=>{ const a=[]; for(let i=0;i<420;i++) a.push({x:Math.random()*1000,y:Math.random()*680,r:0.7+Math.random()*1.9,c:Math.random()<.5?'#A9C293':'#C2D4AC'}); return a; })();
@@ -587,6 +613,92 @@ function rollEvents(){
   toast('Papan desa: ' + ev.name, 'gold');
 }
 
+
+/* ---------------- SOUND & AMBIENT ENGINE ---------------- */
+let audioCtx = null;
+function getAudio(){
+  if(!audioCtx){
+    const AudioC = window.AudioContext || window.webkitAudioContext;
+    if(AudioC) audioCtx = new AudioC();
+  }
+  if(audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+const SFX = {
+  water(){
+    const a = getAudio(); if(!a) return;
+    const now = a.currentTime;
+    const osc = a.createOscillator();
+    const gain = a.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(420, now);
+    osc.frequency.exponentialRampToValueAtTime(140, now + 0.18);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+    osc.connect(gain); gain.connect(a.destination);
+    osc.start(now); osc.stop(now + 0.19);
+  },
+  plant(){
+    const a = getAudio(); if(!a) return;
+    const now = a.currentTime;
+    const osc = a.createOscillator();
+    const gain = a.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(160, now);
+    osc.frequency.exponentialRampToValueAtTime(90, now + 0.14);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.14);
+    osc.connect(gain); gain.connect(a.destination);
+    osc.start(now); osc.stop(now + 0.15);
+  },
+  harvest(){
+    const a = getAudio(); if(!a) return;
+    const now = a.currentTime;
+    [523.25, 659.25, 783.99].forEach((freq, idx) => {
+      const osc = a.createOscillator();
+      const gain = a.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now + idx*0.06);
+      gain.gain.setValueAtTime(0.2, now + idx*0.06);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + idx*0.06 + 0.22);
+      osc.connect(gain); gain.connect(a.destination);
+      osc.start(now + idx*0.06); osc.stop(now + idx*0.06 + 0.23);
+    });
+  },
+  coin(){
+    const a = getAudio(); if(!a) return;
+    const now = a.currentTime;
+    const osc = a.createOscillator();
+    const gain = a.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(987.77, now);
+    osc.frequency.setValueAtTime(1318.51, now + 0.08);
+    gain.gain.setValueAtTime(0.22, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.24);
+    osc.connect(gain); gain.connect(a.destination);
+    osc.start(now); osc.stop(now + 0.25);
+  },
+  birdChirp(){
+    const a = getAudio(); if(!a) return;
+    const now = a.currentTime;
+    const osc = a.createOscillator();
+    const gain = a.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(2200, now);
+    osc.frequency.exponentialRampToValueAtTime(3100, now + 0.06);
+    osc.frequency.exponentialRampToValueAtTime(2400, now + 0.14);
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.005, now + 0.18);
+    osc.connect(gain); gain.connect(a.destination);
+    osc.start(now); osc.stop(now + 0.20);
+  }
+};
+
+setInterval(() => {
+  if(state && !state.paused && Math.random() < 0.65) SFX.birdChirp();
+}, 9000);
+
 /* ---------------- FARM ---------------- */
 function tileKey(x,y){ return x+','+y; }
 function getTile(x,y){ return state.tiles[tileKey(x,y)]; }
@@ -600,7 +712,7 @@ function plant(x,y,cropId){
   if(!state.stats.planted) state.stats.planted = 0;
   state.stats.planted++;
   updateQuestHUD();
-  spawnParticles(x, y, '#9CAF88', 6);
+  spawnParticles(x, y, '#9CAF88', 6); SFX.plant();
   return true;
 }
 function stageOf(crop){
@@ -627,7 +739,7 @@ function harvest(x,y){
   state.stats.harvested += yieldN;
   if(!state.collection[c.id]) state.collection[c.id] = {normal:0,bagus:0,sempurna:0};
   state.collection[c.id][q] = (state.collection[c.id][q]||0) + yieldN;
-  spawnParticles(x, y, c.color, 10);
+  spawnParticles(x, y, c.color, 10); SFX.harvest();
   if(c.regrow){
     t.crop.growth = Math.max(0, c.days - c.regrow);
     toast('+'+yieldN+' '+c.name + (q!=='normal'?' ('+QLABEL[q]+')':''), 'good');
@@ -644,7 +756,7 @@ function waterTile(x,y){
   if(!state.stats.wateredCount) state.stats.wateredCount = 0;
   state.stats.wateredCount++;
   updateQuestHUD();
-  spawnParticles(x, y, '#8FB3C9', 5);
+  spawnParticles(x, y, '#8FB3C9', 5); SFX.water();
   return true;
 }
 
@@ -872,20 +984,13 @@ const DARK = '#4A3B32', GREEN = '#7C9A63', GREEN_D = '#5F7C4C';
 function render(t){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // ---- background grass ----
-  const g = ctx.createLinearGradient(0,0,0,canvas.height);
-  g.addColorStop(0,'#C3D6AE');
-  g.addColorStop(1,'#B3C99B');
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  ctx.fillStyle = 'rgba(255,255,255,.18)';
-  for(const d of GRASS_DOTS){
-    ctx.globalAlpha = 0.35 + (d.r>1.8?0.3:0);
-    ctx.fillStyle = d.c;
-    ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
+  // ---- background grass (cached ultra fast) ----
+  if(bgCanvas && bgCanvas.width === canvas.width) {
+    ctx.drawImage(bgCanvas, 0, 0);
+  } else {
+    prepareBgCanvas();
+    if(bgCanvas) ctx.drawImage(bgCanvas, 0, 0);
   }
-  ctx.globalAlpha = 1;
 
   const o = gridOrigin();
   const gw = state.gridW*TILE, gh = state.gridH*TILE;
@@ -1864,7 +1969,7 @@ function sellTo(id, qty, npcId){
     total += p * r.qty;
   }
   total = Math.round(total);
-  state.money += total;
+  state.money += total; SFX.coin();
   state.stats.earned += total;
   state.stats.sold += qty;
   if(m) m.glut = clamp((m.glut||0) + qty*0.014, 0, 0.5);
@@ -1888,7 +1993,7 @@ function sellAllToMarket(){
   }
   total = Math.round(total);
   if(count===0){ toast('Tidak ada hasil untuk dijual.', 'bad'); return; }
-  state.money += total;
+  state.money += total; SFX.coin();
   state.stats.earned += total;
   state.stats.sold += count;
   toast('Jual semua: '+count+' barang → +'+fmt(total)+' koin', 'gold');
