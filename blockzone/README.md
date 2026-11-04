@@ -162,6 +162,15 @@ Java 21 + Android SDK bawaan runner) dan mengunggah artefak
 | orientasi | `sensorLandscape` |
 | AdMob App ID | hanya kalau variabel repo `BLOCKZONE_ADMOB_APP_ID` diisi |
 
+Setelah Gradle selesai, `tools/verify_apk.py` membongkar APK hasil build dan
+membandingkan md5 setiap berkas di `assets/public/` dengan `APK_INFO.json`.
+Build digagalkan kalau ada yang berbeda — jadi tanda hijau di CI berarti
+"APK-nya berisi game yang sama", bukan cuma "Gradle tidak error". Satu-satunya
+berkas yang diperiksa isinya (bukan md5) adalah `update-config.js`, karena URL
+updater-nya memang diarahkan ke situs yang hidup.
+
+Artefak hasil build tersedia di tab **Actions → blockzone-apk → blockzone-apk-debug**.
+
 ## Kode sumber yang bisa dibaca
 
 `game.html` dipecah jadi `src/` tanpa mengubah satu byte pun, dan itu dibuktikan
