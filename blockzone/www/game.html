@@ -106,11 +106,14 @@ button{font-family:inherit;}
 
 /* ---------- DOCK ---------- */
 #dock{
-  display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:8px 10px;border-radius:16px;
+  display:flex;gap:8px;align-items:center;padding:7px 10px;border-radius:16px;
   background:var(--noise), linear-gradient(180deg,#A8866C,#8B6F5C 55%,#7E6250);
   border:3px solid var(--wood-d);
   box-shadow:inset 0 2px 0 rgba(255,255,255,.18), inset 0 -4px 0 rgba(0,0,0,.18), 0 6px 0 rgba(0,0,0,.13);
+  overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;
 }
+#dock::-webkit-scrollbar{display:none;}
+#dock .dbtn{flex-shrink:0;}
 .dbtn{
   padding:8px 16px;border-radius:11px;font-weight:600;font-size:14px;color:#FFF6E6;
   background:linear-gradient(180deg,#C9A983,#A8866C 55%,#95785F);
@@ -241,6 +244,21 @@ input[type=number]:focus{outline:2px solid var(--honey);}
   #panelBody{padding:11px;margin:7px;}
   #panelTitle{font-size:18px;}
 }
+
+#questBar{
+  display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:12px;
+  background:linear-gradient(180deg,#FFF6E6,#EAD8B8);
+  border:2px solid var(--wood-d);
+  box-shadow:0 3px 0 rgba(0,0,0,.1);
+  font-size:12.5px;color:#4A3B32;font-weight:600;
+  transition:all .3s ease;
+}
+#questTag{
+  background:#D9822B;color:#FFF;padding:2px 7px;border-radius:6px;font-size:10.5px;font-weight:800;letter-spacing:1px;
+}
+#questText{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#questReward{color:#2F7A43;font-weight:800;font-size:11.5px;}
+
 </style>
 </head>
 <body>
@@ -255,6 +273,12 @@ input[type=number]:focus{outline:2px solid var(--honey);}
     <div class="spacer"></div>
     <div class="hud-chip"><span class="lbl">Tas</span><span id="hudBag">0/60</span></div>
     <button class="dbtn" id="btnSleep" style="padding:5px 12px;font-size:13px;">Tidur</button>
+  </div>
+
+  <div id="questBar">
+    <span id="questTag">MISI</span>
+    <span id="questText">Memuat misi...</span>
+    <span id="questReward"></span>
   </div>
 
   <div id="stage">
@@ -573,6 +597,9 @@ function plant(x,y,cropId){
   if(invCount('bibit_'+cropId) <= 0){ toast('Bibitnya habis.', 'bad'); return false; }
   removeItem('bibit_'+cropId, 1);
   t.crop = {id:cropId, growth:0, stress:0};
+  if(!state.stats.planted) state.stats.planted = 0;
+  state.stats.planted++;
+  updateQuestHUD();
   spawnParticles(x, y, '#9CAF88', 6);
   return true;
 }
@@ -614,6 +641,9 @@ function waterTile(x,y){
   const t = getTile(x,y);
   if(!t || !t.crop || t.watered) return false;
   t.watered = true;
+  if(!state.stats.wateredCount) state.stats.wateredCount = 0;
+  state.stats.wateredCount++;
+  updateQuestHUD();
   spawnParticles(x, y, '#8FB3C9', 5);
   return true;
 }
@@ -1295,7 +1325,77 @@ function drawDecoItem(id, x, y){
    HUD & HOTBAR
    ========================================================================= */
 let hudAcc = 0;
+
+/* ---------------- QUEST / TUTORIAL SYSTEM ---------------- */
+const QUESTS = [
+  {
+    id: 1,
+    title: "Langkah Pertama",
+    desc: "Tanam 1 bibit di petak tanah kebun",
+    check: s => s.stats && s.stats.planted > 0,
+    rewardText: "+60 Koin & Pupuk",
+    claim: () => { state.money += 60; addItem(pupuk_super, 2); toast("Misi 1 Selesai! +60 Koin & 2 Pupuk Super", "good"); }
+  },
+  {
+    id: 2,
+    title: "Segarnya Air",
+    desc: "Siram tanamanmu agar tumbuh subur",
+    check: s => s.stats && s.stats.wateredCount > 0,
+    rewardText: "+3 Bibit Tomat",
+    claim: () => { addItem(bibit_tomat, 3); toast("Misi 2 Selesai! +3 Bibit Tomat", "good"); }
+  },
+  {
+    id: 3,
+    title: "Panen Perdana",
+    desc: "Tunggu tanaman matang lalu panen hasilnya",
+    check: s => s.stats && s.stats.harvested > 0,
+    rewardText: "+120 Koin",
+    claim: () => { state.money += 120; toast("Misi 3 Selesai! +120 Koin", "good"); }
+  },
+  {
+    id: 4,
+    title: "Pedagang Kebun",
+    desc: "Buka menu Pasar dan jual hasil panenmu",
+    check: s => s.stats && s.stats.sold > 0,
+    rewardText: "+1 Permata & Bibit Stroberi",
+    claim: () => { state.gems = (state.gems||0) + 1; addItem(bibit_stroberi, 2); toast("Misi 4 Selesai! +1 Permata & 2 Bibit Stroberi", "good"); }
+  },
+  {
+    id: 5,
+    title: "Petani Mandiri",
+    desc: "Tidurlah untuk melewati hari ke Hari berikutnya",
+    check: s => s.day > 1,
+    rewardText: "+150 Koin & Gelar Petani",
+    claim: () => { state.money += 150; toast("Selamat! Kamu resmi jadi Petani Mandiri di Tanah Hangat!", "good"); }
+  }
+];
+
+function updateQuestHUD(){
+  if(!state) return;
+  if(!state.questStep) state.questStep = 0;
+  if(!state.stats.planted) state.stats.planted = 0;
+  if(!state.stats.wateredCount) state.stats.wateredCount = 0;
+  const qBar = document.getElementById("questBar");
+  if(!qBar) return;
+  if(state.questStep >= QUESTS.length){
+    qBar.style.display = "none";
+    return;
+  }
+  const q = QUESTS[state.questStep];
+  if(q.check(state)){
+    state.questStep++;
+    q.claim();
+    updateHUD();
+    renderHotbar();
+    return updateQuestHUD();
+  }
+  document.getElementById("questTag").textContent = "MISI " + q.id;
+  document.getElementById("questText").textContent = q.title + ": " + q.desc;
+  document.getElementById("questReward").textContent = q.rewardText;
+}
+
 function updateHUD(){
+  updateQuestHUD();
   $('#hudMoney').textContent = fmt(state.money);
   $('#hudGems').textContent = state.gems;
   $('#hudDate').textContent = state.day + ' ' + SEASONS[state.season];
@@ -1442,7 +1542,10 @@ document.querySelectorAll('[data-quick]').forEach(b=>{
       let n=0;
       for(let y=0;y<state.gridH;y++) for(let x=0;x<state.gridW;x++){
         const t = getTile(x,y);
-        if(t && t.crop && !t.watered){ t.watered = true; n++; }
+        if(t && t.crop && !t.watered){ t.watered = true;
+  if(!state.stats.wateredCount) state.stats.wateredCount = 0;
+  state.stats.wateredCount++;
+  updateQuestHUD(); n++; }
       }
       toast(n?('Menyiram '+n+' petak.'):'Semua sudah basah.', n?'good':'');
     }
