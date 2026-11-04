@@ -1,0 +1,9 @@
+# Semua isi folder ini dihasilkan saat build (lihat blockzone/tools/patch_android.py
+# dan .github/workflows/blockzone-apk.yml). Yang di-commit hanya package.json.
+
+node_modules/
+www/
+android/
+capacitor.config.json
+package-lock.json
+*.apk

@@ -32,12 +32,19 @@ satu-satunya salinan yang masih ada.
 
 ```
 blockzone/
+├── BlockZone.apk             # APK asli (10.433.482 byte) - satu-satunya salinan utuh
 ├── capacitor.config.json     # konfigurasi asli dari APK (assets/capacitor.config.json)
 ├── capacitor.plugins.json    # daftar plugin asli (AdMob)
 ├── APK_INFO.json             # metadata APK + md5 semua berkas
 ├── serve.sh                  # jalankan game di browser lokal
+├── src/                      # game.html dipecah (hasil build dijamin byte-identik)
+│   ├── game.template.html
+│   ├── style.css
+│   └── js/{01-boot.js,02-game.js}
+├── apk/                      # pembungkus Capacitor untuk membangun ulang APK
+├── tools/                    # build_site.py, build_game.py, split_game.py, patch_android.py
 └── www/                      # == assets/public di dalam APK (identik)
-    ├── game.html             # SELURUH game: 3.286 baris HTML+CSS+JS, tanpa dependensi eksternal
+    ├── game.html             # SELURUH game: 3.287 baris HTML+CSS+JS, tanpa dependensi eksternal
     ├── index.html            # layar pembuka: cek update → jalankan game
     ├── updater.js            # pengunduh update (memakai Cache API)
     ├── update-config.js      # window.BZ_UPDATE = https://KyokoApp.github.io/rpg/
@@ -97,3 +104,73 @@ Battle royale top-down: arena kotak, musuh bot dengan level, HP bar, minimap,
 leaderboard, skill (shield, attack speed, laser), trail peluru & trail tubuh
 yang bisa dibeli di **SHOP**, pengaturan bahasa (ID/EN) dan suara, plus layar
 kalah/menang dengan skor terbaik di `localStorage`.
+
+---
+
+## Terbitkan ke GitHub Pages
+
+Situs statisnya dibangun dari `www/` yang utuh, dengan satu berkas ditulis ulang
+(`update-config.js`, karena alamat updater aslinya sudah 404):
+
+```bash
+python3 blockzone/tools/build_site.py --out dist/site \
+    --base-url https://kyokoapp.github.io/GodotMe/blockzone/
+python3 -m http.server -d dist/site 8081     # cek dulu di lokal
+```
+
+Di GitHub, `.github/workflows/blockzone-pages.yml` sudah menyiapkan semuanya.
+Supaya benar-benar terbit, dua hal ini perlu diisi di repo (tidak bisa lewat
+token sesi ini — butuh hak admin):
+
+1. **Settings → Pages → Build and deployment → Source: _GitHub Actions_**
+2. **Settings → Secrets and variables → Actions → Variables:**
+   * `BLOCKZONE_PAGES` = `on`
+   * `BLOCKZONE_PAGES_URL` = `https://kyokoapp.github.io/GodotMe/blockzone/` (opsional)
+
+Selama `BLOCKZONE_PAGES` belum diisi, workflow tetap **hijau**: situs dibangun
+dan diperiksa, hasilnya tersedia sebagai artefak `blockzone-site`, hanya tidak
+diterbitkan. Setelah variabel diisi, setiap perubahan di `blockzone/` otomatis
+terbit ke URL di atas — dan updater di APK jadi hidup lagi, karena
+`update-config.js` di situs menunjuk ke alamat itu.
+
+## Bangun ulang APK
+
+Native project Android aslinya tidak tersimpan di dalam APK (hanya `classes.dex`
+terkompilasi), jadi dibangkitkan ulang dari `package.json` + `capacitor.config.json`
+lalu disetel agar cocok dengan aslinya:
+
+```bash
+cd blockzone/apk
+mkdir -p www && cp -a ../www/. www/
+cp ../capacitor.config.json .
+npm install
+npx cap add android
+python3 ../tools/patch_android.py --android android --www www \
+    --update-url https://kyokoapp.github.io/GodotMe/blockzone/
+cd android && ./gradlew assembleDebug
+```
+
+`.github/workflows/blockzone-apk.yml` melakukan hal yang sama di CI (Node 22 +
+Java 21 + Android SDK bawaan runner) dan mengunggah artefak
+`blockzone-apk-debug`. Yang disetel `patch_android.py`, semuanya dari data asli:
+
+| Nilai | Jadi |
+| --- | --- |
+| `applicationId` / `appName` | `com.kyoko.squarezone` / `BlockZone` |
+| `versionCode` / `versionName` | `3` / `1.0.3` |
+| `minSdk` / `targetSdk` | `24` / `36` |
+| orientasi | `sensorLandscape` |
+| AdMob App ID | hanya kalau variabel repo `BLOCKZONE_ADMOB_APP_ID` diisi |
+
+## Kode sumber yang bisa dibaca
+
+`game.html` dipecah jadi `src/` tanpa mengubah satu byte pun, dan itu dibuktikan
+setiap kali:
+
+```bash
+python3 blockzone/tools/build_game.py     # harus keluar: "identik: ... sha256 c92c8a0d…"
+```
+
+Kalau ada yang mengubah `src/` dan hasilnya tidak lagi sama dengan arsip, skrip
+gagal dan menunjuk offset byte pertama yang berbeda. Rinciannya di
+[`src/README.md`](src/README.md).

@@ -1,0 +1,524 @@
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    overflow: hidden; background: #000;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-user-select: none; user-select: none;
+    overscroll-behavior: none;
+  }
+  canvas { display: block; touch-action: none; }
+
+  /* ================= MENU ================= */
+  #menu {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, #15151a 0%, #000 100%);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    transition: opacity 0.35s ease;
+  }
+  #menu.hidden { opacity: 0; pointer-events: none; }
+
+  .menu-inner {
+    width: 100%; max-width: 720px; padding: 24px;
+    display: flex; flex-direction: column; gap: 16px; align-items: center;
+  }
+
+  .title {
+    font-size: clamp(28px, 6vw, 54px);
+    font-weight: 800; letter-spacing: 4px;
+    text-shadow: 0 0 24px rgba(255,255,255,0.55);
+    text-align: center;
+  }
+  .subtitle {
+    font-size: clamp(11px, 1.6vw, 14px);
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 3px; margin-bottom: 8px; text-align: center;
+  }
+
+  .coin-display {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 18px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.22);
+    border-radius: 999px;
+    font-weight: 700; letter-spacing: 2px; font-size: 14px;
+  }
+  .coin-icon {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #aaa 70%);
+    box-shadow: 0 0 8px rgba(255,255,255,0.6);
+    display: inline-block; flex-shrink: 0;
+  }
+
+  .row { display: flex; gap: 10px; width: 100%; max-width: 460px; }
+
+  input[type=text] {
+    flex: 1; padding: 14px 18px; font-size: 16px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.25);
+    border-radius: 10px; color: #fff; outline: none;
+    transition: all 0.15s;
+  }
+  input[type=text]:focus {
+    border-color: #fff; background: rgba(255,255,255,0.10);
+    box-shadow: 0 0 20px rgba(255,255,255,0.25);
+  }
+  input[type=text]::placeholder { color: rgba(255,255,255,0.35); }
+
+  button {
+    padding: 14px 24px; font-size: 15px; font-weight: 700;
+    letter-spacing: 2px;
+    background: #ffffff; color: #000;
+    border: none; border-radius: 10px;
+    cursor: pointer; transition: all 0.15s;
+    min-width: 120px;
+  }
+  button:hover:not(:disabled) { transform: scale(1.03); box-shadow: 0 0 24px rgba(255,255,255,0.55); }
+  button:active:not(:disabled) { transform: scale(0.97); }
+  button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  button.ghost {
+    background: rgba(255,255,255,0.06); color: #fff;
+    border: 2px solid rgba(255,255,255,0.35);
+  }
+  button.ghost:hover:not(:disabled) { background: rgba(255,255,255,0.14); box-shadow: none; }
+
+  .hint {
+    font-size: 12px; color: rgba(255,255,255,0.4);
+    letter-spacing: 1px; margin-top: 12px; text-align: center; line-height: 1.6;
+  }
+
+  /* ================= BRAND (ikon + judul di menu) ================= */
+  .brand {
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .brand-icon {
+    width: clamp(48px, 15vh, 84px); height: clamp(48px, 15vh, 84px);
+    border-radius: 22%; object-fit: cover; flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 0 26px rgba(255,190,120,0.22);
+    -webkit-user-drag: none; pointer-events: none;
+  }
+  .brand-text { display: flex; flex-direction: column; align-items: flex-start; }
+  .brand-text .title, .brand-text .subtitle { text-align: left; }
+  .brand-text .subtitle { margin-bottom: 0; }
+
+  .menu-inner.enter { animation: menuIn 0.7s ease both; }
+  @keyframes menuIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ================= LOADING SCREEN ================= */
+  #boot {
+    position: fixed; inset: 0; z-index: 9000;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.8s ease;
+  }
+  #boot.out { opacity: 0; pointer-events: none; }
+  .boot-stack {
+    display: flex; flex-direction: column; align-items: center;
+    gap: clamp(10px, 4vh, 22px);
+  }
+  .boot-icon {
+    width: clamp(88px, 34vh, 240px); height: clamp(88px, 34vh, 240px);
+    border-radius: 22%; object-fit: cover;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 0 48px rgba(255,190,120,0.18);
+    opacity: 0; transform: scale(0.9);
+    animation: bootIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s forwards;
+    -webkit-user-drag: none;
+  }
+  .boot-text {
+    font-family: "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+    font-size: clamp(18px, 6vh, 34px); font-weight: 700;
+    letter-spacing: 0.35em; padding-left: 0.35em;
+    color: #fff; text-shadow: 0 0 18px rgba(255,255,255,0.45);
+    opacity: 0; transform: translateY(6px);
+    animation: bootIn 0.8s ease 0.6s forwards;
+  }
+  @keyframes bootIn { to { opacity: 1; transform: none; } }
+
+  /* ================= TOP-LEFT ICON BUTTONS ================= */
+  .corner-btn {
+    position: absolute;
+    left: 20px;
+    width: 56px; height: 56px;
+    padding: 0; min-width: 0;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.35);
+    font-size: 24px;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+    transition: all 0.15s;
+  }
+  .corner-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.16);
+    transform: scale(1.05);
+    box-shadow: 0 0 22px rgba(255,255,255,0.4);
+  }
+  .corner-btn:active:not(:disabled) { transform: scale(0.95); }
+
+  #btnShop { top: 20px; }
+  #btnSettings { top: 86px; } /* 20 + 56 + 10 */
+
+  @media (max-width: 500px) {
+    .corner-btn {
+      width: 48px; height: 48px;
+      left: 14px;
+      font-size: 20px;
+      border-radius: 12px;
+    }
+    #btnShop { top: 14px; }
+    #btnSettings { top: 70px; } /* 14 + 48 + 8 */
+  }
+
+  /* ================= OVERLAYS ================= */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 1001; display: none;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .overlay.show { display: flex; }
+
+  .panel {
+    background: #0d0d10;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 16px; padding: 24px 28px;
+    width: 100%; max-width: 460px;
+    box-shadow: 0 0 40px rgba(255,255,255,0.15);
+    max-height: 90vh; overflow-y: auto;
+  }
+  .panel h2 { margin: 0 0 20px; font-size: 20px; letter-spacing: 3px; text-align: center; }
+
+  .opt-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .opt-row:last-of-type { border-bottom: none; }
+  .opt-label { font-size: 14px; letter-spacing: 1px; }
+  .opt-sub { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+  .switch {
+    position: relative; width: 52px; height: 28px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 14px; cursor: pointer;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .switch::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 22px; height: 22px;
+    background: #fff; border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .switch.on { background: #ffffff; }
+  .switch.on::after { transform: translateX(24px); background: #000; }
+
+  .close-btn { width: 100%; margin-top: 16px; }
+
+  /* Language selector */
+  .lang-select {
+    display: flex;
+    gap: 6px;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.18);
+    border-radius: 10px;
+    padding: 4px;
+    flex-shrink: 0;
+  }
+  .lang-opt {
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    border-radius: 7px;
+    cursor: pointer;
+    color: rgba(255,255,255,0.5);
+    transition: all 0.15s;
+    user-select: none;
+    border: none;
+    background: transparent;
+    min-width: 0;
+  }
+  .lang-opt:hover { color: #fff; }
+  .lang-opt.active {
+    background: #ffffff;
+    color: #000;
+    box-shadow: 0 0 14px rgba(255,255,255,0.4);
+  }
+
+  /* ================= SHOP ================= */
+  #shop {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+  .shop-wrap {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+  }
+
+  .shop-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.4);
+  }
+  .shop-title {
+    font-size: 18px; font-weight: 800;
+    letter-spacing: 4px; color: #fff;
+    text-shadow: 0 0 12px rgba(255,255,255,0.35);
+  }
+  .shop-balance-inline {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.25);
+    border-radius: 999px;
+    font-weight: 800; letter-spacing: 2px; font-size: 14px;
+  }
+  .shop-balance-inline .coin-icon { width: 16px; height: 16px; }
+
+  .shop-close-x {
+    width: 44px; height: 44px;
+    min-width: 0; padding: 0;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.3);
+    font-size: 20px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .shop-close-x:hover:not(:disabled) {
+    background: rgba(255,255,255,0.18);
+    box-shadow: none; transform: none;
+  }
+
+  .shop-scroll-area {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    display: flex;
+    align-items: center;
+    padding: 20px max(20px, calc((100vw - 220px * 2 - 16px) / 2));
+    gap: 16px;
+  }
+  .shop-scroll-area::-webkit-scrollbar { display: none; }
+  .shop-scrollbar {
+    flex-shrink: 0;
+    padding: 10px 20px 18px;
+    display: flex;
+    justify-content: center;
+  }
+  .shop-scrollbar-track {
+    width: min(60%, 340px);
+    height: 4px;
+    background: rgba(255,255,255,0.10);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .shop-scrollbar-thumb {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    background: rgba(255,255,255,0.65);
+    border-radius: 2px;
+    transition: transform 0.1s;
+    will-change: transform, width;
+  }
+
+  .shop-card {
+    flex: 0 0 220px;
+    width: 220px;
+    height: 300px;
+    scroll-snap-align: center;
+    background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+    border: 2px solid rgba(255,255,255,0.16);
+    border-radius: 18px;
+    padding: 18px 16px;
+    display: flex; flex-direction: column;
+    align-items: center;
+    position: relative;
+    transition: all 0.25s;
+    color: #fff;
+  }
+  .shop-card.owned {
+    border-color: rgba(120,200,255,0.55);
+    background: linear-gradient(180deg, rgba(80,180,255,0.10) 0%, rgba(80,180,255,0.02) 100%);
+  }
+  .shop-card.equipped {
+    border-color: rgba(255,255,255,0.95);
+    background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 100%);
+    box-shadow: 0 0 30px rgba(255,255,255,0.20);
+  }
+
+  .shop-card-badge {
+    position: absolute;
+    top: -1px; left: -1px;
+    padding: 4px 10px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    border-radius: 16px 0 16px 0;
+    border: 2px solid rgba(255,255,255,0.9);
+    background: #fff;
+    color: #000;
+  }
+  .shop-card.owned .shop-card-badge {
+    background: #6ac3ff;
+    border-color: #6ac3ff;
+    color: #000;
+  }
+  .shop-card.equipped .shop-card-badge {
+    background: #ffffff;
+    color: #000;
+    box-shadow: 0 0 14px rgba(255,255,255,0.7);
+  }
+
+  .shop-card-icon {
+    width: 84px; height: 84px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.25);
+    font-size: 44px;
+    margin-top: 6px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+  .shop-card.owned .shop-card-icon {
+    border-color: rgba(120,200,255,0.55);
+    background: rgba(80,180,255,0.10);
+  }
+  .shop-card.equipped .shop-card-icon {
+    border-color: #fff;
+    background: rgba(255,255,255,0.10);
+    box-shadow: 0 0 20px rgba(255,255,255,0.25);
+  }
+
+  .shop-card-name {
+    font-size: 15px; font-weight: 800;
+    letter-spacing: 2px;
+    text-align: center;
+    margin-bottom: 8px;
+    color: #fff;
+  }
+  .shop-card-desc {
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+    text-align: center;
+    line-height: 1.55;
+    flex: 1;
+    padding: 0 4px;
+  }
+  .shop-card-price {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(0,0,0,0.4);
+    border: 1.5px solid rgba(255,255,255,0.18);
+    border-radius: 999px;
+    font-weight: 800; letter-spacing: 2px; font-size: 14px;
+    margin-bottom: 12px;
+    width: 100%;
+  }
+  .shop-card-price .coin-icon { width: 15px; height: 15px; }
+  .shop-card.owned .shop-card-price {
+    background: rgba(80,180,255,0.15);
+    border-color: rgba(120,200,255,0.4);
+    color: #9ddcff;
+  }
+
+  .shop-card-btn {
+    width: 100%;
+    padding: 12px 0;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    border-radius: 10px;
+    min-width: 0;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .shop-card-btn.buy { background: #ffffff; color: #000; }
+  .shop-card-btn.buy:hover:not(:disabled) {
+    box-shadow: 0 0 20px rgba(255,255,255,0.7);
+    transform: translateY(-1px);
+  }
+  .shop-card-btn.buy:disabled {
+    background: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.30);
+    cursor: not-allowed;
+  }
+  .shop-card-btn.equip { background: rgba(120,200,255,0.9); color: #000; }
+  .shop-card-btn.equip:hover {
+    background: #9ddcff;
+    box-shadow: 0 0 20px rgba(120,200,255,0.7);
+    transform: translateY(-1px);
+  }
+  .shop-card-btn.unequip {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border: 2px solid rgba(255,255,255,0.35);
+  }
+  .shop-card-btn.unequip:hover { background: rgba(255,255,255,0.16); }
+  .shop-card-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .shop-card-btn:active:not(:disabled) { transform: translateY(0); }
+
+  .shop-empty {
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    letter-spacing: 2px;
+    margin: auto;
+  }
+
+  /* ================= TOAST & AD LOADING ================= */
+  .toast {
+    position: fixed; left: 50%; bottom: 22px;
+    transform: translateX(-50%) translateY(10px);
+    z-index: 4000;
+    background: rgba(0,0,0,0.88);
+    border: 1.5px solid rgba(255,255,255,0.35);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    text-align: center; max-width: 90vw;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .ad-loading { z-index: 3000; background: rgba(0,0,0,0.85); }
+  .ad-loading-text {
+    color: #fff; font-size: 14px; font-weight: 800; letter-spacing: 4px;
+    animation: adpulse 1s ease-in-out infinite;
+  }
+  @keyframes adpulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+  /* Layar landscape pendek (kebanyakan HP): kartu shop dipadatkan supaya tombol tidak terpotong */
+  @media (max-height: 480px) {
+    .shop-topbar { padding: 8px 16px; }
+    .shop-scroll-area { padding-top: 8px; padding-bottom: 8px; }
+    .shop-card { height: 248px; padding: 10px 12px; }
+    .shop-card-icon { width: 52px; height: 52px; font-size: 28px; margin: 0 0 6px; }
+    .shop-card-name { font-size: 13px; margin-bottom: 4px; letter-spacing: 1.5px; }
+    .shop-card-desc { font-size: 10px; line-height: 1.4; margin-bottom: 6px; }
+    .shop-card-price { padding: 5px 12px; font-size: 12px; margin-bottom: 8px; }
+    .shop-card-btn { padding: 9px 0; font-size: 12px; }
+    .shop-scrollbar { padding: 6px 20px 10px; }
+  }
+  .upd-btn { min-width: 108px; padding: 9px 14px; font-size: 12px; letter-spacing: 1.5px; }

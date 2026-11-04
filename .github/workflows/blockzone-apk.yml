@@ -1,0 +1,88 @@
+name: blockzone-apk
+
+# Bangun ulang APK BlockZone dari arsip blockzone/www (Capacitor + WebView).
+# Native project aslinya tidak ikut tersimpan di dalam APK, jadi dibangkitkan
+# ulang di sini lalu disetel agar cocok dengan APK asli (appId, versi, SDK,
+# orientasi) lewat blockzone/tools/patch_android.py.
+
+on:
+  workflow_dispatch:
+    inputs:
+      update_url:
+        description: "URL situs untuk updater di dalam APK"
+        required: false
+        default: "https://kyokoapp.github.io/GodotMe/blockzone/"
+  push:
+    branches: ["**"]
+    paths:
+      - "blockzone/**"
+      - ".github/workflows/blockzone-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: build apk (debug)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Siapkan web assets (byte-identik dengan APK asli)
+        run: |
+          python3 blockzone/tools/build_site.py --check-only
+          mkdir -p blockzone/apk/www
+          cp -a blockzone/www/. blockzone/apk/www/
+          cp blockzone/capacitor.config.json blockzone/apk/capacitor.config.json
+          ls -l blockzone/apk/www
+
+      - name: Pasang dependensi Capacitor
+        working-directory: blockzone/apk
+        run: npm install --no-audit --no-fund
+
+      - name: Tambah platform Android
+        working-directory: blockzone/apk
+        run: npx --yes cap add android
+
+      - name: Setel appId, versi, SDK, orientasi, updater
+        working-directory: blockzone/apk
+        env:
+          BLOCKZONE_UPDATE_URL: ${{ github.event.inputs.update_url || 'https://kyokoapp.github.io/GodotMe/blockzone/' }}
+          ADMOB_APP_ID: ${{ vars.BLOCKZONE_ADMOB_APP_ID }}
+        run: python3 ../tools/patch_android.py --android android --www www
+
+      - name: Build APK
+        working-directory: blockzone/apk/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Laporkan hasil
+        run: |
+          set -e
+          APK=$(ls blockzone/apk/android/app/build/outputs/apk/debug/*.apk | head -1)
+          ls -l "$APK"
+          sha256sum "$APK"
+          echo "--- berkas web di dalam APK ---"
+          unzip -l "$APK" | awk '/ assets\/public\// {print "  " $4}'
+
+      - name: Unggah APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockzone-apk-debug
+          path: blockzone/apk/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

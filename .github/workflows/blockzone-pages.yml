@@ -1,0 +1,84 @@
+name: blockzone-pages
+
+# Situs statis BlockZone (GitHub Pages).
+#
+# Supaya benar-benar terbit, dua hal ini harus ada di repo:
+#   1. Settings -> Pages -> Build and deployment -> Source: GitHub Actions
+#   2. Settings -> Secrets and variables -> Actions -> Variables:
+#        BLOCKZONE_PAGES     = on
+#        BLOCKZONE_PAGES_URL = https://kyokoapp.github.io/GodotMe/blockzone/  (opsional)
+#
+# Kalau variabel BLOCKZONE_PAGES belum diisi, workflow ini tetap jalan dan tetap
+# hijau: situs dibangun + diperiksa, hasilnya bisa diunduh sebagai artefak,
+# tetapi tidak diterbitkan.
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "blockzone/**"
+      - ".github/workflows/blockzone-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: blockzone-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SITE_URL: ${{ vars.BLOCKZONE_PAGES_URL || 'https://kyokoapp.github.io/GodotMe/blockzone/' }}
+
+jobs:
+  build:
+    name: build situs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Periksa keutuhan arsip (md5 vs APK)
+        run: python3 blockzone/tools/build_site.py --check-only
+
+      - name: Bangun situs
+        run: |
+          python3 blockzone/tools/build_site.py --out dist/site --base-url "$SITE_URL"
+          echo "--- isi situs ---"
+          find dist/site -type f | sort
+
+      - name: Unggah artefak situs
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockzone-site
+          path: dist/site
+          if-no-files-found: error
+
+      - name: Siapkan Pages
+        if: vars.BLOCKZONE_PAGES == 'on'
+        uses: actions/configure-pages@v5
+
+      - name: Unggah artefak Pages
+        if: vars.BLOCKZONE_PAGES == 'on'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/site
+
+  deploy:
+    name: terbitkan
+    if: vars.BLOCKZONE_PAGES == 'on' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

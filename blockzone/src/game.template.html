@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>BlockZone - Battle Royale</title>
+<link rel="icon" href="icon.jpg">
+<style>
+{{STYLE}}
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN: ikon + ようこそ, lalu fade out ke menu -->
+<div id="boot" aria-hidden="true">
+  <div class="boot-stack">
+    <img id="bootIcon" class="boot-icon" src="icon.jpg" alt="" draggable="false">
+    <div class="boot-text" lang="ja">ようこそ</div>
+  </div>
+</div>
+<script>
+{{BOOT_JS}}
+</script>
+
+<div id="menu">
+  <!-- SHOP icon pojok kiri atas -->
+  <button id="btnShop" class="corner-btn" aria-label="Shop">🛒</button>
+  <!-- SETTINGS icon di bawah shop -->
+  <button id="btnSettings" class="corner-btn" aria-label="Settings">⚙</button>
+
+  <div class="menu-inner">
+    <div class="brand">
+      <img class="brand-icon" src="icon.jpg" alt="" draggable="false">
+      <div class="brand-text">
+        <div class="title">BLOCKZONE</div>
+        <div class="subtitle" data-i18n="subtitle">200 BATTLE ROYALE</div>
+      </div>
+    </div>
+
+    <div class="coin-display">
+      <span class="coin-icon"></span>
+      <span id="menuCoinLabel">0</span>
+    </div>
+
+    <div class="row">
+      <input id="nickname" type="text" maxlength="14" data-i18n-placeholder="nickname_ph" placeholder="Masukkan nickname..." autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="row">
+      <button id="btnStart" disabled data-i18n="start">MULAI</button>
+    </div>
+
+    <div class="hint" data-i18n-html="hint">
+      Tarik tanda "+" untuk gerak • Tahan tombol panah untuk tembak<br>
+      Tap crosshair untuk auto-aim
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings" class="overlay">
+  <div class="panel">
+    <h2 data-i18n="settings">PENGATURAN</h2>
+
+    <div class="opt-row">
+      <div>
+        <div class="opt-label" data-i18n="language">BAHASA</div>
+        <div class="opt-sub" data-i18n="language_desc">Pilih bahasa tampilan</div>
+      </div>
+      <div class="lang-select">
+        <button class="lang-opt" data-lang="id">ID</button>
+        <button class="lang-opt" data-lang="en">EN</button>
+      </div>
+    </div>
+
+    <div class="opt-row">
+      <div>
+        <div class="opt-label" data-i18n="sound">SUARA</div>
+        <div class="opt-sub" data-i18n="sound_desc">Efek suara tembakan & ledakan</div>
+      </div>
+      <div id="swSound" class="switch on"></div>
+    </div>
+
+    <div class="opt-row">
+      <div>
+        <div class="opt-label" data-i18n="trail">TRAIL</div>
+        <div class="opt-sub" data-i18n="trail_desc">Garis ekor halus di belakang karakter</div>
+      </div>
+      <div id="swTrail" class="switch on"></div>
+    </div>
+
+    <div class="opt-row">
+      <div>
+        <div class="opt-label" data-i18n="arrow_trail">TRAIL PELURU</div>
+        <div class="opt-sub" data-i18n="arrow_trail_desc">Jejak cahaya di belakang panah</div>
+      </div>
+      <div id="swArrowTrail" class="switch on"></div>
+    </div>
+
+    <div class="opt-row">
+      <div>
+        <div class="opt-label" data-i18n="enemy_trail">MUSUH TRAIL</div>
+        <div class="opt-sub" data-i18n="enemy_trail_desc">Garis ekor halus di belakang musuh</div>
+      </div>
+      <div id="swEnemyTrail" class="switch on"></div>
+    </div>
+
+    <div class="opt-row" id="updRow">
+      <div>
+        <div class="opt-label" data-i18n="update">PEMBARUAN</div>
+        <div class="opt-sub" id="updSub">&nbsp;</div>
+      </div>
+      <button id="btnUpdate" class="ghost upd-btn">CEK</button>
+    </div>
+
+    <button id="btnClose" class="ghost close-btn" data-i18n="close">TUTUP</button>
+  </div>
+</div>
+
+<!-- SHOP -->
+<div id="shop" class="overlay">
+  <div class="shop-wrap">
+    <div class="shop-topbar">
+      <div class="shop-title" data-i18n="shop">SHOP</div>
+      <div class="shop-balance-inline">
+        <span class="coin-icon"></span>
+        <span id="shopCoinLabel">0</span>
+      </div>
+      <button id="btnShopClose" class="shop-close-x">✕</button>
+    </div>
+
+    <div id="shopScroll" class="shop-scroll-area"></div>
+
+    <div class="shop-scrollbar">
+      <div class="shop-scrollbar-track">
+        <div id="shopThumb" class="shop-scrollbar-thumb"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="adLoading" class="overlay ad-loading">
+  <div class="ad-loading-text" data-i18n="ad_loading">MEMUAT IKLAN...</div>
+</div>
+
+<canvas id="game"></canvas>
+
+<script src="ads-config.js"></script>
+<script src="update-config.js"></script>
+<script src="updater.js"></script>
+<script>if (window.BZUpdater) BZUpdater.armWatchdog();</script>
+<script>
+{{GAME_JS}}
+</script>
+</body>
+</html>
