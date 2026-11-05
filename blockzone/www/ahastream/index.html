@@ -677,7 +677,15 @@
     // Load Catalog Data
     async function loadCatalog() {
       try {
-        const res = await fetch('https://anikai.org/catalog-index.json');
+        let res;
+        try {
+          res = await fetch('./catalog.json');
+        } catch {
+          res = await fetch('https://anikai.org/catalog-index.json');
+        }
+        if (!res.ok) {
+          res = await fetch('https://anikai.org/catalog-index.json');
+        }
         catalog = await res.json();
         
         // Render Spotlight
