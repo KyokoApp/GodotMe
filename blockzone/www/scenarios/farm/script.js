@@ -10350,7 +10350,7 @@
             const _steamUrlEnd = _steamBase + '_End';
             _rsSteamBtn.style.display = 'flex';
             _rsSteamBtn.addEventListener('click', function() {
-                window.open(_steamUrlEnd, '_blank', 'noopener');
+                false;
             });
         }
     }
