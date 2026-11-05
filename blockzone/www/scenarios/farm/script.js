@@ -13666,6 +13666,45 @@
     let _rankingCurrentVersion = 'v2';
 
     function fetchRanking(version) {
+        // DISCORD ACTIVITY CUSTOM LEADERBOARD OVERRIDE
+        if (window.self !== window.top || window.location.hostname.includes("discordsays.com") || window.location.hostname.includes("discord")) {
+            let statusEl = document.getElementById("ranking-status");
+            let tbody = document.getElementById("ranking-tbody");
+            if (statusEl) statusEl.innerText = "Discord Global Leaderboard";
+            if (tbody) tbody.innerHTML = "<tr><td colspan=\"5\" style=\"text-align:center;padding:16px;\">Loading...</td></tr>";
+            
+            fetch("https://gist.githubusercontent.com/KyokoApp/7e87670cdbacb702df143c2038a5296a/raw/leaderboard.json?t=" + Date.now(), { cache: "no-store" })
+                .then(r => r.json())
+                .then(list => {
+                    if (!tbody) return;
+                    if (!list || list.length === 0) {
+                        tbody.innerHTML = "<tr><td colspan=\"5\" style=\"text-align:center;color:#888;padding:20px;\">No records yet</td></tr>";
+                        return;
+                    }
+                    const posColors = ["#f1c40f", "#bdc3c7", "#cd7f32"];
+                    const fmtM = n => n >= 1e6 ? "$" + (n/1e6).toFixed(1) + "M" : (n >= 1e3 ? "$" + (n/1e3).toFixed(1) + "K" : "$" + Math.round(n));
+                    
+                    let html = "";
+                    list.forEach((item, idx) => {
+                        const rank = idx + 1;
+                        const col = posColors[idx] || "#fff";
+                        html += "<tr>" +
+                            "<td style="text-align:center;color:" + col + ";padding:6px;">#" + rank + "</td>" +
+                            "<td style="text-align:center;padding:6px;">🎮</td>" +
+                            "<td style="color:" + col + ";padding:6px;font-weight:bold;">" + (item.username || "Player") + "</td>" +
+                            "<td style="text-align:right;color:" + col + ";padding:6px;">" + (item.chickens || 0) + " 🐔</td>" +
+                            "<td style="text-align:right;color:" + col + ";padding:6px;font-weight:bold;">" + fmtM(item.money || 0) + "</td>" +
+                            "</tr>";
+                    });
+                    tbody.innerHTML = html;
+                    if (statusEl) statusEl.innerText = "Discord Global Leaderboard (" + list.length + " Players)";
+                })
+                .catch(err => {
+                    if (statusEl) statusEl.innerText = "Error loading leaderboard";
+                    if (tbody) tbody.innerHTML = "<tr><td colspan=\"5\" style=\"text-align:center;color:#e74c3c;padding:20px;\">Failed to fetch leaderboard</td></tr>";
+                });
+            return;
+        }
         version = version || _rankingCurrentVersion;
         _rankingCurrentVersion = version;
         let statusEl = document.getElementById('ranking-status');
