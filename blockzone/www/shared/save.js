@@ -240,7 +240,7 @@ window.GameSave = (() => {
     function load(key) {
         try {
             const s = _pgActive ? (_memStore[key] ?? null)
-                : _isLoggedIn ? (_memStore[key] ?? null) : localStorage.getItem(key + '_guest');
+                : _isLoggedIn ? (_memStore[key] ?? null) : (localStorage.getItem(key + '_guest') || localStorage.getItem(key));
             return s ? JSON.parse(s) : null;
         } catch (e) { return null; }
     }
@@ -248,7 +248,7 @@ window.GameSave = (() => {
     // ── Read raw string ───────────────────────────────────────────────────────
     function loadRaw(key) {
         if (_pgActive) return _memStore[key] ?? null;
-        return _isLoggedIn ? (_memStore[key] ?? null) : localStorage.getItem(key + '_guest');
+        return _isLoggedIn ? (_memStore[key] ?? null) : (localStorage.getItem(key + '_guest') || localStorage.getItem(key));
     }
 
     // ── Save raw string ───────────────────────────────────────────────────────
