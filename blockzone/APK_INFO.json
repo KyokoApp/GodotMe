@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "game": "The MachinEGG",
-  "updated_at": "2026-11-05T01:43:24.916Z",
+  "updated_at": "2026-11-05T11:11:08.270Z",
   "integrity_md5": {
     "audio/cok.wav": "ec5a36042c4ec8a90871febcc03e706a",
     "audio/cok1.wav": "165bba9691efe7d1a566be3757528f56",
@@ -178,7 +178,7 @@
     "shared/pixi.js": "398813b90290f7d2505ec8bdf1f4b647",
     "shared/platform.js": "499990a9673310b2f9d32f10cc77d0e6",
     "shared/responsive.js": "3e8f828e1b09f3f2e71110d834e29710",
-    "shared/save.js": "47578d889d5930ae79c9fe74bbb8eef8",
+    "shared/save.js": "cef5730d79c976dc53e76c0b4a50605e",
     "shared/shell.js": "e2a6c7b305daea60d55276a05b799181",
     "shared/utils.js": "8f762c72b7b6dd53b2f1beb84afbea15",
     "shared/vendor/fonts.css": "f6f611f7ae28430d8541a6287ef72e5a",
