@@ -1,0 +1,59 @@
+/* shared/vendor/fonts.css -- Press Start 2P + DotGothic16, autoalojadas.
+   Antes se cargaban desde fonts.googleapis.com (CDN) sin ningun fallback
+   local. En modo avion / sin red, la peticion fallaba del todo y el
+   navegador caia al fallback CSS (cursive/monospace), cambiando la
+   tipografia de todo el juego. DotGothic16 (solo ja/zh-cn, ver lang.js
+   P2P_FONT) esta recortada a los 741 caracteres CJK que de verdad
+   aparecen en las traducciones (generado con la API text= de Google
+   Fonts) en vez del set completo (~123 subconjuntos, varios MB de
+   glifos nunca usados). Si se anaden textos ja/zh-cn con caracteres
+   nuevos, regenerar este fichero con el mismo procedimiento. */
+
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/press-start-2p-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/press-start-2p-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/press-start-2p-greek-ext.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/press-start-2p-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/press-start-2p-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DotGothic16';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/dotgothic16-subset.woff2') format('woff2');
+  unicode-range: U+3001-3002, U+300c-300d, U+3042, U+3044, U+3046, U+3048, U+304a-3055, U+3057-305b, U+305d, U+305f-3061, U+3063-3064, U+3066-306b, U+306d-3073, U+3076, U+3078-3079, U+307b, U+307e-3084, U+3087-308d, U+308f, U+3092-3093, U+30a1-30a4, U+30a6-30ab, U+30ad, U+30af-30b0, U+30b2-30b3, U+30b5-30bb, U+30bd-30c1, U+30c3, U+30c6-30cb, U+30ce, U+30d0-30d7, U+30d9-30da, U+30dc, U+30de-30e3, U+30e5, U+30e7, U+30e9-30ed, U+30ef, U+30f3-30f4, U+30fc, U+4e00, U+4e07, U+4e0a-4e0b, U+4e0d-4e0e, U+4e13, U+4e16, U+4e1a, U+4e22, U+4e24, U+4e2a, U+4e2d, U+4e3a, U+4e45, U+4e48, U+4e50, U+4e57, U+4e5f, U+4e70, U+4e86, U+4e8b, U+4e8e, U+4e92, U+4ea1, U+4ea4, U+4ea7, U+4eba, U+4ebf, U+4ec5, U+4ed5-4ed6, U+4ee5, U+4eec, U+4ef2, U+4ef7, U+4efb, U+4f01, U+4f11, U+4f19-4f1a, U+4f1d, U+4f20, U+4f34, U+4f46, U+4f4d, U+4f53, U+4f55, U+4f5c, U+4f60, U+4f8b, U+4fa1, U+4fdd, U+4fe1, U+500b, U+500d, U+5024, U+503c, U+505a, U+505c, U+5099, U+50a8, U+5104, U+5143, U+5145, U+5148, U+5165, U+5168, U+516c, U+5171, U+5173, U+5176, U+517b, U+518d, U+519c, U+51c6, U+51cf, U+51db, U+51e0, U+51fa-51fb, U+5206-5207, U+5219, U+521d, U+5220, U+5225, U+5229, U+5230, U+524a, U+524d, U+5287, U+529b, U+52a0-52a1, U+52a8, U+52b1, U+52b9, U+52d5, U+5305, U+5316, U+533a, U+5341, U+5347, U+534e, U+5355-5356, U+5358, U+5370, U+5373, U+5375, U+53b3, U+53bb, U+53c2, U+53ce, U+53d6, U+53e0, U+53ea-53eb, U+53ef, U+53f3, U+5403, U+5408, U+540c-540e, U+5411, U+5417, U+5426-5427, U+542c, U+542f, U+5438, U+544a, U+5462, U+547c, U+548c, U+54af, U+54c1, U+54e6, U+552e, U+5546, U+5566, U+5582, U+563f, U+5668, U+56de, U+56fd, U+5728, U+5730, U+573a, U+57fa, U+5831, U+5834, U+5897, U+589e, U+58ca, U+58f2, U+5904, U+5907, U+591a, U+591f, U+5922, U+5927, U+5929, U+5931, U+5947, U+5956, U+5962, U+597d, U+59cb, U+5a01, U+5b50, U+5b57-5b58, U+5b75, U+5b83, U+5b89, U+5b8c, U+5b9a, U+5b9f, U+5ba4, U+5bb9, U+5bc4, U+5bcc, U+5bf9, U+5c06, U+5c0f, U+5c11, U+5c31, U+5c3d, U+5c40, U+5de5, U+5de8, U+5df2, U+5e02, U+5e0c, U+5e1d, U+5e26, U+5e38, U+5e45, U+5e72, U+5e76, U+5e78, U+5e7f, U+5e83, U+5e95, U+5e97, U+5ea6, U+5f00, U+5f0f, U+5f15, U+5f37, U+5f55, U+5f97, U+5fc3, U+5fc5, U+5feb, U+600e, U+601d, U+6027, U+603b, U+606f, U+609f, U+60c5, U+610f, U+611b, U+611f, U+613f, U+6162, U+620f-6211, U+6216, U+6218, U+6226, U+623b, U+6240, U+624b, U+624d, U+6253, U+6269, U+628a, U+629a, U+629e, U+62bc, U+62d2, U+62d6, U+62e1, U+62e3, U+62e5, U+62e9, U+6301, U+6309, U+6311, U+6328, U+6357, U+6362, U+636e, U+6389, U+6392, U+63a5, U+63a8, U+63d0, U+642c, U+6478, U+64a4, U+64ab, U+64ad, U+64cd, U+6536, U+653e, U+6570, U+6574, U+6599, U+65b0, U+65b9, U+65e0, U+65e5, U+65e9, U+65f6, U+660e, U+661f, U+662f, U+663e, U+6642, U+666e, U+6682, U+66f2, U+66f4, U+66ff-6700, U+6709, U+670d, U+671b, U+671f, U+672c, U+6735, U+673a, U+675f, U+6765, U+679c, U+67e5, U+6807, U+6837, U+683c, U+684c, U+6863, U+6876, U+68a6, U+68b0, U+696d, U+697d, U+6982, U+699c, U+69fd, U+6a19, U+6a21, U+6a5f, U+6b21-6b22, U+6b62-6b64, U+6b6f, U+6b7b, U+6b8a, U+6b96, U+6bb5, U+6bcd, U+6bcf, U+6bd4, U+6c17, U+6c34, U+6c38, U+6c42, U+6ca1, U+6cc1, U+6cd5, U+6d01, U+6d17, U+6d44, U+6d47, U+6d88, U+6da6, U+6e05, U+6e08, U+6e38, U+6e90, U+6e96, U+6ee1, U+706b, U+70b9, U+7121, U+7126, U+7167, U+719f, U+7231, U+7267, U+7269, U+7279, U+72b6, U+72c2, U+72ec, U+732b, U+7387, U+73a9, U+73ab, U+73cd, U+7403, U+7470, U+74a7, U+751a, U+751c, U+751f, U+7523, U+7528, U+7535, U+753b, U+7559, U+75af, U+767b, U+767e, U+7684, U+76c6, U+76ca, U+76d2, U+76ee, U+76f4, U+770b, U+7720, U+7740, U+7761, U+77e5, U+77ed, U+77f3, U+7840, U+786e, U+78ba, U+78c1, U+793a, U+793e, U+795d, U+79c1, U+79d2, U+79fb, U+7a00, U+7a0b, U+7a3c, U+7a7a, U+7ae0, U+7aef, U+7b2c, U+7b49, U+7b94, U+7b97, U+7ba1, U+7bb1, U+7c7b, U+7d04, U+7d1a, U+7d2b, U+7d4c, U+7d66, U+7d9a, U+7dcf, U+7dd1, U+7e2e, U+7e3e, U+7e41, U+7ea2, U+7ea7, U+7eb8, U+7ec8, U+7ecf, U+7edd, U+7ee7, U+7eed, U+7eff, U+7f13, U+7f18, U+7f29, U+7f55, U+7f6e, U+7f8e, U+7fa4, U+7fbd, U+7fc1, U+7fd4, U+7ffb, U+8005, U+8017, U+805e, U+80b2, U+80c3, U+80fd, U+81ea, U+81f3, U+8272, U+827a, U+82b1, U+8349, U+83ab, U+83b7, U+83ef, U+8425, U+843d, U+84dd, U+86cb, U+884c, U+8865, U+8868, U+888b, U+88ab, U+88c5, U+88dc, U+8907, U+8981, U+898b, U+899a, U+89c1, U+89c6, U+89c9, U+89e3, U+8a08, U+8a18, U+8a3c, U+8a70-8a71, U+8a8d, U+8aac, U+8ab0, U+8b66, U+8ba1, U+8ba4, U+8ba9, U+8bb0, U+8bbe, U+8bc1, U+8bdd, U+8bf4, U+8bf7, U+8c03, U+8c22, U+8c6a, U+8cb7, U+8cbb, U+8cea, U+8cfc, U+8d22, U+8d27-8d28, U+8d2d, U+8d44, U+8d5a, U+8d70, U+8d77, U+8eca, U+8f09, U+8f6e, U+8f7d, U+8f93, U+8fb2, U+8fb9, U+8fc7, U+8fce, U+8fd0-8fd1, U+8fd4, U+8fd8-8fd9, U+8fdb-8fdc, U+8fde, U+9000-9001, U+9009, U+9014, U+901a, U+901f, U+9032, U+9045, U+904a-904b, U+904e, U+9053-9054, U+9078, U+90e8, U+90fd, U+914d, U+9192, U+91ca, U+91cc-91cd, U+91cf, U+91d1, U+9332, U+949f, U+94ae, U+94b1, U+9500-9501, U+9577, U+957f, U+9589, U+958b, U+9593, U+95ed, U+95f4, U+9646, U+9650, U+9664, U+967d, U+968f, U+9694, U+96c4, U+96cc, U+96e2, U+9700, U+9752, U+97f3, U+984c, U+9858, U+987a-987b, U+987e, U+9897, U+989d, U+98ce, U+98db, U+98de-98df, U+98e2, U+990c, U+9910, U+9913, U+996e, U+997f, U+9ad8, U+9b54, U+9d8f, U+9e21, U+9ed1-9ed2, U+9f20, U+9f7f, U+ff01, U+ff08-ff09, U+ff0c, U+ff1a, U+ff1f;
+}

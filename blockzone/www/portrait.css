@@ -1,0 +1,2112 @@
+/* portrait.css — Estilos exclusivos para modo Portrait (body.mode-portrait)  */
+/* Modifica este archivo para ajustes portrait sin tocar style.css             */
+
+/* ── Reglas dispersas (originalmente fuera del bloque principal) ── */
+
+/* Fuente fija de los globos "agua/comida agotada" — separado de style.css
+   (desktop) a propósito, para poder ajustar cada modo sin afectar al otro. */
+body.mode-portrait #water-bubble .bubble-inner,
+body.mode-portrait #food-bubble .bubble-inner {
+    font-size: 9px;
+}
+
+body.mode-portrait #trophy-canvas {
+    display: block;
+}
+
+/* Selector de idioma: la cuadrícula de 16 botones (#language-grid, ver
+   style.css) ocupa demasiado alto en el panel de Ajustes en portrait — se
+   oculta y se muestra en su lugar un <select> nativo (construido por
+   portrait.js a partir de los mismos botones, ver ahí). El grid se queda en
+   el DOM tal cual para desktop. */
+body.mode-portrait #language-grid {
+    display: none;
+}
+body.mode-portrait #language-select-portrait {
+    width: 100%;
+    padding: 10px 8px;
+    font-size: 12px;
+    color: white;
+    background: #222;
+    border: 2px solid #555;
+    border-radius: 4px;
+}
+
+/* Cartel final de stats (#retire-stats-overlay) — los 3 botones de acción
+   ("JUEGA UN RETO", "REINICIAR ESTE MODO", "WISHLIST ON STEAM") usan
+   font-size en clamp() puesto inline en index.html (compartido con desktop),
+   así que hace falta !important para pisarlo solo en portrait. Los spans de
+   subtítulo dentro de cada botón (retoModes/comingSoonSteam) usan 0.7em, así
+   que escalan solos al subir la base del botón — no hace falta tocarlos aparte. */
+body.mode-portrait #rs-reto-btn {
+    font-size: clamp(10px, 2.8vw, 16px) !important;
+}
+body.mode-portrait #rs-restart-btn {
+    font-size: clamp(9px, 2.4vw, 13px) !important;
+}
+body.mode-portrait #rs-steam-btn {
+    font-size: clamp(10px, 2.8vw, 15px) !important;
+}
+
+/* Toast (avisos cortos) — fondo/borde/color ya vienen del panel de madera
+   compartido en style.css (#iap-toast / #iap-toast-text); aquí solo se
+   ajusta tamaño y posición para pantallas estrechas. */
+body.mode-portrait #iap-toast {
+    max-width: 85vw;
+    min-width: 0;
+    border-width: 16px 24px;
+    bottom: -220px;
+}
+
+body.mode-portrait #iap-toast.show {
+    bottom: 90px;
+}
+
+body.mode-portrait #iap-toast-text {
+    font-size: 9px;
+}
+
+body.mode-portrait .ranking-label {
+    display: none;
+}
+
+body.mode-portrait #shop.is-expanded.is-info .shop-btn > .lv-corner {
+    color: white;
+    justify-self: end;
+    align-self: start;
+    position: static !important;
+    /* left: 50%; */
+    width: auto;
+    height: inherit !important;
+    line-height: inherit;
+    bottom: 18px;
+    font-size: 8px !important;
+    /* -webkit-transform-origin-x: 50%; */
+    text-align: center;
+}
+
+body.mode-portrait #game-tooltip { display: none !important; }
+body.mode-portrait #mode-toggle-btn { display: flex !important; }
+
+body.mode-portrait .free-ad-btn {
+    background: none !important;
+    border: 5px solid transparent !important;
+    border-image: url('pixelart_design/shop_item_green.png') 5 fill / 7px / 0 stretch !important;
+    background-color: #5dca93 !important;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box !important;
+    image-rendering: pixelated;
+    color: #1a0820 !important;
+}
+
+/* ── Money counter 9-slice ── */
+body.mode-portrait #money-counter .pixel-counter-wrap {
+    border-width: 0 72px 0 72px !important;
+    border-style: solid !important;
+    border-color: transparent !important;
+    border-image: url('pixelart_design/money_count.png') 0 44 0 44 fill stretch !important;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    min-width: 154px !important;
+}
+body.mode-portrait #money-counter .pixel-counter-val {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    margin-left: 8px;
+}
+
+@media (min-width: 601px) {
+    body.mode-portrait #money-counter .pixel-counter-wrap {
+        min-width: 320px !important;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MODO PORTRAIT — Mobile Android vertical (window.GAME_MARKET = 'googleplay')
+   Todas las reglas están bajo body.mode-portrait → NO afectan al modo PC
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Banner de anuncios (320×50) ────────────────────────────────────────── */
+/* Para mover el banner: cambia _BANNER_POSITION en shared/ads.js          */
+body.mode-portrait #game-banner {
+    flex-shrink: 0;
+    width: 100%;
+    /* --admob-banner-h la actualiza shared/ads.js en cuanto Google confirma el
+       alto real del banner adaptativo (mayor en tablet) — ver evento
+       bannerAdSizeChanged. 50px = mismo valor fijo de siempre mientras no haya
+       banner mostrado o el evento aún no haya llegado. */
+    height: var(--admob-banner-h, 50px);
+    order: -1;          /* top: se renderiza antes que el header */
+    background: #000;
+    overflow: hidden;
+    display: none;      /* showBanner() activa con display: flex */
+    align-items: center;
+    justify-content: center;
+}
+body.mode-portrait #game-banner.banner-bottom {
+    order: 100;         /* bottom: se renderiza después del shop */
+}
+
+/* body y html */
+body.mode-portrait {
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #37243c;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    position: fixed;
+    touch-action: none;
+}
+
+/* Contenedor principal: flex-column que ocupa toda la pantalla, con un
+   ancho máximo derivado del alto disponible para tablets en vertical.
+   Sin este tope, #gameCanvas (ancho:100%, aspect-ratio:800/900 fijo más
+   abajo) crece en altura proporcionalmente al ancho de pantalla — en un
+   móvil normal eso encaja porque el diseño está pensado para esos anchos,
+   pero en una tablet ancha en portrait el canvas resultante es tan alto
+   que ya no cabe en #farm-area (header + tienda colapsada restan altura
+   fija). Lo único obligatorio en pantalla es header + gameCanvas + tienda;
+   .sky-extension/.earth-extension son decorativas y pueden quedar cortadas
+   sin problema, así que el tope solo garantiza que el canvas quepa en el
+   hueco disponible (sin reservar espacio extra para ellas). Por debajo de
+   ese ancho (móviles normales) el max-width no limita nada, ya que supera
+   al 100vw natural. */
+body.mode-portrait #game-container {
+    --portrait-canvas-ratio: 1.125;    /* 900/800, ver shared/responsive.js _CANVAS_SIZES.portrait */
+    /* header (~64px) + tienda colapsada (150px, ver #shop más abajo) + banner
+       de anuncios (--admob-banner-h, actualizado por shared/ads.js con el alto
+       real del banner adaptativo — más alto en tablet). Antes el banner no
+       entraba en esta cuenta: en móvil no se notaba (el ancho real ya está por
+       debajo del tope), pero en tablet el tope SÍ es la restricción activa, así
+       que un banner más alto sin restar aquí terminaba solapando el canvas. */
+    --portrait-chrome-h: calc(164px + var(--admob-banner-h, 50px));
+    /* Margen de seguridad extra (tunable por devtools, ver abajo) — el ajuste
+       de arriba deja el canvas encajando EXACTO al pixel con el resto del
+       chrome; en tablet real con banner, ese ajuste al límite se nota
+       demasiado justo. Este margen resta unos px de más para dar un pequeño
+       colchón visual. */
+    --portrait-canvas-safety-margin: 50px;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    border-radius: 0 !important;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    /* Naranja/arena claro (color pedido) en vez de negro — pedido explícito:
+       si el scroll de la selección de modo llega a revelar algo más allá del
+       fondo renderizado (reportado por CrazyGames en review), que se vea como
+       "más suelo" en vez de un hueco negro. */
+    background: #F2B563;
+    box-sizing: border-box;
+}
+
+/* El tope de max-width solo debe existir en pantallas anchas de verdad
+   (tablets) — 600px es el mismo umbral que usa Android para "sw600dp", su
+   propia definición oficial de qué cuenta como tablet. Antes el max-width
+   vivía dentro de la regla de arriba sin ningún @media, así que "se activaba
+   solo" en cuanto la aritmética (chrome + banner + margen de seguridad) daba
+   un número menor que el ancho real del dispositivo — que es EXACTAMENTE lo
+   que le pasó a los móviles de aspect ratio ancho (ej. 1.77) al subir
+   --portrait-canvas-safety-margin: el resultado cruzó por debajo de su ancho
+   real y el tope, pensado solo para tablet, les recortó el canvas también a
+   ellos. Con el @media, ningún móvil real (siempre <600px de ancho en
+   portrait) puede activarlo, pase lo que pase con esas variables. */
+@media (min-width: 600px) {
+    body.mode-portrait #game-container {
+        max-width: calc((100dvh - var(--portrait-chrome-h) - var(--portrait-canvas-safety-margin) - env(safe-area-inset-top, 0px)) / var(--portrait-canvas-ratio));
+    }
+}
+
+/* Header compacto */
+body.mode-portrait header {
+    position: relative;
+    width: 100%;
+    z-index: 10;
+    margin: 0;
+    margin-bottom: 0;
+    padding: 5px 8px;
+    padding-top: calc(5px + env(safe-area-inset-top));
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0px;
+    flex-wrap: nowrap;
+    border-image: url(pixelart_design/TOP.png);
+    background-color: #45293f;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+    /* background-repeat: repeat-x; */
+    /* background-size: auto 100%; */
+    /* background-position: center; */
+    /* background-position-y: -20px; */
+    border-image-slice: 40 0 0 0 fill;
+    border-radius: 0;
+    flex-shrink: 0;
+}
+
+body.mode-portrait header h1 {
+    display: none;
+}
+
+body.mode-portrait #topbar-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+body.mode-portrait #stats-header {
+    flex: 0 0 auto;
+}
+
+body.mode-portrait #topbar-row #money-counter {
+    flex: 1;
+    min-width: 0;
+}
+
+body.mode-portrait #topbar-row #money-counter .pixel-counter-wrap {
+    width: 100%;
+    min-width: 0;
+}
+
+body.mode-portrait .pixel-counter {
+    flex: 0;
+    height: auto;
+    padding: 0;
+    background: none;
+    border: none;
+    margin: 0;
+}
+
+body.mode-portrait .pixel-counter-wrap {
+    height: 44px;
+}
+
+body.mode-portrait #stats-header .pixel-counter-wrap,
+body.mode-portrait #money-counter .pixel-counter-wrap {
+    border: none;
+}
+
+body.mode-portrait #ranking-btn,
+body.mode-portrait #pause-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    flex: 0 0 44px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+body.mode-portrait #ranking-btn:hover:not(:disabled),
+body.mode-portrait #pause-btn:hover:not(:disabled) {
+    background-color: transparent !important;
+    transform: translateY(-2px) !important;
+    box-shadow: none !important;
+}
+
+body.mode-portrait #ranking-btn:active,
+body.mode-portrait #pause-btn:active {
+    background-color: transparent !important;
+    transform: translate(2px, 2px) !important;
+    box-shadow: none !important;
+}
+
+body.mode-portrait #ranking-btn .ranking-label {
+    display: none;
+}
+
+body.mode-portrait #mute-btn,
+body.mode-portrait #toggle-info-btn {
+    display: none !important;
+}
+
+/* main: flex-column que llena el espacio restante */
+body.mode-portrait main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+    gap: 0;
+    min-height: 0;
+}
+
+/* Zona de juego: flex centrado, ocupa todo el espacio */
+body.mode-portrait #farm-area {
+    flex: 1;
+    width: 100% !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #37213c;
+    overflow: hidden;
+    min-height: 0;
+    position: relative;
+
+}
+
+/* game-viewport: llena el farm-area completo sin restricción de ratio */
+body.mode-portrait #game-viewport {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    position: relative;
+    background: #3e2723;
+    overflow: hidden;
+    border-left: none;
+    border-right: none;
+    box-sizing: border-box;
+}
+
+body.mode-portrait #game-viewport>*,
+body.mode-portrait #cine-frame>* {
+    width: 100%;
+    flex-shrink: 0;
+}
+
+/* Extensión cielo: visible en portrait */
+body.mode-portrait .sky-extension {
+    display: block;
+    flex: 3;
+    width: 100%;
+    background-image: url('pixelart_design/bg_top.png');
+    background-position: center bottom;
+    background-repeat: no-repeat;
+    background-size: 100% auto;
+    margin-bottom: -9px;
+    z-index: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Canvas principal — ancho completo de pantalla, altura derivada de su proporción nativa.
+   flex:none para que el flex-column NO lo estire: antes tenía flex:1 contra sky(flex:3) y
+   earth(flex:1), así que solo recibía 1/5 de la altura y con aspect-ratio:unset se achataba.
+   Ahora toma su altura por aspect-ratio y cielo/tierra rellenan el espacio sobrante (3:1). */
+body.mode-portrait #gameCanvas {
+    flex: none;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    aspect-ratio: 800 / 900;   /* = _CANVAS_SIZES.portrait (shared/responsive.js) */
+    display: block;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    z-index: 2;
+    box-sizing: border-box;
+    background: transparent;
+    margin: -1px 0;
+    touch-action: none;
+}
+
+/* Extensión tierra: visible en portrait */
+body.mode-portrait .earth-extension {
+    display: block;
+    flex: 1;
+    width: 100%;
+    background-image: url('pixelart_design/bg_bottom.png');
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-size: 100% auto;
+    margin-top: -5px;
+    z-index: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* ── Portrait: gallinas del intro — contenedor sin transform para no crear stacking context ── */
+/* La escala se aplica por elemento en _tick() via PORTRAIT_INTRO_CHICKEN_SCALE */
+body.mode-portrait #mm-animals {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+}
+
+/* ── Portrait: nubes del intro — escala sobre el ancho nativo de cada nube ── */
+body.mode-portrait #cloud-1 { width: calc(204px * var(--portrait-cloud-scale, 1)) !important; }
+body.mode-portrait #cloud-2 { width: calc(196px * var(--portrait-cloud-scale, 1)) !important; }
+body.mode-portrait #cloud-3 { width: calc(116px * var(--portrait-cloud-scale, 1)) !important; }
+body.mode-portrait #cloud-4 { width: calc(116px * var(--portrait-cloud-scale, 1)) !important; }
+body.mode-portrait #cloud-5 { width: calc(156px * var(--portrait-cloud-scale, 1)) !important; }
+body.mode-portrait #cloud-6 { width: calc(180px * var(--portrait-cloud-scale, 1)) !important; }
+body.mode-portrait #cloud-7 { width: calc(160px * var(--portrait-cloud-scale, 1)) !important; }
+body.mode-portrait #cloud-8 { width: calc(130px * var(--portrait-cloud-scale, 1)) !important; }
+body.mode-portrait #cloud-9 { width: calc(140px * var(--portrait-cloud-scale, 1)) !important; }
+
+/* ── Portrait: main menu logo ── */
+/* Scope a #mm-home: cuando el rig se mueve al scale-root, el inline style de _onLogoLand() debe tomar el control */
+body.mode-portrait #mm-home #mm-hang-rig {
+    width: var(--portrait-logo-w, clamp(275px, 68vw, 800px)) !important;
+}
+/* Sombras de suelo — desplazamiento Y y anchura */
+body.mode-portrait #mm-jugar-btn::after {
+    bottom: var(--portrait-jugar-shadow-after-y, -5px) !important;
+}
+/* Cancelar translateY de hover/active del global — portrait usa scale en su lugar */
+body.mode-portrait #mm-jugar-btn:hover .mm-jugar-crate,
+body.mode-portrait #mm-jugar-btn:active .mm-jugar-crate {
+    transform: none !important;
+}
+/* Press/release: escala el contenedor inner (imagen + texto juntos) desde la base */
+body.mode-portrait #mm-jugar-btn > div {
+    transition: transform 0.1s ease !important;
+    transform-origin: center bottom !important;
+}
+body.mode-portrait #mm-jugar-btn:active > div {
+    transform: scale(0.88) !important;
+}
+/* En móvil el :hover se queda pegado tras el tap — neutralizamos su efecto en portrait */
+body.mode-portrait #mm-jugar-btn:hover::after,
+body.mode-portrait #mm-jugar-btn:active::after {
+    opacity: 0.45 !important;
+    transform: translateX(-50%) scaleX(1) !important;
+}
+body.mode-portrait .mm-prado-mode-btn::after {
+    bottom: var(--portrait-prado-shadow-after-y, -1px) !important;
+    width: min(75vw, 300px) !important; /* matches .prado-crate-frame width exactly */
+    background: rgba(0, 0, 0, 0.52);
+    filter: blur(3px);
+}
+
+/* ── Portrait: fondo de intro en proporciones correctas ── */
+/* Inline style pone width:100% (=1088px contenedor), lo que estira la imagen.
+   Lo sobreescribimos para que sea width:auto a la altura del contenedor (1264px). */
+body.mode-portrait #intro-bg-img {
+    position: absolute !important;
+    left: 50% !important;
+    top: 0 !important;
+    width: calc(100vw / var(--portrait-correct-ds, 1)) !important; /* compensa la escala del scale-root */
+    height: 100% !important; /* contenedor ahora es 2229px — cubre todo sin la 100vh extra que causaba zoom x1.44 */
+    object-fit: cover !important;
+    object-position: top center !important;
+    transform-origin: center top !important;
+    transform: translateX(-50%) scale(var(--portrait-bg-scale, 1)) !important;
+}
+
+/* ── Portrait: corrige escala del scale-root ── */
+/* index.html la calcula con outerWidth; en DevTools outerWidth != innerWidth → escala exagerada.
+   portrait.js expone --portrait-correct-ds con los valores correctos; !important anula el inline. */
+body.mode-portrait #intro-scale-root {
+    transform: scale(var(--portrait-correct-ds, 1)) !important;
+    transform-origin: top center !important;
+}
+
+/* ── Portrait: botón JUGAR principal ── */
+/* bottom: % gestionado por JS en coordenadas del canvas (igual que las gallinas).
+   El botón vive dentro de #intro-pan-container y se mueve con la cámara.
+   Visible desde frame 1 — sin opacity:0, igual que los animales. */
+body.mode-portrait #mm-jugar-btn {
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    --play-btn-bottom: 35%;
+}
+body.mode-portrait .mm-jugar-crate {
+    width: clamp(155px, 54vw, 250px) !important;
+}
+body.mode-portrait #mm-jugar-btn span {
+    font-size: clamp(20px, 5.5vw, 32px) !important;
+}
+
+body.mode-portrait .mm-jugar-crate {
+    transform: none !important;
+}
+
+/* ── Portrait: panel de selección de modos (scroll vertical, pantalla completa) ── */
+/* El row se mueve a #main-menu-overlay via JS. Empieza a top:110vh (off-screen).
+   Al pulsar JUGAR la "cámara" (pan-container) sube 100vh y el panel baja a top:0.
+   Overscroll hacia arriba invierte ambas animaciones. Transition gestionada por JS. */
+body.mode-portrait #mm-prado-crates-row {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 95vh;
+    top: 110vh;
+    bottom: auto !important;
+    right: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    scrollbar-width: none;
+    overscroll-behavior-y: none;
+    gap: 0;
+    padding: 1.5rem 0 3rem;
+    pointer-events: none;
+    z-index: 0 !important;
+    box-sizing: border-box;
+    background: transparent;
+}
+body.mode-portrait #mm-prado-crates-row::-webkit-scrollbar { display: none; }
+
+/* Cada modo ocupa el ancho completo en el scroll vertical */
+body.mode-portrait .mm-prado-mode-btn {
+    flex: 0 0 auto;
+    width: 100%;
+    scroll-snap-align: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: none;
+    border: none;
+    padding: 1.5rem 0;    
+}
+/* Marco 9-slice estirable — reemplaza el <img class="prado-crate-frame"> de
+   proporción fija (ver más abajo, display:none en portrait) para que la
+   tarjeta pueda crecer en alto cuando la descripción no cabe, sin distorsionar
+   el marco de madera ni cortar nunca el texto.
+   themachinegg_modo_marco.png mide 90×125px nativos:
+     - 0-54px  (top)    → banda decorativa + ventana del icono (fija, no se estira)
+     - 118-125px (bottom) → "patas" redondeadas del cajón (fija, no se estira)
+     - 0-2px / 88-90px (left/right) → filete de borde (se estira en vertical)
+   --crate-scale convierte cualquier medida nativa (de ese PNG de 90px de ancho)
+   a su equivalente en px ya escalados al ancho real de la tarjeta — se usa
+   también en .prado-mode-icon/.prado-mode-name/.prado-completed-badge/
+   .prado-rank-badge de más abajo para fijarlos a la zona superior (que nunca
+   se estira), en vez de a un % de la altura total (que ahora es variable). */
+body.mode-portrait .prado-crate-inner {
+    --crate-scale: calc(min(75vw, 300px) / 90);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(75vw, 300px);
+    box-sizing: border-box;
+    min-height: calc(var(--crate-scale) * 110);
+    border-style: solid;
+    border-top-width: calc(var(--crate-scale) * 54);
+    border-right-width: calc(var(--crate-scale) * 2);
+    border-bottom-width: calc(var(--crate-scale) * 7);
+    border-left-width: calc(var(--crate-scale) * 2);
+    /* El border-image YA NO se pinta aquí — un hijo directo (.prado-mode-icon)
+       SIEMPRE se pinta por encima del borde de su propio padre, sin que
+       ningún z-index pueda invertir eso. Se pinta en su lugar en el
+       ::after de abajo, que sí es reordenable con z-index (queda entre
+       el icono y el título/insignias). */
+    border-color: transparent;
+    background-color: #9e4539; /* interior de themachinegg_modo_marco.png */
+    background-clip: padding-box;
+}
+body.mode-portrait .prado-crate-frame {
+    display: none; /* sustituido por el border-image de .prado-crate-inner::after de abajo */
+}
+body.mode-portrait .prado-crate-inner::after {
+    content: '';
+    position: absolute;
+    box-sizing: border-box; /* si no, su propio borde se suma POR FUERA del área ya calculada con los insets negativos de abajo */
+    z-index: 2; /* por encima de .prado-mode-icon (1), por debajo de .prado-mode-name/insignias (3/4) */
+    pointer-events: none;
+    /* Cubre exactamente el border-box completo (inset:0 por sí solo solo
+       cubriría el padding-box, ver nota de .prado-mode-icon más abajo sobre
+       ese mismo comportamiento) — se compensa restando cada border-*-width. */
+    top: calc(var(--crate-scale) * -54);
+    right: calc(var(--crate-scale) * -2);
+    bottom: calc(var(--crate-scale) * -7);
+    left: calc(var(--crate-scale) * -2);
+    border-style: solid;
+    border-top-width: calc(var(--crate-scale) * 54);
+    border-right-width: calc(var(--crate-scale) * 2);
+    border-bottom-width: calc(var(--crate-scale) * 7);
+    border-left-width: calc(var(--crate-scale) * 2);
+    border-image: url('pixelart_design/themachinegg_modo_marco.png') 54 2 7 2 fill stretch;
+    image-rendering: pixelated;
+}
+body.mode-portrait .prado-lock-icon {
+    /* Mismo truco que el ::after de arriba: cubre el border-box completo
+       compensando los insets (inset:0 solo cubriría el padding-box). */
+    top: calc(var(--crate-scale) * -54);
+    right: calc(var(--crate-scale) * -2);
+    bottom: calc(var(--crate-scale) * -7);
+    left: calc(var(--crate-scale) * -2);
+}
+body.mode-portrait .prado-mode-icon {
+    position: absolute;
+    z-index: 1;
+    /* -54: el "top" de un position:absolute mide desde el padding-box del
+       padre, que ahora empieza DESPUÉS del border-top-width (54*escala) que
+       le pusimos a .prado-crate-inner — sin restarlo, el icono aparece 54*escala
+       más abajo de lo que estaba antes de que ese borde existiera. */
+    top: calc(var(--crate-scale) * (var(--portrait-mode-icon-top-num, 32.5) - 43));
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--portrait-mode-icon-w, 81%);
+    aspect-ratio: 72 / 28;
+    background-image: url(pixelart_design/mode_icons.png);
+    background-size: 600% 100%;
+    image-rendering: pixelated;
+}
+body.mode-portrait #mm-prado-normal   .prado-mode-icon { background-position:   0% 0%; }
+body.mode-portrait #mm-prado-adam     .prado-mode-icon { background-position:  20% 0%; }
+body.mode-portrait #mm-prado-fourth   .prado-mode-icon { background-position:  40% 0%; }
+body.mode-portrait #mm-prado-endless  .prado-mode-icon { background-position:  60% 0%; }
+body.mode-portrait #mm-prado-speedrun .prado-mode-icon { background-position:  80% 0%; }
+body.mode-portrait #mm-prado-weekly   .prado-mode-icon { background-position: 100% 0%; }
+/* Gallinas Mimosas: icono propio (imagen aparte de 72x28, ver style.css). */
+body.mode-portrait #mm-prado-mimosas  .prado-mode-icon { background-image: url(pixelart_design/mode_icon_mimosas.png); background-size: 100% 100%; background-position: 0 0; }
+body.mode-portrait .prado-mode-name {
+    position: absolute;
+    z-index: 3;
+    /* height:0 + align-items:center centra el texto en un punto exacto (top)
+       en vez de en una caja alta — más simple y sin ambigüedad.
+       top: -22.75 reproduce el centro vertical ORIGINAL del título (y=31.25
+       en la tarjeta vieja, sin borde) menos los 54 del border-top-width
+       (mismo motivo que .prado-mode-icon de arriba: el "top" de un
+       position:absolute mide desde el padding-box, que empieza DESPUÉS del
+       borde). Usa --crate-scale (no rem/px) para escalar igual en cualquier
+       resolución, igual que el resto de elementos del marco 9-slice. */
+    top: calc(var(--crate-scale) * -37.75);
+    height: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-align: center;
+    font-family: 'Press Start 2P', monospace;
+    font-size: var(--prado-name-size, 10px);
+    color: #fff;
+    text-shadow: 1px 1px 0 #000, 2px 2px 0 #000;
+    pointer-events: none;
+    white-space: nowrap;
+    filter: drop-shadow(1px 1px 4px #000000);
+    white-space: pre-wrap;
+    /*place-self: center;*/
+    padding: 0px;
+}
+body.mode-portrait .prado-desc {
+    /* Antes: position:absolute con top/bottom en % de la altura total (fija) —
+       overflow:hidden cortaba el texto si no cabía en ese hueco. Ahora vive en
+       el flujo normal (flex:1 dentro del flex-column de .prado-crate-inner):
+       si el texto es corto, crece hasta empujar los botones al fondo (mismo
+       aspecto que antes); si es largo, empuja hacia abajo el alto de TODA la
+       tarjeta (min-height en .prado-crate-inner) en vez de cortarse. */
+    position: static;
+    z-index: 3;
+    flex: 1;
+    padding: calc(var(--crate-scale) * 4) 4% 4%;
+    text-align: center;
+    font-family: 'Press Start 2P', monospace;
+    font-size: var(--prado-desc-size, 7px);
+    color: #fff;
+    line-height: 1.4;
+    text-shadow: 2px 2px 0 #000;
+    pointer-events: none;
+    white-space: normal;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px !important;
+}
+body.mode-portrait .prado-actions {
+    /* Antes: position:absolute pegado a bottom:5%. Ahora es el último hijo del
+       flex-column — al no tener flex-grow, siempre queda pegado al fondo
+       (empujado por .prado-desc de arriba, que sí crece). */
+    position: static;
+    z-index: 3;
+    flex-shrink: 0;
+    padding: 0 4% calc(var(--crate-scale) * 2);
+    display: flex;
+    gap: 4px;
+}
+body.mode-portrait .prado-play-btn {
+    flex: 1;
+    height: var(--prado-btn-h, 28px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Press Start 2P', monospace;
+    font-size: var(--prado-play-size, 9px);
+    padding: 0 4px;
+    color: white;
+    border: 2px solid #fff;
+}
+body.mode-portrait #mm-prado-normal   .prado-play-btn { background: #2980b9; box-shadow: 0 2px 0 #1c5980; }
+body.mode-portrait #mm-prado-adam     .prado-play-btn { background: #27ae60; box-shadow: 0 2px 0 #1e8449; }
+body.mode-portrait #mm-prado-fourth   .prado-play-btn { background: #c0392b; box-shadow: 0 2px 0 #922b21; }
+body.mode-portrait #mm-prado-endless  .prado-play-btn { background: #8e44ad; box-shadow: 0 2px 0 #6c3483; }
+body.mode-portrait #mm-prado-speedrun .prado-play-btn { background: #e67e22; box-shadow: 0 2px 0 #d35400; }
+body.mode-portrait #mm-prado-mimosas  .prado-play-btn { background: #e84393; box-shadow: 0 2px 0 #b03070; }
+body.mode-portrait .prado-restart-btn {
+    flex: 0 0 auto;
+    height: var(--prado-btn-h, 28px);
+    padding: 0px 8px 4px 8px;
+    font-size: var(--prado-restart-size, 8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 6ª tarjeta — Endless Semanal. CrazyGames también se puede jugar en navegador
+   móvil, así que necesita su propia versión portrait. */
+body.mode-portrait #mm-prado-weekly .prado-play-btn { background: #f1c40f; box-shadow: 0 2px 0 #b7950b; color: #1a0f0a; }
+/* .prado-desc en portrait vive en flujo normal (flex:1, ver regla base) —
+   esta línea solo necesita ir DESPUÉS de la descripción y ANTES de
+   .prado-actions en el HTML para aparecer en el sitio correcto, sin
+   posicionamiento absoluto ni hueco que recalcular. */
+body.mode-portrait .prado-weekly-countdown {
+    flex: 0 0 auto;
+    text-align: center;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: #ffe234;
+    text-shadow: 1px 1px 0 #000;
+    padding-bottom: calc(var(--crate-scale) * 2);
+}
+
+/* ── Portrait: footer decorativo del main menu ── */
+/* Imagen pixel-art fijada al bottom del overlay, misma escala que el fondo.
+   Aparece con fade-in simultáneo al bottom-bar (via JS: portrait-footer-visible). */
+body.mode-portrait #mm-portrait-footer-bg {
+    position: absolute;
+    bottom: var(--portrait-footer-bottom, 0px);
+    left: 50%;
+    width: 100vw;
+    height: var(--portrait-footer-natural-h, 80px);
+    box-sizing: border-box;
+    border-style: solid;
+    border-color: transparent;
+    border-width: 0 20px;
+    border-image: url('pixelart_design/bg_intro_footer_wood_portrait.png') 0 20 fill / 0 20px / 0 stretch;
+    background-color: #8a593d;   /* tapa rayitas 9-slice (interior del sprite) */
+    /* Respaldo para iOS: en la app compilada, el border-image de arriba dejaba
+       de pintarse al entrar en la pantalla de modos de juego (no en el menú
+       principal), quedando a la vista solo el background-color. Se descartaron
+       en el dispositivo: cascada (CSS computado idéntico en ambas pantallas),
+       carga del PNG (decode OK), tamaño de la caja, el transform:scale,
+       image-rendering, y que algo lo tapara (#8a593d no se usa en ningún otro
+       sitio del proyecto) — la única variable que quedaba era el propio
+       border-image. Esta imagen de fondo se pinta POR DEBAJO del border-image,
+       así que donde este funciona no se ve y no cambia nada; donde falla, deja
+       la madera a la vista en vez del color plano. Comprobado en simulador de
+       iPhone. */
+    background-image: url('pixelart_design/bg_intro_footer_wood_portrait.png');
+    background-clip: padding-box;
+    image-rendering: pixelated;
+    transform-origin: center bottom;
+    transform: translateX(-50%) scale(var(--portrait-footer-scale, 1)) scaleX(var(--portrait-footer-w, 1));
+    opacity: 0;
+    transition: none;
+    pointer-events: none;
+    z-index: 730;
+}
+body.mode-portrait #mm-portrait-footer-bg.portrait-footer-visible {
+    opacity: 1 !important;
+    transition: opacity 0.5s ease !important;
+}
+/* Bottom bar encima del footer decorativo */
+body.mode-portrait #mm-bottom-bar {
+    z-index: 740 !important;
+    bottom: var(--portrait-bottom-bar-y, 0px) !important;
+}
+
+/* ── Shop: en flujo normal bajo el área de juego ── */
+body.mode-portrait #shop {
+    position: relative;
+    width: 100%;
+    height: 150px;
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    z-index: 50;
+    background: #3e2723;
+    border-top: 4px solid #4a3623;
+    padding: 8px;
+    margin: 0;
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    border-radius: 0 !important;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    max-height: none;
+    overflow: hidden;
+}
+
+body.mode-portrait #shop.is-expanded {
+    height: 49vh;
+    box-shadow: 0 -15px 50px rgba(0, 0, 0, 0.95);
+    background: #2e1d1a;
+}
+
+body.mode-portrait #shop.has-boosts { height: calc(150px + 28px); }
+body.mode-portrait #shop.is-expanded.has-boosts { height: calc(49vh + 28px); }
+
+body.mode-portrait #shop-header {
+    touch-action: none;
+    user-select: none;
+    margin-bottom: 4px;
+    padding-bottom: 7px !important;
+    cursor: var(--cur-finger);
+    justify-content: center;
+}
+
+body.mode-portrait #shop-header h2 {
+    color: #ffffff;
+    font-size: 11px;
+    text-transform: uppercase;
+    /*text-shadow: none;*/
+    letter-spacing: 2px;
+}
+
+
+
+/* ── Shop scroll: horizontal en colapsado, wrap en expandido ── */
+body.mode-portrait #shop-scroll {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 8px;
+    padding: 5px;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    transition: all 0.3s ease;
+    max-height: none;
+}
+
+body.mode-portrait #shop-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+body.mode-portrait #shop.is-expanded #shop-scroll {
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow-x: hidden;
+    overflow-y: auto;
+    justify-content: center;
+    align-content: flex-start;
+    touch-action: pan-y;
+    padding-bottom: 50px;
+}
+
+@keyframes shop-hint-bounce-x {
+    0%, 100% { transform: translateY(-50%) translateX(0); }
+    50% { transform: translateY(-50%) translateX(6px); }
+}
+@keyframes shop-hint-bounce-y {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(6px); }
+}
+
+body.mode-portrait .shop-group-header {
+    display: none !important;
+}
+
+/* Wrapper de botones de tienda */
+body.mode-portrait .shop-btn-wrapper {
+    flex: 0 0 85px;
+    height: 85px;
+    position: relative;
+}
+
+body.mode-portrait #shop-scroll>.shop-btn {
+    flex: 0 0 130px;
+    height: 85px;
+}
+
+body.mode-portrait .shop-btn {
+    width: 100%;
+    height: 100%;
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 6.5px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+    margin-bottom: 0;
+    min-height: unset;
+}
+
+body.mode-portrait #shop.is-expanded .shop-btn-wrapper {
+    flex: 0 0 calc(33% - 10px);
+    height: 90px;
+    max-width: 105px;
+}
+
+body.mode-portrait #shop.is-expanded #shop-scroll>.shop-btn {
+    flex: 0 0 40%;
+    height: 90px;
+}
+
+body.mode-portrait #shop.is-expanded .shop-btn {
+    flex: unset;
+    height: 100%;
+    max-width: unset;
+}
+
+body.mode-portrait .shop-btn .btn-title {
+    font-size: 6.5px;
+    text-align: center;
+    color: #7a3045;
+}
+
+body.mode-portrait .shop-btn .btn-price {
+    font-size: 6.5px;
+    opacity: 0.9;
+}
+
+body.mode-portrait .shop-btn>.upg-info,
+body.mode-portrait .shop-btn>.lv-corner {
+    font-size: 5px;
+}
+
+/* Info triangle en esquina */
+body.mode-portrait .info-graphic {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 9px !important;
+    padding-right: 3px !important;
+    padding-top: 3px !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PORTRAIT — Shop remasterizado: BOTTOM.png + 9-slice buttons
+   ══════════════════════════════════════════════════════════════ */
+
+body.mode-portrait #shop {
+    background: none;
+    border: none !important;
+    padding: 0;
+}
+
+body.mode-portrait #shop.is-expanded {
+    background: none;
+}
+
+body.mode-portrait #shop::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border: 22px solid transparent;
+    border-bottom-width: 75px;
+    border-image: url(pixelart_design/BOTTOM.png);
+    background-color: #6b3e75;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+    border-image-slice: 15 58 26 37 fill;
+    border-image-width: 28px;
+    image-rendering: pixelated;
+    pointer-events: none;
+}
+
+body.mode-portrait #shop > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Aviso "hay una mejora comprable fuera de la vista" — flecha a la derecha
+   cuando la tienda está colapsada (scroll horizontal), flecha abajo cuando
+   está expandida (scroll vertical). Ver _updateShopScrollHint en script.js.
+   OJO: este bloque va DESPUÉS de "#shop > *" de arriba a propósito — misma
+   especificidad (1 id) y misma cascada, así que el orden en el archivo es
+   lo que decide; puesto antes, "#shop > *" le ganaba y el position:absolute
+   nunca se aplicaba (quedaba en position:relative, dentro del flujo normal
+   como una fila más, tapando parte de los botones — el bug reportado). */
+body.mode-portrait #shop-scroll-hint {
+    display: none;
+    position: absolute;
+    z-index: 60;
+    pointer-events: none;
+}
+body.mode-portrait #shop-scroll-hint.visible {
+    display: block;
+}
+body.mode-portrait #shop-scroll-hint .shop-scroll-hint-arrow {
+    display: block;
+    width: 24px;
+    height: 24px;
+    background-image: url('pixelart_design/tienda_lista_flecha.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    filter: drop-shadow(1px 1px 2px brown);
+}
+body.mode-portrait #shop-scroll-hint.dir-right {
+    right: 4px;
+    top: 50%;
+    animation: shop-hint-bounce-x 1s ease-in-out infinite;
+}
+/* tienda_lista_flecha.png apunta hacia abajo de forma nativa (para dir-down,
+   tienda desplegada) — para dir-right (tienda colapsada) se rota -90deg. */
+body.mode-portrait #shop-scroll-hint.dir-right .shop-scroll-hint-arrow {
+    transform: rotate(-90deg);
+}
+body.mode-portrait #shop-scroll-hint.dir-down {
+    bottom: 4px;
+    left: 50%;
+    animation: shop-hint-bounce-y 1s ease-in-out infinite;
+}
+
+body.mode-portrait #shop-header {
+    height: 30px;
+    flex-shrink: 0;
+    padding: 0 6px !important;
+    margin-bottom: 0 !important;
+    background: transparent;
+    border-bottom: none !important;
+    position: relative;
+}
+
+/* Botón info — imagen 38×15 escalada ×2, centrado verticalmente en el header */
+body.mode-portrait #shop-info-btn {
+    position: absolute;
+    right: -10px;
+    width: 76px;
+    top: 0;
+    height: 28px;
+    background: url('pixelart_design/info.png') center/contain no-repeat;
+    image-rendering: pixelated;
+    border: none;
+    box-shadow: none;
+    background-color: transparent;
+    cursor: var(--cur-finger);
+    padding: 0;
+    z-index: 2;
+}
+
+body.mode-portrait #shop-info-btn:hover { opacity: 0.85; }
+body.mode-portrait #shop.is-info #shop-info-btn { opacity: 0.6; }
+
+/* ── Modo info: columna única, botones a ancho completo ── */
+body.mode-portrait #shop.is-expanded.is-info #shop-scroll {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    align-items: stretch;
+    gap: 6px;
+    padding: 6px 8px 50px;
+    touch-action: pan-y;
+}
+
+body.mode-portrait #shop.is-expanded.is-info .shop-btn-wrapper,
+body.mode-portrait #shop.is-expanded.is-info #shop-scroll > .shop-btn,
+body.mode-portrait #shop.is-expanded.is-info .shop-btn-row {
+    flex: none;
+    width: 100%;
+    height: auto;
+}
+
+/* Botón: grid 2 columnas — icono | texto */
+body.mode-portrait #shop.is-expanded.is-info .shop-btn {
+    width: 100%;
+    height: auto;
+    display: grid;
+    grid-template-columns: 74px 1fr;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+        "icon  title"
+        "icon  desc"
+        "level bottom";
+    gap: 0;
+    overflow: visible;
+    padding: 6px 8px 6px 0;
+    position: relative;
+    min-height: 80px;
+}
+
+/* Icono: columna izquierda, centrado verticalmente */
+body.mode-portrait #shop.is-expanded.is-info .shop-btn::before {
+    grid-area: icon;
+    grid-row: 1 / 3;
+    position: absolute;
+    top: 50%; left: 0; right: auto; transform: none;
+    transform: translateY(-50%);
+    width: 70px;
+    height: 35px;
+    /* Misma altura recalculada que la regla base — antes se me había pasado
+       esta variante de modo "info", que la tenía duplicada. */
+    background-size: 560px 165px;
+    align-self: center;
+    justify-self: center;
+    flex-shrink: unset;
+    margin: 0;
+}
+
+/* Título */
+body.mode-portrait #shop.is-expanded.is-info .shop-btn .btn-title {
+    grid-area: title;
+    position: static;
+    top: auto; left: auto; right: auto;
+    width: auto; height: auto;
+    font-size: 8px !important;
+    text-align: left;
+    padding: 2px 0 0;
+    display: block;
+    overflow: visible;
+    color: #7a3045;
+    align-self: end;
+}
+
+/* Descripción via ::after en grid area "desc" */
+body.mode-portrait #shop.is-expanded.is-info .shop-btn::after {
+    content: attr(data-title);
+    grid-area: desc;
+    position: static;
+    font-size: 6.5px;
+    color: #7a3045;
+    font-family: 'Press Start 2P', monospace;
+    line-height: 1.6;
+    padding: 3px 0 2px;
+    text-align: left;
+}
+
+/* Fila inferior: upg-info a la izq, precio a la der */
+body.mode-portrait #shop.is-expanded.is-info .shop-btn > .upg-info {
+    grid-area: bottom;
+    display: block !important;
+    position: static;
+    font-size: 5px;
+    color: #5a3060;
+    align-self: center;
+    padding: 0;
+}
+
+body.mode-portrait #shop.is-expanded.is-info .shop-btn .btn-price {
+    grid-area: bottom;
+    position: static;
+    bottom: auto; right: auto; left: auto;
+    width: auto; height: auto;
+    font-size: 9px !important;
+    text-align: right;
+    justify-self: end;
+    align-self: end;
+    padding: 0;
+    color: #FFFFFF;
+}
+
+body.mode-portrait #shop.is-expanded.is-info .shop-btn.first-chicken {
+    border-image: url('pixelart_design/shop_item_green.png') 16 fill / 24px / 0 stretch;
+    background-color: #5dca93;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+}
+body.mode-portrait #shop.is-expanded.is-info .shop-btn.first-chicken .btn-title,
+body.mode-portrait #shop.is-expanded.is-info .shop-btn.first-chicken::after {
+    color: #19633d;
+}
+
+/* lv-corner en info: columna izquierda fila 3 */
+body.mode-portrait #shop.is-expanded.is-info .shop-btn > .lv-corner {
+    display: block !important;
+    grid-area: level;
+    font-size: 8px !important;
+    align-self: end;
+    justify-self: center;
+    color: white !important;
+}
+
+body.mode-portrait #shop-header h2 {
+    display: block;
+    color: #ffffff;
+    font-size: 11px;
+    /*text-shadow: none;*/
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    text-shadow: 0px 2px 0px rgb(0 0 0 / 65%);
+}
+
+body.mode-portrait #shop-header span {
+    color: white;
+    font-size: 7px;
+    text-shadow: 0px 2px 0px rgb(0 0 0 / 65%);
+    margin: 0 4px;
+}
+
+body.mode-portrait #mute-btn,
+body.mode-portrait #toggle-info-btn {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 10px !important;
+    border-width: 1px !important;
+    opacity: 0.9;
+}
+
+/* Botones cuadrados en portrait */
+body.mode-portrait .shop-btn-wrapper {
+    flex: 0 0 95px;
+    width: 95px;
+    height: 95px;
+}
+
+body.mode-portrait .shop-btn-row {
+    flex-direction: row;
+    gap: 6px;
+    margin-bottom: 0;
+    height: 108px;
+    flex-shrink: 0;
+    width: auto;
+    flex: none;
+}
+
+body.mode-portrait .shop-btn-row .free-ad-btn {
+    flex: 0 0 95px;
+    width: 95px;
+    height: 108px;
+}
+
+body.mode-portrait .shop-btn-row .shop-btn {
+    flex: 0 0 95px;
+    width: 95px;
+    height: 108px;
+}
+
+body.mode-portrait #shop-scroll>.shop-btn {
+    flex: 0 0 95px;
+    width: 95px;
+    height: 108px;
+}
+
+body.mode-portrait #shop.is-expanded .shop-btn-wrapper {
+    flex: 0 0 95px;
+    width: 95px;
+    height: 108px;
+    max-width: 95px;
+}
+
+body.mode-portrait #shop.is-expanded #shop-scroll>.shop-btn {
+    flex: 0 0 95px;
+    width: 95px;
+    height: 108px;
+}
+
+/* Botón verde para primera gallina */
+body.mode-portrait .shop-btn.first-chicken {
+    border-image: url('pixelart_design/shop_item_green.png') 5 fill / 7px / 0 stretch;
+    background-color: #5dca93;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+}
+
+body.mode-portrait .shop-btn.first-chicken::before {
+    background-image: url('pixelart_design/shop_icons_green.png');
+}
+
+body.mode-portrait .shop-btn.first-chicken .btn-title {
+    color: #19633d;
+}
+
+/* Botón free-ad-mode: sprites verdes */
+body.mode-portrait .shop-btn.free-ad-mode {
+    border-image: url('pixelart_design/shop_item_green_nodesc.png') 16 fill / 24px / 0 stretch;
+    background-color: #5dca93;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+}
+body.mode-portrait #shop.is-expanded.is-info .shop-btn.free-ad-mode {
+    border-image: url('pixelart_design/shop_item_green.png') 16 fill / 24px / 0 stretch;
+    background-color: #5dca93;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+}
+body.mode-portrait .shop-btn.free-ad-mode::before {
+    background-image: url('pixelart_design/shop_icons_green.png');
+    /* Mismo motivo que en style.css: shop_icons_green.png se quedó en 76px de
+       alto (shop_icons.png ahora tiene 95px, 5ª fila añadida) — heredar el
+       background-size de la base (560px 165px) estiraba/descuadraba los
+       iconos verdes. 132px = 76 × 1.7368 (misma escala que la base). */
+    background-size: 560px 132px;
+}
+body.mode-portrait .shop-btn.free-ad-mode .btn-title,
+body.mode-portrait #shop.is-expanded.is-info .shop-btn.free-ad-mode .btn-title,
+body.mode-portrait #shop.is-expanded.is-info .shop-btn.free-ad-mode::after {
+    color: #19633d;
+}
+
+/* Botón: 9-slice con shop_item.png (52×53, slice=5) */
+body.mode-portrait .shop-btn {
+    background: none;
+    box-shadow: none;
+    border: 5px solid transparent;
+    border-image: url('pixelart_design/shop_item_nodesc.png') 16 fill / 24px / 0 stretch;
+    background-color: #ed8099;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+    image-rendering: pixelated;
+    padding: 0;
+    display: block;
+    color: #1a0820;
+    text-shadow: none;
+    border-radius: 0 !important;
+    transition: filter 0.08s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+body.mode-portrait #shop.is-expanded.is-info .shop-btn {
+    border-image: url('pixelart_design/shop_item.png') 16 fill / 24px / 0 stretch;
+    background-color: #ed8099;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+}
+
+body.mode-portrait #shop.is-expanded.is-info #buy-retire {
+    border-image: url('pixelart_design/shop_item_gold.png') 16 fill / 24px / 0 stretch;
+    background-color: #ffb72b;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+}
+
+body.mode-portrait .shop-btn:hover:not(:disabled) {
+    filter: none;
+    background: none !important;
+    transform: none;
+    box-shadow: none !important;
+}
+
+body.mode-portrait .shop-btn:active {
+    filter: none;
+    transform: translateY(1px);
+}
+
+body.mode-portrait .shop-btn:disabled {
+    opacity: 1;
+    filter: hue-rotate(300deg) saturate(0.5) brightness(0.8) contrast(0.8);
+
+}
+
+/* ── Precio con descuento: ocultar tachado, animación intermitente ── */
+@keyframes cost-discount-pulse {
+    0%, 100% { color: #ffffff; }
+    50%       { color: #ff65a5; }
+}
+/* :not(.tier-cost-icon) — este selector genérico solo quería ocultar el
+   <span> del precio tachado en los descuentos (ver has-discount en
+   script.js), pero al ser tan amplio ([id^="cost-"] > span) también
+   escondía el icono de gallina-tier metido dentro de esos mismos spans
+   #cost-*. */
+body.mode-portrait [id^="cost-"] > span:not(.tier-cost-icon) { display: none; }
+body.mode-portrait [id^="cost-"] > br   { display: none; }
+body.mode-portrait .has-discount {
+    animation: cost-discount-pulse 1.4s ease-in-out infinite;
+    text-shadow: 0px 0px 8px #ff4d9c;
+}
+
+/* ── Boosts activos: franja horizontal sobre el carrusel ── */
+body.mode-portrait #eb-active {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    padding: 2px 11px;
+    height: 28px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+}
+
+body.mode-portrait #eb-active::-webkit-scrollbar { display: none; }
+
+body.mode-portrait .eb-pill {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 5px;
+    height: 16px;
+    border: 3px solid transparent;
+    border-image: url('pixelart_design/btn_3.png') 5 fill / 7px / 2 stretch;
+    background-color: #4d9be6;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+    image-rendering: pixelated;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+body.mode-portrait .eb-pill-name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: #ffffff;
+}
+
+body.mode-portrait .eb-pill-time {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: #f1c40f;
+}
+
+/* Animación de inserción — pedido explícito: que se note claramente cómo el
+   boost recién ganado (tras ver el anuncio de recompensa) aparece en la tienda.
+   _ebSyncActiveUI() (scenarios/farm/script.js) solo añade esta clase al CREAR
+   el <div> la primera vez (reconciliación por _uid, no un innerHTML completo
+   en cada frame) — así el elemento persiste el tiempo suficiente para que la
+   animación corra un ciclo completo en vez de reiniciarse en cada frame. */
+body.mode-portrait .eb-pill--new {
+    /* delay: da un pequeño respiro antes de aparecer, en vez de saltar al
+       instante. backwards: mantiene el estado del 0% durante ese delay (si no,
+       se vería el pill a tamaño normal un instante antes de la animación). */
+    animation: eb-pill-pop 0.8s ease-out 0.15s backwards;
+    transform-origin: center;
+}
+@keyframes eb-pill-pop {
+    0%   { transform: scale(0);    opacity: 0; filter: drop-shadow(0 0 0px #fff176) brightness(1); }
+    55%  { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 10px #fff176) brightness(1.6); }
+    100% { transform: scale(1);    opacity: 1; filter: drop-shadow(0 0 0px #fff176) brightness(1); }
+}
+
+/* Retire: conservar estilo naranja */
+body.mode-portrait #buy-retire {
+    border: 5px solid transparent;
+    border-image: url('pixelart_design/shop_item_gold_nodesc.png') 16 fill / 24px / 0 stretch;
+    /* El `background: none !important` resetea color Y clip: el fix va DESPUES y con !important. */
+    background: none !important;
+    background-color: #ffb72b !important;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box !important;
+    box-shadow: none !important;
+    color: #19633d;
+}
+
+body.mode-portrait #buy-retire::before {
+    width: 88px !important;
+    height: 34px !important;
+    background-size: 565px 132px !important;
+
+    left: 50% !important;
+    width: 72px !important;
+    /* Altura recalculada ×1.25 (95/76 nativos) tras añadir la 5ª fila del
+       sprite — misma escala relativa que antes, imagen ahora más alta. */
+    background-size: 560px 163.75px !important;
+}
+
+
+
+body.mode-portrait #shop.is-info #buy-retire .btn-title {
+    padding-left: 12px;
+    
+}
+
+body.mode-portrait #shop.is-expanded.is-info #buy-retire::before {
+    left: 0 !important;
+}
+
+
+/* Título: zona central */
+body.mode-portrait .shop-btn .btn-title {
+    position: absolute;
+    top: 30px;
+    left: 0;
+    right: 0;
+    height: 33px;
+    grid-area: unset;
+    font-size: 6.5px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 2px;
+    overflow: hidden;
+}
+
+/* Nivel: franja oscura, encima del precio */
+body.mode-portrait .shop-btn > .lv-corner {
+    position: absolute;
+    bottom: 18px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 5px;
+    color: white;
+}
+
+body.mode-portrait .shop-btn > .lv-corner:empty {
+    display: none;
+}
+
+/* Precio: zona inferior */
+body.mode-portrait .shop-btn .btn-price {
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    right: 0;
+    height: 22px;
+    grid-area: unset;
+    margin-top: 0;
+    color: white;
+    font-size: 7px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 17px;
+    padding-top: 2px !important;
+    font-size: 9px !important;
+}
+
+body.mode-portrait .shop-btn:has(> .lv-corner:empty) .btn-price {
+    bottom: 0;
+    height: 46px;
+}
+
+/* Ocultar indicadores de nivel y upg-info en portrait */
+body.mode-portrait .shop-btn>.upg-info {
+    display: none !important;
+}
+
+/* Ocultar los spans .shop-icon del injection JS anterior (ya no se usan) */
+body.mode-portrait .shop-icon {
+    display: none !important;
+}
+
+/* ── Icono via ::before — inmune a innerHTML regeneration ──
+   Sprite escalado a 560×132 px, 7 cols × 4 filas → frame 80×33 px. */
+/* Icono: zona superior, posición absoluta independiente */
+body.mode-portrait .shop-btn::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 54%;
+    transform: translateX(-50%);
+    width: 80px;
+    /*width: 75px;*/
+    height: 33px;
+    background-image: url('pixelart_design/shop_icons.png');
+    /* Altura recalculada tras añadir la 5ª fila (95px nativos, antes 76px):
+       560/132 y ahora 560/165 mantienen la MISMA escala vertical (132/76 =
+       165/95 = 1.7368...) para que las filas 1-4 no se reescalen/distorsionen. */
+    background-size: 560px 165px;
+    /*background-size: 558px 132px;*/
+    background-position: var(--si, -999px 0);
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+}
+
+/* Mapeado de iconos — offsets en sprite ×2 (col×92, fila×38), -16px en X */
+/* Mapeado — background-size:560×165 (5 filas), frame 80×33, col×80, fila×33 */
+/* Fila 0 */
+body.mode-portrait #buy-chicken      { --si:   -4px    0px; }
+body.mode-portrait #buy-rooster      { --si:  -84px    0px; }
+body.mode-portrait #buy-growth       { --si: -164px    0px; }
+body.mode-portrait #buy-petting      { --si: -244px    0px; }
+body.mode-portrait #buy-diet         { --si: -324px    0px; }
+body.mode-portrait #buy-batch        { --si: -404px    0px; }
+body.mode-portrait #buy-music        { --si: -484px    0px; }
+/* Fila 1 */
+body.mode-portrait #buy-maxfood      { --si:   -4px  -32px; }
+body.mode-portrait #buy-maxwater     { --si:  -84px  -32px; }
+body.mode-portrait #buy-refill       { --si: -164px  -32px; }
+body.mode-portrait #buy-autofood     { --si: -244px  -32px; }
+body.mode-portrait #buy-autowater    { --si: -324px  -32px; }
+body.mode-portrait #buy-basevalue    { --si: -404px  -32px; }
+body.mode-portrait #buy-premium      { --si: -484px  -32px; }
+/* Fila 2 */
+body.mode-portrait #buy-golden       { --si:   -4px  -65px; }
+body.mode-portrait #buy-magnet       { --si:  -84px  -65px; }
+body.mode-portrait #buy-autocollect  { --si: -164px  -65px; }
+body.mode-portrait #buy-autosell     { --si: -244px  -65px; }
+body.mode-portrait #buy-washer       { --si: -324px  -65px; }
+body.mode-portrait #buy-stamper      { --si: -404px  -65px; }
+body.mode-portrait #buy-packager     { --si: -484px  -65px; }
+/* Fila 3 */
+body.mode-portrait #buy-ribbon       { --si:   -4px  -98px; }
+body.mode-portrait #buy-tvAd         { --si:  -84px  -98px; }
+body.mode-portrait #buy-megachicken  { --si: -164px  -98px; }
+body.mode-portrait #buy-gallinapro   { --si: -244px  -98px; }
+body.mode-portrait #buy-chickengold  { --si: -324px  -98px; }
+body.mode-portrait #buy-chickengreen { --si: -404px  -98px; }
+body.mode-portrait #buy-retire       { --si: -484px  -98px; }
+/* Sin icono propio — reutilizan el más cercano */
+body.mode-portrait #buy-autofood-amt  { --si: -244px  -32px; }
+body.mode-portrait #buy-autowater-amt { --si: -324px  -32px; }
+body.mode-portrait #buy-sorter        { --si: -164px  -65px; }
+body.mode-portrait #buy-sortbonus     { --si: -404px  -32px; }
+body.mode-portrait #buy-box           { --si: -484px  -65px; }
+/* Fila 4 (nueva) — icono dedicado de gallina morada, columna 1 */
+body.mode-portrait #buy-chickenpurple { --si:   -4px -131px; }
+
+/* ── #eb-offer como banner horizontal en la parte superior del canvas ── */
+body.mode-portrait #eb-offer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 55px;
+    box-sizing: border-box;
+    display: none;
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-rows: 1fr 1fr;
+    grid-template-areas: "gift title reject accept" "gift dur reject accept";
+    align-items: center;
+    gap: 1px 8px;
+    padding: 5px 14px;
+    background: #fdcbb0;
+    border-bottom: 2px solid #6c3483;
+    z-index: 60;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: #e0c0ff;
+    pointer-events: auto;
+}
+
+body.mode-portrait #eb-offer #eb-gift {
+    grid-area: gift;
+    grid-row: 1 / 3;
+    align-self: center;
+    width: 36px;
+    height: 37px;
+    background: url('pixelart_design/gift_icon.png') no-repeat center / contain;
+    image-rendering: pixelated;
+    display: block;
+    flex-shrink: 0;
+}
+
+body.mode-portrait #eb-offer #eb-title {
+    grid-area: title;
+    color: #6b3e75;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px !important;
+}
+
+body.mode-portrait #eb-offer #eb-dur {
+    grid-area: dur;
+    color: white;
+    white-space: nowrap;
+    align-self: start;
+    font-size: 9px !important;
+    display: inline-block;
+    border: 5px solid transparent;
+    border-image: url('pixelart_design/panel_brown_small.png') 5 fill / 5px / 0 stretch;
+    background-color: #cd683d;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+    padding: 1px 4px;
+    width: fit-content;
+}
+
+body.mode-portrait #eb-offer #eb-reject {
+    grid-area: reject;
+    grid-row: 1 / 3;
+    align-self: stretch;
+    border: 5px solid transparent;
+    border-image: url('pixelart_design/panel_brown_small.png') 5 fill / 5px / 0 stretch;
+    background-color: #cd683d;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+body.mode-portrait #eb-offer #eb-reject::before {
+    content: '';
+    width: 15px;
+    height: 15px;
+    background: url('pixelart_design/cancel.png') no-repeat center / contain;
+    image-rendering: pixelated;
+    display: block;
+    flex-shrink: 0;
+}
+body.mode-portrait #eb-offer #eb-reject #eb-reject-label { display: none; }
+body.mode-portrait #eb-offer #eb-reject #eb-cd {
+    color: white;
+    font-size: 8px !important;
+    opacity: 1 !important;
+    white-space: nowrap;
+    margin-bottom: -4px !important;
+    color: #ffffffba;
+}
+
+body.mode-portrait #eb-offer #eb-accept {
+    grid-area: accept;
+    grid-row: 1 / 3;
+    align-self: stretch;
+    border: 5px solid transparent;
+    border-image: url('pixelart_design/panel_green_small.png') 5 fill / 5px / 0 stretch;
+    /* El `background: none` resetea color Y clip: el fix va DESPUES. */
+    background: none;
+    background-color: #54d183;   /* tapa rayitas 9-slice (interior del sprite) */
+    background-clip: padding-box;
+    padding: 2px 6px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+}
+body.mode-portrait #eb-offer #eb-accept #eb-accept-label {
+    display: none;
+}
+body.mode-portrait #eb-offer #eb-accept::before {
+    content: '';
+    width: 32px;
+    height: 32px;
+    background: url('pixelart_design/watchad.png') no-repeat center / contain;
+    image-rendering: pixelated;
+    display: block;
+    flex-shrink: 0;
+}
+
+/* ── Cinematic layout ────────────────────────────────────────────────────────
+   Bars and fade overlay live inside #game-viewport as position:absolute so
+   they are anchored to the viewport edges regardless of content Y shift.
+   Content Y shift is applied to #cine-frame (the inner content wrapper).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Portrait cinematic: game-viewport becomes a positioning context for bars/fade;
+   cine-frame becomes a flex column that can be shifted independently */
+body.mode-portrait.is-cinematic #game-viewport {
+    position: relative;
+}
+body.mode-portrait.is-cinematic #cine-frame {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    /*min-height: 1100px;*/
+    overflow: hidden;
+    transform: translateY(var(--cine-content-y, 0%));
+}
+
+/* Background behind the shifted frame stays black */
+body.mode-portrait.is-cinematic #farm-area,
+body.mode-desktop.is-cinematic #farm-area {
+    background: #000;
+}
+
+body.mode-portrait.is-cinematic .earth-extension {
+    margin-bottom: 0;
+}
+
+
+
+body.mode-portrait #ranking-overlay > div {
+    border-width: 0 !important;
+    padding: 15px 5px;
+}
+
+body.mode-portrait #ranking-panel-title {
+    top: 20px !important;
+    overflow: hidden !important;
+}
+body.mode-portrait #ranking-panel-title span,
+body.mode-portrait #pause-panel-title span {
+    font-size: clamp(9px, 3.8vw, 20px) !important;
+    white-space: nowrap !important;
+}
+
+#pause-panel-title {
+   /* top: -10px !important;*/
+}
+
+body.mode-portrait #ranking-list {
+    font-size: clamp(5px, 1.3vh, 15px) !important;
+}
+
+body.mode-portrait #ranking-overlay #ranking-list {
+    margin-top: 0 !important;
+    
+
+}
+
+body.mode-portrait #ranking-status {
+    margin-top: 3px !important;
+}
+
+
+#ranking-col-header th {
+    font-size: clamp(6px, 1.3vh, 15px) !important;
+
+}
+
+/* ── Portrait: blur de fondo cuando se abre Ajustes / Logros / Ranking ── */
+/* intro-pan-wrapper aplica blur vía .is-blurred (style.css).
+   Los elementos movidos por portrait.js al overlay son siblings suyos,
+   por lo que no quedan dentro del blur del wrapper. Se corrige aquí. */
+body.mode-portrait #mm-prado-crates-row,
+body.mode-portrait #mm-portrait-footer-bg,
+body.mode-portrait #mm-bottom-bar {
+    transition: filter 0.25s ease;
+}
+/* #mm-jugar-btn ya no es sibling del wrapper — vive dentro del canvas y se blurrea con él */
+body.mode-portrait #intro-pan-wrapper.is-blurred ~ #mm-prado-crates-row,
+body.mode-portrait #intro-pan-wrapper.is-blurred ~ #mm-portrait-footer-bg,
+body.mode-portrait #intro-pan-wrapper.is-blurred ~ #mm-bottom-bar {
+    filter: blur(6px);
+    transition: filter 0.25s ease;
+}
+
+body.mode-portrait .prado-completed-badge,
+body.mode-portrait .prado-rank-badge {
+    /* Antes heredaban el top:5% (de style.css) de la altura total, ahora
+       variable — fijo a la zona superior con --crate-scale, igual que el
+       resto de elementos superpuestos del marco 9-slice (ver más arriba).
+       -54 por el mismo motivo que .prado-mode-icon (border-top-width del
+       padre desplaza el origen del padding-box). */
+    top: calc(var(--crate-scale) * (6.25 - 54));
+}
+body.mode-portrait .prado-completed-badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #fff74e;
+    text-shadow: 1px 1px 0 #000, 0 0 6px #000000;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SOLO TABLET — topbar y bocadillos de tutorial a mayor tamaño
+   600px = sw600dp, la definición de "tablet" de Android y el mismo
+   umbral que ya usan el max-width de #game-container y la gate del
+   banner en shared/ads.js. Todo va dentro de body.mode-portrait, así
+   que no afecta al modo escritorio; y por el media query tampoco a
+   móvil.
+   ══════════════════════════════════════════════════════════════ */
+@media (min-width: 600px) {
+
+    /* ── Topbar ────────────────────────────────────────────────── */
+    /* La cabecera es un 9-slice (TOP.png, border-image-slice 40): se
+       agranda subiendo el slice y el padding, no con transform:scale
+       — escalar un border-image ya rasterizado con image-rendering
+       pixelated deja rayitas entre slices (mismo motivo documentado
+       en el contador de speedrun, script.js). */
+    body.mode-portrait header {
+        padding: 9px 14px;
+        padding-top: calc(9px + env(safe-area-inset-top));
+        /*border-image-slice: 64 0 0 0 fill;*/
+        border-image-slice: 28 0 0 0 fill;
+    }
+    body.mode-portrait #topbar-row {
+        gap: 8px;
+    }
+    /* Alto de los contadores (dinero y gallinas) */
+    body.mode-portrait .pixel-counter-wrap {
+        height: 64px;
+    }
+    /* El marco 9-slice del contador de dinero crece con sus bordes */
+    body.mode-portrait #money-counter .pixel-counter-wrap {
+        border-width: 0 104px 0 104px !important;
+    }
+    /* Botones de ranking y pausa */
+    body.mode-portrait #ranking-btn,
+    body.mode-portrait #pause-btn {
+        width: 64px !important;
+        height: 64px !important;
+        min-width: 64px !important;
+        max-width: 64px !important;
+        flex: 0 0 64px !important;
+    }
+    /* OJO: el font-size de estas dos cifras NO se puede tocar desde aquí.
+       _adjustHUDTextSizes() (script.js) mide el texto y lo escribe INLINE
+       (el.style.fontSize), así que gana a cualquier regla de esta hoja. El
+       tamaño de tablet se configura allí, en FONT_SIZES.tablet. Aquí solo
+       queda el contorno, que sí es puramente CSS. */
+    body.mode-portrait #stats-header .pixel-counter-val,
+    body.mode-portrait #money-counter .pixel-counter-val {
+        -webkit-text-stroke-width: 5px;
+    }
+    /* El marco 9-slice del dinero crece a la par que sus bordes: si solo
+       engordan los remates (72→104) sin subir el min-width, el hueco útil
+       para la cifra ENCOGE y el texto saldría más pequeño, no más grande.
+       464 = 320 x1.45, la misma proporción que el alto (44→64). Debe ir
+       en sintonía con MONEY_MAX_W.tablet en script.js. */
+    body.mode-portrait #money-counter .pixel-counter-wrap {
+        min-width: 464px !important;
+    }
+
+    /* ── Cielo decorativo ──────────────────────────────────────── */
+    /* Solape con lo que hay debajo — base -9px (ver .sky-extension
+       más arriba en este archivo). */
+    body.mode-portrait .sky-extension {
+        margin-bottom: -22px;
+    }
+
+    /* ── Botón SKIP de la intro (x1.5) ─────────────────────────── */
+    /* Todo su estilo vive inline en index.html, de ahí el !important.
+       bottom/right se dejan igual: al crecer anclado abajo-derecha,
+       crece hacia arriba y hacia la izquierda, que es lo natural. */
+    body.mode-portrait #mm-skip-btn {
+        width: 105px !important;        /* 70 x1.5 */
+        height: 45px !important;        /* 30 x1.5 */
+        line-height: 45px !important;
+        font-size: 12px !important;     /* 8  x1.5 */
+    }
+
+    /* ── Barra inferior del menú principal (x1.5) ──────────────── */
+    /* gap/padding van inline en index.html → !important. */
+    body.mode-portrait #mm-bottom-bar {
+        gap: 12px !important;           /* 8  x1.5 */
+        padding: 18px 24px !important;  /* 12/16 x1.5 */
+    }
+    body.mode-portrait #mm-bottom-bar .mm-bar-btn {
+        padding: 15px 18px;             /* 10/12 x1.5 */
+        gap: 6px;                       /* 4  x1.5 */
+    }
+    /* Los iconos salen de un sprite sheet único (button_icons.png, 6
+       iconos de 32px). Al escalarlos NO basta con width/height: hay que
+       escalar también background-size Y la background-position de cada
+       uno, o el recorte apunta al icono equivocado. Se acotan a
+       #mm-bottom-bar porque .mm-bar-icon se usa también fuera de esta
+       barra (borrar, info) y ahí no queremos tocar nada. */
+    body.mode-portrait #mm-bottom-bar .mm-bar-icon {
+        width: 48px;                    /* 32 x1.5 */
+        height: 48px;
+        background-size: 288px 48px;    /* 192x32 x1.5 */
+    }
+    body.mode-portrait #mm-bottom-bar .mm-icon-ajustes { background-position:    0px 0; }
+    body.mode-portrait #mm-bottom-bar .mm-icon-ranking { background-position:  -48px 0; }
+    body.mode-portrait #mm-bottom-bar .mm-icon-logros  { background-position:  -96px 0; }
+    body.mode-portrait #mm-bottom-bar .mm-icon-salir   { background-position: -144px 0; }
+    /* Steam no está en ese sprite: usa su propia imagen y su propio
+       background-size, así que se escala aparte. */
+    body.mode-portrait #mm-bottom-bar .mm-icon-steam {
+        background-size: 42px 42px;     /* 28 x1.5 */
+    }
+    /* Franja de madera bajo la barra: crece con ella para que no se quede
+       corta. Se multiplica la variable en vez de poner un px fijo porque
+       portrait.js la calcula del alto natural del sprite
+       (bg_intro_footer_wood_portrait.png) al cargarlo — así esto sigue
+       siendo correcto si algún día se cambia esa imagen. */
+    body.mode-portrait #mm-portrait-footer-bg {
+        height: calc(var(--portrait-footer-natural-h, 80px) * 1.9);
+    }
+
+    /* ── Bocadillos de tutorial ────────────────────────────────── */
+    /* Solo hace falta agrandar la CAJA: _fitBubble() (script.js) elige
+       el tamaño de fuente más grande que quepa dentro, así que el texto
+       crece solo. Su tope es 30px, muy por encima de lo que necesitan
+       estos tamaños. El !important es para ganar al style="" inline de
+       index.html, donde viven width/height por defecto.
+       El posicionamiento en _updateTutorialBubbles() usa offsetWidth/
+       offsetHeight, o sea el tamaño real renderizado — por eso crecer
+       la caja (en vez de transform:scale) mantiene la punta del
+       bocadillo anclada donde debe sin tocar nada de JS. */
+    /* translateY: al crecer la punta, su vértice baja lo mismo que crece
+       (11px en el huevo: de +14 a +25; 8px en la flor: de +11 a +19). El
+       desplazamiento vertical lo fija _updateTutorialBubbles() con un número
+       suelto (`- 14` / `- 30`) que es COMÚN a móvil y escritorio, así que no
+       se puede tocar; se compensa aquí. Un translate puro no cambia
+       offsetWidth/offsetHeight, así que el cálculo del JS sigue siendo válido. */
+    body.mode-portrait #egg-bubble {
+        width: 245px !important;      /* 140 x1.75 */
+        height: 116px !important;     /* 66  x1.75 */
+        border-width: 5px !important;
+        box-shadow: 5px 5px 0 #333 !important;
+        transform: translateY(-11px);
+    }
+    body.mode-portrait #flower-bubble {
+        width: 350px !important;      /* 200 x1.75 */
+        height: 175px !important;     /* 100 x1.75 */
+        border-width: 5px !important;
+        box-shadow: 5px 5px 0 #333 !important;
+        transform: translateY(-8px);
+    }
+    /* Las puntas son dos <div> con triángulos CSS (el oscuro del borde y el
+       blanco encima) — crecen igual para que no queden diminutas. Van por
+       posición porque no tienen clase propia: 1º .bubble-inner, 2º punta
+       oscura, 3º blanca.
+       En el huevo, margin-left debe ser SIEMPRE -border-left-width para que
+       el vértice quede centrado. En la flor, el `right` se recalcula (no se
+       escala) para que el vértice siga cayendo a 28px del borde derecho, que
+       es donde lo espera el JS (`left = tipX - fw + 28`). */
+    body.mode-portrait #egg-bubble > div:nth-of-type(2) {
+        bottom: -25px !important;
+        margin-left: -16px !important;
+        border-left-width: 16px !important;
+        border-right-width: 16px !important;
+        border-top-width: 25px !important;
+    }
+    body.mode-portrait #egg-bubble > div:nth-of-type(3) {
+        bottom: -18px !important;
+        margin-left: -12px !important;
+        border-left-width: 12px !important;
+        border-right-width: 12px !important;
+        border-top-width: 18px !important;
+    }
+    body.mode-portrait #flower-bubble > div:nth-of-type(2) {
+        bottom: -19px !important;
+        right: 14px !important;
+        border-left-width: 14px !important;
+        border-right-width: 14px !important;
+        border-top-width: 19px !important;
+    }
+    body.mode-portrait #flower-bubble > div:nth-of-type(3) {
+        bottom: -14px !important;
+        right: 16px !important;
+        border-left-width: 12px !important;
+        border-right-width: 12px !important;
+        border-top-width: 16px !important;
+    }
+
+    /* ── Bocadillos de "sin agua" / "sin comida" ───────────────── */
+    /* Estos NO usan _fitBubble: llevan fuente FIJA y es la caja la que
+       crece con el texto (ver comentario en index.html y en
+       _updateTutorialBubbles). Por eso aquí hay que doblar la fuente a
+       mano — 9px es la base de arriba en este mismo archivo. */
+    body.mode-portrait #water-bubble .bubble-inner,
+    body.mode-portrait #food-bubble .bubble-inner {
+        font-size: 16px;                /* 9 x1.75 */
+        padding: 11px 14px !important;
+    }
+    body.mode-portrait #water-bubble,
+    body.mode-portrait #food-bubble {
+        min-width: 193px !important;    /* 110 x1.75 */
+        max-width: 385px !important;    /* 220 x1.75 */
+        border-width: 5px !important;
+        box-shadow: 5px 5px 0 #333 !important;
+        transform: translateY(-8px);    /* mismo motivo que huevo/flor */
+    }
+    /* Puntas dobladas. Ojo al desplazamiento horizontal: el JS ancla la
+       punta con un offset fijo (`_tipX - 16` en agua, `_tipX - (ancho-16)`
+       en comida), que apunta al vértice cuando está a 24px del borde. Al
+       doblar el triángulo su vértice se va al centro del nuevo ancho, así
+       que left/right bajan (16→8, 17→10) para dejar el vértice otra vez
+       a esos mismos 24px y no tener que tocar el JS. */
+    body.mode-portrait #water-bubble > div:nth-of-type(2) {
+        bottom: -19px !important;
+        left: 10px !important;
+        border-left-width: 14px !important;
+        border-right-width: 14px !important;
+        border-top-width: 19px !important;
+    }
+    body.mode-portrait #water-bubble > div:nth-of-type(3) {
+        bottom: -14px !important;
+        left: 12px !important;
+        border-left-width: 12px !important;
+        border-right-width: 12px !important;
+        border-top-width: 16px !important;
+    }
+    body.mode-portrait #food-bubble > div:nth-of-type(2) {
+        bottom: -19px !important;
+        right: 10px !important;
+        border-left-width: 14px !important;
+        border-right-width: 14px !important;
+        border-top-width: 19px !important;
+    }
+    body.mode-portrait #food-bubble > div:nth-of-type(3) {
+        bottom: -14px !important;
+        right: 12px !important;
+        border-left-width: 12px !important;
+        border-right-width: 12px !important;
+        border-top-width: 16px !important;
+    }
+
+    /* ── Toast (avisos cortos), x2 ─────────────────────────────── */
+    body.mode-portrait #iap-toast-text {
+        font-size: 18px;    /* 9 x2 */
+    }
+}
