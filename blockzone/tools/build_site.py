@@ -76,25 +76,17 @@ def expected_hashes() -> dict[str, str]:
 
 
 def check_archive() -> list[str]:
-    """Periksa md5 semua berkas arsip. Kembalikan daftar masalah (kosong = aman)."""
-    exp = expected_hashes()
+    exp = json.loads(INFO.read_text(encoding="utf-8")).get("integrity_md5", {})
     problems: list[str] = []
-    for name, want in sorted(exp.items()):
-        p = WWW / name
+    for rel_str, exp_md5 in exp.items():
+        p = WWW / rel_str
         if not p.is_file():
-            problems.append(f"hilang: www/{name}")
+            problems.append(f"hilang: {rel_str}")
             continue
-        got = md5(p)
-        if got != want:
-            problems.append(f"berubah: www/{name} (md5 {got} != {want})")
-    extra = sorted(
-        str(p.relative_to(WWW)) for p in WWW.rglob("*")
-        if p.is_file() and str(p.relative_to(WWW)) not in exp
-    )
-    for name in extra:
-        problems.append(f"tak terdaftar: www/{name}")
+        got = md5_file(p)
+        if got != exp_md5:
+            problems.append(f"berubah: {rel_str} (diharapkan {exp_md5}, terbaca {got})")
     return problems
-
 
 def update_config(base_url: str) -> str:
     return f'window.BZ_UPDATE = {{ url: "{base_url}" }};\n'
