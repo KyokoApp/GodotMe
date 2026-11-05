@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "game": "The MachinEGG",
-  "updated_at": "2026-11-05T01:16:51.601Z",
+  "updated_at": "2026-11-05T01:43:24.916Z",
   "integrity_md5": {
     "audio/cok.wav": "ec5a36042c4ec8a90871febcc03e706a",
     "audio/cok1.wav": "165bba9691efe7d1a566be3757528f56",
@@ -18,7 +18,7 @@
     "audio/pio5.wav": "58a350f8d5d25f834213709f1cc3c553",
     "audio/ponerhuevo.wav": "6b508395d8d9abb5c0cd41b11060b453",
     "audio/pop-buy.wav": "aa23d495e2f8721a25a9594f607730ee",
-    "index.html": "d230d99398a27fc7cdd52d6593672f3b",
+    "index.html": "b604893d68c10f1474162be5752a9e53",
     "intro-layout.js": "247323907391b064a19126c035650cee",
     "lang.js": "dec2822459055db59475e750bf11bab5",
     "layout.js": "44932c2c10b31dc1cf9cff8a69701d94",
@@ -166,7 +166,7 @@
     "scenarios/farm/ending.js": "81b4f1e36c39a3a12b6086bec92dd86a",
     "scenarios/farm/gems.js": "51fe4bf0a41042f27c68ae56d975e3cf",
     "scenarios/farm/offers.js": "126e722245d486bd6c6729865bc4fb83",
-    "scenarios/farm/script.js": "4b87557c60b2048e5b4acbe4a22c01a4",
+    "scenarios/farm/script.js": "2601782ea5ec2550dfe08b47dccc55a9",
     "shared/achievements.js": "2a5f5967c11a3c38847980de9e080cf9",
     "shared/ads.js": "5220a8107b75206bb5b240ed08a03db7",
     "shared/audio.js": "0e9c797bad5175dcc21474510e8c0c21",
@@ -184,6 +184,6 @@
     "shared/vendor/fonts.css": "f6f611f7ae28430d8541a6287ef72e5a",
     "shared/vendor/pixi.min.js": "855bed7230bf5f530a1aefefbd823912",
     "style.css": "2b5b30939c4e7b73dca05176d5811ff0",
-    "game.html": "d230d99398a27fc7cdd52d6593672f3b"
+    "game.html": "b604893d68c10f1474162be5752a9e53"
   }
 }

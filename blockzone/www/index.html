@@ -19,14 +19,7 @@
     <link href="shared/vendor/fonts.css" rel="stylesheet">
     <script>document.addEventListener('dragstart', function(e){ e.preventDefault(); });</script>
 
-    <script>
-      // Discord Activity RPC Handshake
-      try {
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage(JSON.stringify({ cmd: 'DISPATCH', evt: 'READY', data: { v: 1 } }), '*');
-        }
-      } catch(e){}
-    </script>
+    <!-- Clean Discord Sandbox Environment -->
 
 
     <style>

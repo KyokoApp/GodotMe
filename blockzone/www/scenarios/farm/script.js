@@ -10418,7 +10418,7 @@
         window.GameSave.remove('chickenIdleSpeedrunSubmitted');
         window.GameSave.markWiped([curKey]);
         try { sessionStorage.setItem('skipMainMenu', '1'); } catch (_) {}
-        window.location.href = window.location.href.split('?')[0];
+        window.location.reload();
     });
 
     // ── Modal de confirmación "Quitar anuncios" ───────────────────────────────
