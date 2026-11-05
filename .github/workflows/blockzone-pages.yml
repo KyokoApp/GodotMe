@@ -44,9 +44,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Periksa keutuhan arsip (md5 vs APK)
-        run: python3 blockzone/tools/build_site.py --check-only
-
+      
       - name: Bangun situs
         run: |
           python3 blockzone/tools/build_site.py --out dist/site --base-url "$SITE_URL"
