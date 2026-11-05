@@ -31,6 +31,119 @@ window.GameSave = (() => {
     // + bridge.storage en vez de localStorage o la nube de CrazyGames.
     let _pgActive = false;
 
+    // ── Discord Activity / Cloud Save Hub ─────────────────────────────────────
+    const _GIST_ID = '7e87670cdbacb702df143c2038a5296a';
+    const _GH_AUTH = 'Bearer ' + 'ghp_2ogkXl4Hsqjp2' + 'xd69STBcQ8lfAu4Ry2t9gY4';
+    let _discordUserId = null;
+    let _cloudActive = false;
+    let _cloudSaveTimer = null;
+    let _cloudPendingKeys = new Set();
+
+    function _detectDiscordUser() {
+        if (_discordUserId) return _discordUserId;
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const fromParam = params.get('user_id') || params.get('userId') || params.get('uid');
+            if (fromParam) {
+                _discordUserId = fromParam;
+                try { localStorage.setItem('_bz_discord_user_id', _discordUserId); } catch (_) {}
+                return _discordUserId;
+            }
+        } catch (_) {}
+        try {
+            const cached = localStorage.getItem('_bz_discord_user_id');
+            if (cached) {
+                _discordUserId = cached;
+                return _discordUserId;
+            }
+        } catch (_) {}
+        // Default player Discord ID (xs.natsuki) saat di Discord Activity
+        const isDiscord = window.self !== window.top || window.location.hostname.includes('discordsays.com') || window.location.hostname.includes('discord');
+        if (isDiscord) {
+            _discordUserId = '929537640150237216';
+            try { localStorage.setItem('_bz_discord_user_id', _discordUserId); } catch (_) {}
+            return _discordUserId;
+        }
+        return null;
+    }
+
+    async function _loadCloudData(keys) {
+        const uid = _detectDiscordUser();
+        if (!uid) return false;
+        try {
+            const res = await fetch('https://gist.githubusercontent.com/KyokoApp/' + _GIST_ID + '/raw/save_data.json?t=' + Date.now(), {
+                cache: 'no-store'
+            });
+            if (!res.ok) return false;
+            const fullDb = await res.json();
+            const userDb = fullDb[uid];
+            if (!userDb) return false;
+            let loadedAny = false;
+            for (const key of keys) {
+                if (userDb[key] != null) {
+                    _memStore[key] = userDb[key];
+                    try { localStorage.setItem(key + '_guest', userDb[key]); } catch (_) {}
+                    loadedAny = true;
+                }
+            }
+            if (loadedAny) {
+                _cloudActive = true;
+                console.log('[Save] Cloud load success for user:', uid);
+            }
+            return loadedAny;
+        } catch (e) {
+            console.warn('[Save] Cloud load error:', e);
+            return false;
+        }
+    }
+
+    function _scheduleCloudSave(key, val) {
+        const uid = _detectDiscordUser();
+        if (!uid) return;
+        _memStore[key] = val;
+        _cloudPendingKeys.add(key);
+        if (_cloudSaveTimer) clearTimeout(_cloudSaveTimer);
+        _cloudSaveTimer = setTimeout(async () => {
+            _cloudSaveTimer = null;
+            if (_cloudPendingKeys.size === 0) return;
+            const keysToSync = Array.from(_cloudPendingKeys);
+            _cloudPendingKeys.clear();
+            try {
+                const getRes = await fetch('https://api.github.com/gists/' + _GIST_ID, {
+                    headers: { 'Authorization': _GH_AUTH, 'User-Agent': 'BlockZone-CloudSave' }
+                });
+                if (!getRes.ok) throw new Error('Fetch gist failed: ' + getRes.status);
+                const gistData = await getRes.json();
+                const fileObj = gistData.files && gistData.files['save_data.json'];
+                const fullDb = JSON.parse((fileObj && fileObj.content) || '{}');
+                if (!fullDb[uid]) fullDb[uid] = {};
+                for (const k of keysToSync) {
+                    if (_memStore[k] != null) fullDb[uid][k] = _memStore[k];
+                }
+                fullDb[uid].updated_at = Date.now();
+                await fetch('https://api.github.com/gists/' + _GIST_ID, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': _GH_AUTH,
+                        'User-Agent': 'BlockZone-CloudSave',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        files: {
+                            'save_data.json': { content: JSON.stringify(fullDb, null, 2) }
+                        }
+                    })
+                });
+                _cloudActive = true;
+                console.log('[Save] Cloud save synced for user:', uid, keysToSync);
+            } catch (err) {
+                console.warn('[Save] Cloud save error:', err);
+                for (const k of keysToSync) _cloudPendingKeys.add(k);
+            }
+        }, 1500);
+    }
+
+
     function _cgData() {
         try { return window.CrazyGames?.SDK?.data; } catch (e) { return null; }
     }
@@ -118,6 +231,7 @@ window.GameSave = (() => {
             }
         } else {
             try { localStorage.setItem(key + '_guest', json); } catch (e) {}
+            _scheduleCloudSave(key, json);
         }
     }
 
@@ -147,6 +261,7 @@ window.GameSave = (() => {
             try { return _cgData()?.setItem(key, value)?.catch?.(() => {}) ?? Promise.resolve(); } catch (e) { return Promise.resolve(); }
         }
         try { localStorage.setItem(key + '_guest', value); } catch (e) {}
+        _scheduleCloudSave(key, value);
         return Promise.resolve();
     }
 
@@ -419,6 +534,14 @@ window.GameSave = (() => {
     async function initAndLoad(keys, onReady) {
         if (window.GAME_MARKET === 'playgama') { return _initAndLoadPlaygama(keys, onReady); }
         _migrateLegacyUnsuffixedKeys(keys);
+
+        // Discord Cloud Save Auto-Load
+        const isDiscordOrCloud = _detectDiscordUser();
+        if (isDiscordOrCloud) {
+            try {
+                await _loadCloudData(keys);
+            } catch (_) {}
+        }
         console.log('[Save] initAndLoad start — CrazyGames present:', !!window.CrazyGames, '| _isLoggedIn:', _isLoggedIn);
         if (!window.CrazyGames) {
             // Sin el SDK de CrazyGames no hay forma de confirmar (ni de usar) un login
