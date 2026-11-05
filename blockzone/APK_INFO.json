@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "game": "The MachinEGG",
-  "updated_at": "2026-11-05T00:23:17.873Z",
+  "updated_at": "2026-11-05T01:16:51.601Z",
   "integrity_md5": {
     "audio/cok.wav": "ec5a36042c4ec8a90871febcc03e706a",
     "audio/cok1.wav": "165bba9691efe7d1a566be3757528f56",
@@ -18,7 +18,7 @@
     "audio/pio5.wav": "58a350f8d5d25f834213709f1cc3c553",
     "audio/ponerhuevo.wav": "6b508395d8d9abb5c0cd41b11060b453",
     "audio/pop-buy.wav": "aa23d495e2f8721a25a9594f607730ee",
-    "index.html": "7e3306cc7ea00dee8b6cc974b143d53b",
+    "index.html": "d230d99398a27fc7cdd52d6593672f3b",
     "intro-layout.js": "247323907391b064a19126c035650cee",
     "lang.js": "dec2822459055db59475e750bf11bab5",
     "layout.js": "44932c2c10b31dc1cf9cff8a69701d94",
@@ -184,6 +184,6 @@
     "shared/vendor/fonts.css": "f6f611f7ae28430d8541a6287ef72e5a",
     "shared/vendor/pixi.min.js": "855bed7230bf5f530a1aefefbd823912",
     "style.css": "2b5b30939c4e7b73dca05176d5811ff0",
-    "game.html": "7e3306cc7ea00dee8b6cc974b143d53b"
+    "game.html": "d230d99398a27fc7cdd52d6593672f3b"
   }
 }

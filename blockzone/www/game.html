@@ -28,6 +28,14 @@
       } catch(e){}
     </script>
 
+
+    <style>
+      #mm-steam-btn, #mm-salir-btn, #mm-privacy-link, .pause-reddit-row,
+      a[data-disallowed-href], a[href*="privacy.html"] {
+        display: none !important;
+      }
+    </style>
+
 </head>
 
 <body>
@@ -2989,7 +2997,7 @@
                     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
                         window.Capacitor.Plugins.App.exitApp();
                     } else {
-                        window.close();
+                        alert("Silakan ketuk tanda [X] di pojok atas Discord untuk keluar dari aktivitas.");
                     }
                 });
 
