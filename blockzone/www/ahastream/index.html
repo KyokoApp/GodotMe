@@ -546,7 +546,7 @@
       flex-direction: column;
       align-items: center;
       gap: 16px;
-      max-width: 480px;
+      max-width: 520px;
     }
     .stream-main-btn {
       display: inline-flex;
@@ -559,6 +559,7 @@
       padding: 14px 28px;
       border-radius: 30px;
       cursor: pointer;
+      border: none;
       box-shadow: 0 4px 20px rgba(228, 95, 58, 0.4);
       transition: all 0.2s ease;
       text-decoration: none;
@@ -674,7 +675,7 @@
       <span id="gridCount" style="font-size:12px; color:var(--muted);">Loading...</span>
     </div>
 
-    <!-- Anime Grid persis AniKai -->
+    <!-- Anime Grid persis Anikai -->
     <div id="latest-grid" class="anime-grid">
       <div style="grid-column: 1 / -1; text-align:center; padding: 40px 0; color:var(--muted);">
         Loading catalog...
@@ -693,12 +694,12 @@
       <div class="player-box">
         <img id="playerBackdrop" class="stream-backdrop" src="" alt="Backdrop">
         <div class="player-actions">
-          <a id="streamDirectLink" href="#" target="_blank" rel="noopener noreferrer" class="stream-main-btn">
+          <button id="streamActionBtn" class="stream-main-btn" onclick="openStreamNow()">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="m8 4 13 8-13 8z"/></svg>
-            <span id="streamBtnText">Stream Episode 1 HD</span>
-          </a>
+            <span id="streamBtnText">Watch on AnimeKai Player</span>
+          </button>
           <p class="stream-note">
-            Bypass proteksi CSP & frame-ancestors. Stream server aktif (Sub / Dub / 1080p).
+            Bypass proteksi CSP &amp; frame-ancestors. Buka player resmi beresolusi HD 1080p dengan subtitle lengkap.
           </p>
         </div>
       </div>
@@ -907,12 +908,27 @@
       updateStreamAction();
     }
 
+    function getCleanWatchUrl() {
+      if (!currentAnime) return 'https://anikai.org';
+      return `https://anikai.org/watch/${currentAnime.s}/`;
+    }
+
     function updateStreamAction() {
       if (!currentAnime) return;
-      const btn = document.getElementById('streamDirectLink');
       const text = document.getElementById('streamBtnText');
-      text.textContent = `Stream Episode ${selectedEp} HD (Bypass CSP)`;
-      btn.href = `https://anikai.org/watch/${currentAnime.s}-${selectedEp}/`;
+      text.textContent = `Watch ${currentAnime.n} (EP ${selectedEp})`;
+    }
+
+    function openStreamNow() {
+      const targetUrl = getCleanWatchUrl();
+      try {
+        const opened = window.open(targetUrl, '_blank');
+        if (!opened || opened.closed || typeof opened.closed === 'undefined') {
+          window.location.href = targetUrl;
+        }
+      } catch (e) {
+        window.location.href = targetUrl;
+      }
     }
 
     function closePlayer() {
