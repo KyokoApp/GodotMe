@@ -82,6 +82,7 @@ window.GameSave = (() => {
             for (const key of keys) {
                 if (userDb[key] != null) {
                     _memStore[key] = userDb[key];
+                    try { localStorage.setItem(key, userDb[key]); } catch (_) {}
                     try { localStorage.setItem(key + '_guest', userDb[key]); } catch (_) {}
                     loadedAny = true;
                 }
