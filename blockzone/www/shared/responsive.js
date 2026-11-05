@@ -119,6 +119,10 @@ window.addEventListener('resize', () => {
     // reduce con el teclado abierto y podría disparar una recarga en mitad de
     // una partida si no se descarta aquí.
     if (window.GAME_MARKET === 'googleplay') return;
+    // Di Discord Embedded Activity, resize tidak boleh reload halaman
+    // karena akan memicu error: 'The activity was closed because it tried to open a disallowed web page.'
+    const isDiscord = window.self !== window.top || window.location.hostname.includes('discordsays.com') || window.location.hostname.includes('discord');
+    if (isDiscord) return;
 
     function _calcMode(w, h) {
         if (h > w) return 'portrait';
