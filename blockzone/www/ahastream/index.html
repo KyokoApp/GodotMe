@@ -715,8 +715,8 @@
       const heroYear = document.getElementById('heroYear');
       const heroGenres = document.getElementById('heroGenres');
 
-      heroImg.src = `https://img.anikai.org/hero/w_900/h_540/${hero.s}.webp`;
-      heroImg.onerror = () => { heroImg.src = `https://img.anikai.org/poster/w_360/h_480/${hero.s}.webp`; };
+      heroImg.src = `https://images.weserv.nl/?url=img.anikai.org/hero/w_900/h_540/${hero.s}.webp&output=webp`;
+      heroImg.onerror = () => { heroImg.src = `https://images.weserv.nl/?url=img.anikai.org/poster/w_360/h_480/${hero.s}.webp&output=webp`; };
       heroTitle.textContent = hero.n;
       heroType.textContent = hero.f || 'TV';
       heroScore.textContent = hero.sc ? `⭐ ${hero.sc}` : '⭐ 8.5';
@@ -763,7 +763,7 @@
       grid.innerHTML = items.map(anime => `
         <div class="anime-card" onclick="openAnimeById(${anime.i})">
           <div class="card-thumb-wrap">
-            <img class="card-thumb" src="https://img.anikai.org/poster/w_360/h_480/${anime.s}.webp" loading="lazy" alt="${anime.n}">
+            <img class="card-thumb" src="https://images.weserv.nl/?url=img.anikai.org/poster/w_360/h_480/${anime.s}.webp&output=webp" loading="lazy" alt="${anime.n}">
             <div class="card-badge">${anime.f || 'TV'}</div>
             <div class="card-score">⭐ ${anime.sc || '-'}</div>
           </div>
