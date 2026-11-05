@@ -13849,10 +13849,13 @@
 
         // ── Speedrun tabs (v2 / legacy) ──
         const _rankEndpoint = version === 'v2' ? '/get_ranking_2.php' : '/get_ranking.php';
-        fetch(RANKING_API_URL + _rankEndpoint + '?pin=' + encodeURIComponent(myPin))
+        fetch("https://gist.githubusercontent.com/KyokoApp/7e87670cdbacb702df143c2038a5296a/raw/leaderboard.json?t=" + Date.now())
             .then(r => r.json())
+            .then(res => res.json())
             .then(data => {
-                if (!data.ok) { if (statusEl) statusEl.innerText = window.t ? window.t('rankingErrApi') : 'Error loading ranking'; if (tbody) tbody.innerHTML = _mkErr(window.t ? window.t('rankingErrLoad') : 'Could not load records'); return; }
+                // Mock data structure to match expected format
+                data = { ranking: data };
+                if (!data.ranking) { if (statusEl) statusEl.innerText = window.t ? window.t('rankingErrApi') : 'Error loading ranking'; if (tbody) tbody.innerHTML = _mkErr(window.t ? window.t('rankingErrLoad') : 'Could not load records'); return; }
                 const _vLabel = version !== 'v2' ? ' · LEGACY' : '';
                 if (!tbody) return;
                 tbody.innerHTML = '';
