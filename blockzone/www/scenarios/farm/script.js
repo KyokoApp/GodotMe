@@ -13688,13 +13688,13 @@
                     list.forEach((item, idx) => {
                         const rank = idx + 1;
                         const col = posColors[idx] || "#fff";
-                        html += "<tr>" +
-                            "<td style="text-align:center;color:" + col + ";padding:6px;">#" + rank + "</td>" +
-                            "<td style="text-align:center;padding:6px;">🎮</td>" +
-                            "<td style="color:" + col + ";padding:6px;font-weight:bold;">" + (item.username || "Player") + "</td>" +
-                            "<td style="text-align:right;color:" + col + ";padding:6px;">" + (item.chickens || 0) + " 🐔</td>" +
-                            "<td style="text-align:right;color:" + col + ";padding:6px;font-weight:bold;">" + fmtM(item.money || 0) + "</td>" +
-                            "</tr>";
+                        html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.08);">' +
+                            '<td style="text-align:center;color:' + col + ';padding:6px;font-weight:bold;">#' + rank + '</td>' +
+                            '<td style="text-align:center;padding:6px;">🎮</td>' +
+                            '<td style="color:' + col + ';padding:6px;font-weight:bold;">' + (item.username || "Player") + '</td>' +
+                            '<td style="text-align:right;color:' + col + ';padding:6px;">' + (item.chickens || 0) + ' 🐔</td>' +
+                            '<td style="text-align:right;color:' + col + ';padding:6px;font-weight:bold;">' + fmtM(item.money || 0) + '</td>' +
+                            '</tr>';
                     });
                     tbody.innerHTML = html;
                     if (statusEl) statusEl.innerText = "Discord Global Leaderboard (" + list.length + " Players)";
