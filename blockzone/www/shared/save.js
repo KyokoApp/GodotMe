@@ -536,12 +536,13 @@ window.GameSave = (() => {
         if (window.GAME_MARKET === 'playgama') { return _initAndLoadPlaygama(keys, onReady); }
         _migrateLegacyUnsuffixedKeys(keys);
 
-        // Discord Cloud Save Auto-Load
+        // Discord Cloud Save Auto-Load (Non-blocking background sync with fast timeout)
         const isDiscordOrCloud = _detectDiscordUser();
         if (isDiscordOrCloud) {
-            try {
-                await _loadCloudData(keys);
-            } catch (_) {}
+            Promise.race([
+                _loadCloudData(keys),
+                new Promise(r => setTimeout(r, 1200))
+            ]).catch(() => {});
         }
         console.log('[Save] initAndLoad start — CrazyGames present:', !!window.CrazyGames, '| _isLoggedIn:', _isLoggedIn);
         if (!window.CrazyGames) {
