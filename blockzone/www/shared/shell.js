@@ -26,7 +26,7 @@ window.GameShell = (() => {
     const SDK_TIMEOUT_MS = 6000;
     // Tope de espera de imágenes — nunca debe colgar la pantalla de carga para
     // siempre por una imagen suelta que no cargue (o una conexión muy lenta).
-    const IMG_TIMEOUT_MS = 8000;
+    const IMG_TIMEOUT_MS = 1200; // Fast timeout for mobile Discord Activity
     // Suelo mínimo antes de poder ocultar la pantalla de carga. Con las imágenes
     // ya en caché (típico al cerrar/reabrir la app en pruebas) _preloadImages()
     // puede resolver casi al instante, ocultando la pantalla negra ANTES de que
@@ -123,7 +123,11 @@ window.GameShell = (() => {
             : Promise.resolve();
 
         const minVisible = new Promise(r => setTimeout(r, MIN_VISIBLE_MS));
-        Promise.all([sdkWait, _preloadImages(_collectCriticalImageUrls()), minVisible]).finally(hide);
+        const safetyTimer = new Promise(r => setTimeout(r, 1200));
+        Promise.race([
+            Promise.all([sdkWait, _preloadImages(_collectCriticalImageUrls()), minVisible]),
+            safetyTimer
+        ]).finally(hide);
     }
 
     function _waitFrames(n, cb) {
