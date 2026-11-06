@@ -13673,7 +13673,7 @@
             if (statusEl) statusEl.innerText = "Discord Global Leaderboard";
             if (tbody) tbody.innerHTML = "<tr><td colspan=\"5\" style=\"text-align:center;padding:16px;\">Loading...</td></tr>";
             
-            fetch("./data/leaderboard.json?t=" + Date.now(), { cache: "no-store" })
+            fetch("../../data/leaderboard.json?t=" + Date.now(), { cache: "no-store" })
                 .then(r => r.json())
                 .then(list => {
                     if (!tbody) return;
