@@ -2858,6 +2858,8 @@
                     // El modo escritorio (PC) no pasa por aquí y mantiene su comportamiento
                     // de siempre: recargar para re-maquetar al redimensionar la ventana.
                     if (window.GAME_MARKET === 'googleplay') return;
+                    var isDiscord = window.self !== window.top || window.location.hostname.includes('discordsays.com') || window.location.hostname.includes('discord');
+                    if (isDiscord) return;
                     // Recargar si estamos en la intro/menú principal; NO recargar si ya estamos en partida.
                     if (!document.body.classList.contains('in-game')) {
                         location.reload();

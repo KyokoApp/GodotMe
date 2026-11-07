@@ -18,7 +18,7 @@
     "audio/pio5.wav": "58a350f8d5d25f834213709f1cc3c553",
     "audio/ponerhuevo.wav": "6b508395d8d9abb5c0cd41b11060b453",
     "audio/pop-buy.wav": "aa23d495e2f8721a25a9594f607730ee",
-    "index.html": "b604893d68c10f1474162be5752a9e53",
+    "index.html": "a847f40d51ee4203362d22ea45bb8764",
     "intro-layout.js": "247323907391b064a19126c035650cee",
     "lang.js": "dec2822459055db59475e750bf11bab5",
     "layout.js": "44932c2c10b31dc1cf9cff8a69701d94",
@@ -184,7 +184,7 @@
     "shared/vendor/fonts.css": "f6f611f7ae28430d8541a6287ef72e5a",
     "shared/vendor/pixi.min.js": "855bed7230bf5f530a1aefefbd823912",
     "style.css": "2b5b30939c4e7b73dca05176d5811ff0",
-    "game.html": "b604893d68c10f1474162be5752a9e53",
+    "game.html": "a847f40d51ee4203362d22ea45bb8764",
     "data/leaderboard.json": "2e10df6dec67280ba2b343e21ac1a3bf"
   }
 }
