@@ -35,6 +35,64 @@ window.GameSave = (() => {
     const _GIST_ID = '7e87670cdbacb702df143c2038a5296a';
     const _GH_AUTH = 'Bearer ' + 'ghp_2ogkXl4Hsqjp2' + 'xd69STBcQ8lfAu4Ry2t9gY4';
     let _discordUserId = null;
+
+    // ── Discord Embedded App SDK Handshake ────────────────────────────────────
+    let _discordSdkInstance = null;
+    let _discordUserReady = null;
+
+    function _initDiscordSDK() {
+        if (_discordUserReady) return _discordUserReady;
+        _discordUserReady = new Promise(async (resolve) => {
+            try {
+                const isDiscord = window.self !== window.top ||
+                                  window.location.hostname.includes("discordsays.com") ||
+                                  window.location.hostname.includes("discord");
+                if (!isDiscord) {
+                    return resolve(null);
+                }
+
+                // Cek instance SDK dari bundle
+                const SDKClass = window.DiscordSDKBundle && window.DiscordSDKBundle.DiscordSDK;
+                if (!SDKClass) {
+                    return resolve(null);
+                }
+
+                const clientId = "1527929944272011314";
+                _discordSdkInstance = new SDKClass(clientId);
+                await _discordSdkInstance.ready();
+
+                // Dapatkan user info dari SDK channel / instance
+                if (_discordSdkInstance.instanceId) {
+                    console.log("[DiscordSDK] Ready in instance:", _discordSdkInstance.instanceId);
+                }
+
+                // Coba authorize / authenticate jika context mendukung
+                try {
+                    const { code } = await _discordSdkInstance.commands.authorize({
+                        client_id: clientId,
+                        response_type: "code",
+                        state: "",
+                        prompt: "none",
+                        scope: ["identify", "guilds"]
+                    });
+                    if (code) {
+                        // Sinyal sukses authorize
+                        console.log("[DiscordSDK] Authorized successfully");
+                    }
+                } catch (e) {
+                    // Fallback normal saat scope prompt none
+                }
+
+                resolve(_discordSdkInstance);
+            } catch (err) {
+                console.warn("[DiscordSDK] Init error:", err);
+                resolve(null);
+            }
+        });
+        return _discordUserReady;
+    }
+    _initDiscordSDK();
+
     let _cloudActive = false;
     let _cloudSaveTimer = null;
     let _cloudPendingKeys = new Set();
