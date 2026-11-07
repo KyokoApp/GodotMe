@@ -57,11 +57,17 @@ window.GameSave = (() => {
                 return _discordUserId;
             }
         } catch (_) {}
-        // Default player Discord ID (xs.natsuki) saat di Discord Activity
-        const isDiscord = window.self !== window.top || window.location.hostname.includes('discordsays.com') || window.location.hostname.includes('discord');
-        if (isDiscord) {
-            _discordUserId = '929537640150237216';
-            try { localStorage.setItem('_bz_discord_user_id', _discordUserId); } catch (_) {}
+        // Generate unique player ID per device / user session
+        try {
+            let gen = localStorage.getItem('_bz_unique_player_id');
+            if (!gen) {
+                gen = 'player_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
+                localStorage.setItem('_bz_unique_player_id', gen);
+            }
+            _discordUserId = gen;
+            return _discordUserId;
+        } catch (_) {
+            _discordUserId = 'player_' + Math.random().toString(36).substring(2, 8);
             return _discordUserId;
         }
         return null;
@@ -693,6 +699,51 @@ window.GameSave = (() => {
         if (!window.CrazyGames) { fn(); return; }
         _waitForSDK().then(() => fn());
     }
+
+    
+    // ── Global Heartbeat Ping untuk Live RPC Tracker ──────────────────────────
+    function _startHeartbeat() {
+        const uid = _detectDiscordUser();
+        if (!uid) return;
+        const ping = async () => {
+            try {
+                const getRes = await fetch('https://api.github.com/gists/' + _GIST_ID, {
+                    headers: { 'Authorization': _GH_AUTH, 'User-Agent': 'Heartbeat' }
+                });
+                if (!getRes.ok) return;
+                const gistData = await getRes.json();
+                const fileObj = gistData.files && gistData.files['active_players.json'];
+                const db = JSON.parse((fileObj && fileObj.content) || '{"players":{}}');
+                if (!db.players) db.players = {};
+                
+                const now = Date.now();
+                db.players[uid] = { game: 'MachinEGG', ping: now };
+                
+                // Bersihkan sesi yang lebih dari 60 detik tidak kirim ping
+                for (const pid of Object.keys(db.players)) {
+                    if (now - (db.players[pid].ping || 0) > 60000) {
+                        delete db.players[pid];
+                    }
+                }
+                db.updated_at = now;
+                
+                await fetch('https://api.github.com/gists/' + _GIST_ID, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': _GH_AUTH,
+                        'User-Agent': 'Heartbeat',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        files: { 'active_players.json': { content: JSON.stringify(db) } }
+                    })
+                });
+            } catch (_) {}
+        };
+        setTimeout(ping, 2000);
+        setInterval(ping, 25000);
+    }
+    _startHeartbeat();
 
     return {
         save, load, loadRaw, saveRaw, remove, clear, cloudPush, flushKey, initAndLoad,
